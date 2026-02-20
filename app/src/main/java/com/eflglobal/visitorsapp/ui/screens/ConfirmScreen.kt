@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 
@@ -38,7 +39,7 @@ fun ConfirmScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Confirmación",
+                        Strings.confirmation(selectedLanguage),
                         fontSize = 18.sp
                     )
                 },
@@ -70,7 +71,7 @@ fun ConfirmScreen(
                 ) {
                     // Título principal
                     Text(
-                        text = "Verificar Información",
+                        text = Strings.verifyInformation(selectedLanguage),
                         style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                         fontWeight = FontWeight.Bold,
                         color = SlatePrimary
@@ -80,7 +81,7 @@ fun ConfirmScreen(
 
                     // Subtítulo/Instrucciones
                     Text(
-                        text = "Por favor, confirme que los datos son correctos antes de finalizar el registro",
+                        text = Strings.confirmSubtitle(selectedLanguage),
                         style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         lineHeight = 22.sp
@@ -110,14 +111,14 @@ fun ConfirmScreen(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Documentos Verificados",
+                                    text = Strings.documentsVerified(selectedLanguage),
                                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                                     fontWeight = FontWeight.Bold,
                                     color = SlatePrimary
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Frente y reverso escaneados correctamente",
+                                    text = Strings.frontAndBackScanned(selectedLanguage),
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                     lineHeight = 16.sp
@@ -155,7 +156,7 @@ fun ConfirmScreen(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "Confirmar Registro",
+                                text = Strings.confirmRegistration(selectedLanguage),
                                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                                 fontWeight = FontWeight.Bold
                             )
@@ -180,7 +181,7 @@ fun ConfirmScreen(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Editar Información",
+                                text = Strings.editInformation(selectedLanguage),
                                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -243,27 +244,27 @@ fun ConfirmScreen(
 
                             // Información del visitante
                             InfoRow(
-                                label = "Nombre Completo",
+                                label = Strings.fullNameLabel(selectedLanguage),
                                 value = "Juan Carlos Pérez Martínez"
                             )
 
                             InfoRow(
-                                label = "Tipo de Documento",
+                                label = Strings.documentType(selectedLanguage),
                                 value = "DUI / ID"
                             )
 
                             InfoRow(
-                                label = "Número de Documento",
+                                label = Strings.documentNumber(selectedLanguage),
                                 value = "12345678-9"
                             )
 
                             InfoRow(
-                                label = "Visita a",
+                                label = Strings.visitTo(selectedLanguage),
                                 value = "María García - Recursos Humanos"
                             )
 
                             InfoRow(
-                                label = "Fecha y Hora",
+                                label = Strings.dateAndTime(selectedLanguage),
                                 value = "9 Feb 2026, 10:30 AM",
                                 isLast = true
                             )
@@ -296,7 +297,7 @@ fun ConfirmScreen(
                     },
                     title = {
                         Text(
-                            text = "¡Registro Exitoso!",
+                            text = Strings.registrationSuccess(selectedLanguage),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
@@ -308,7 +309,7 @@ fun ConfirmScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "El visitante ha sido registrado correctamente.",
+                                text = Strings.visitorRegisteredCorrectly(selectedLanguage),
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -317,7 +318,7 @@ fun ConfirmScreen(
                             if (!printerAvailable) {
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    text = "No se encontró impresora. Registro finalizado correctamente.",
+                                    text = Strings.noPrinterFound(selectedLanguage),
                                     style = MaterialTheme.typography.bodySmall,
                                     textAlign = TextAlign.Center,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -340,7 +341,7 @@ fun ConfirmScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "Finalizar",
+                                text = Strings.finish(selectedLanguage),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
