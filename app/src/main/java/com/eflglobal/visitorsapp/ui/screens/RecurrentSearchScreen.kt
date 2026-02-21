@@ -15,41 +15,41 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
+import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentSearchViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentSearchUiState
+import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecurrentSearchScreen(
     onPersonSelected: () -> Unit,
     onBack: () -> Unit,
-    selectedLanguage: String = "es"
+    selectedLanguage: String = "es",
+    searchViewModel: RecurrentSearchViewModel = viewModel(
+        factory = ViewModelFactory(LocalContext.current)
+    ),
+    recurrentVisitViewModel: RecurrentVisitViewModel = viewModel(
+        factory = ViewModelFactory(LocalContext.current)
+    )
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    val uiState by searchViewModel.uiState.collectAsState()
 
-    // Datos simulados de personas
-    val mockPersons = remember {
-        listOf(
-            PersonItem("Juan Pérez", "12345678-9", "DUI"),
-            PersonItem("María García", "98765432-1", "DUI"),
-            PersonItem("Carlos Martínez", "PA123456", "Pasaporte"),
-            PersonItem("Ana López", "45678912-3", "DUI"),
-            PersonItem("Roberto Silva", "PA987654", "Pasaporte")
-        )
-    }
-
-    val filteredPersons = remember(searchQuery) {
-        if (searchQuery.isBlank()) {
-            mockPersons
+    // Realizar búsqueda cuando cambie el query
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.length >= 3) {
+            searchViewModel.searchPerson(searchQuery)
         } else {
-            mockPersons.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
-                it.documentNumber.contains(searchQuery, ignoreCase = true)
-            }
+            searchViewModel.clearSearch()
         }
     }
 
@@ -121,45 +121,111 @@ fun RecurrentSearchScreen(
                 )
             )
 
-            // Lista de personas
-            if (filteredPersons.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+            // Lista de personas según el estado
+            when (uiState) {
+                is RecurrentSearchUiState.Idle -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                            modifier = Modifier.size(80.dp)
-                        )
-                        Text(
-                            text = Strings.noResults(selectedLanguage),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = Strings.tryDifferentSearch(selectedLanguage),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                modifier = Modifier.size(80.dp)
+                            )
+                            Text(
+                                text = if (selectedLanguage == "es")
+                                    "Ingrese al menos 3 caracteres para buscar"
+                                else
+                                    "Enter at least 3 characters to search",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                        }
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(filteredPersons) { person ->
-                        PersonCard(
-                            person = person,
-                            onClick = onPersonSelected
+
+                is RecurrentSearchUiState.Loading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = OrangePrimary)
+                    }
+                }
+
+                is RecurrentSearchUiState.NoResults -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                modifier = Modifier.size(80.dp)
+                            )
+                            Text(
+                                text = Strings.noResults(selectedLanguage),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Text(
+                                text = Strings.tryDifferentSearch(selectedLanguage),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            )
+                        }
+                    }
+                }
+
+                is RecurrentSearchUiState.Success -> {
+                    val persons = (uiState as RecurrentSearchUiState.Success).persons
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(persons) { person ->
+                            PersonCard(
+                                personName = person.fullName,
+                                documentNumber = person.documentNumber,
+                                documentType = person.documentType,
+                                onClick = {
+                                    // Guardar persona seleccionada en el ViewModel
+                                    recurrentVisitViewModel.setSelectedPerson(person)
+                                    onPersonSelected()
+                                }
+                            )
+                        }
+                    }
+                }
+
+                is RecurrentSearchUiState.Error -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = (uiState as RecurrentSearchUiState.Error).message,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -169,8 +235,10 @@ fun RecurrentSearchScreen(
 }
 
 @Composable
-private fun PersonCard(
-    person: PersonItem,
+fun PersonCard(
+    personName: String,
+    documentNumber: String,
+    documentType: String,
     onClick: () -> Unit
 ) {
     Card(
@@ -202,7 +270,7 @@ private fun PersonCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = person.name.first().uppercase(),
+                    text = personName.firstOrNull()?.uppercase() ?: "?",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = OrangePrimary
@@ -216,7 +284,7 @@ private fun PersonCard(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = person.name,
+                    text = personName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = SlatePrimary
@@ -233,7 +301,7 @@ private fun PersonCard(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
-                            text = person.docType,
+                            text = documentType,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             fontWeight = FontWeight.Medium
@@ -241,7 +309,7 @@ private fun PersonCard(
                     }
 
                     Text(
-                        text = person.documentNumber,
+                        text = documentNumber,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -261,11 +329,6 @@ private fun PersonCard(
     }
 }
 
-private data class PersonItem(
-    val name: String,
-    val documentNumber: String,
-    val docType: String
-)
 
 
 

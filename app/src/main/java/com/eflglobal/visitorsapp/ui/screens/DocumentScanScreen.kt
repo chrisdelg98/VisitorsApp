@@ -12,12 +12,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
+import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -26,7 +30,10 @@ import kotlinx.coroutines.launch
 fun DocumentScanScreen(
     onContinue: () -> Unit,
     onBack: () -> Unit,
-    selectedLanguage: String = "es"
+    selectedLanguage: String = "es",
+    viewModel: NewVisitViewModel = viewModel(
+        factory = ViewModelFactory(LocalContext.current)
+    )
 ) {
     var selectedDocType by remember { mutableStateOf("DUI") }
 
@@ -38,6 +45,15 @@ fun DocumentScanScreen(
 
     // Establecer valor predeterminado a la primera opción
     var selectedVisitorType by remember { mutableStateOf(visitorTypes.first()) }
+
+    // Actualizar el ViewModel cuando cambia el tipo de documento o visitante
+    LaunchedEffect(selectedDocType) {
+        viewModel.setDocumentType(selectedDocType)
+    }
+
+    LaunchedEffect(selectedVisitorType) {
+        viewModel.setVisitorType(selectedVisitorType)
+    }
     var expandedVisitorType by remember { mutableStateOf(false) }
     var frontScanned by remember { mutableStateOf(false) }
     var backScanned by remember { mutableStateOf(false) }
@@ -240,6 +256,12 @@ fun DocumentScanScreen(
                     onCapture = {
                         frontScanned = true
                         showFrontCameraModal = false
+                        // TODO: Aquí se capturará la imagen real y se extraerá el texto con ML Kit
+                        // Por ahora simulamos los datos
+                        val imagePath = "document_front_${System.currentTimeMillis()}.jpg"
+                        val detectedName = "" // OCR detectará el nombre
+                        val docNumber = "" // OCR detectará el número
+                        viewModel.setDocumentFront(imagePath, detectedName, docNumber)
                     },
                     selectedLanguage = selectedLanguage
                 )
@@ -257,6 +279,9 @@ fun DocumentScanScreen(
                     onCapture = {
                         backScanned = true
                         showBackCameraModal = false
+                        // TODO: Aquí se capturará la imagen real
+                        val imagePath = "document_back_${System.currentTimeMillis()}.jpg"
+                        viewModel.setDocumentBack(imagePath)
                     },
                     selectedLanguage = selectedLanguage
                 )

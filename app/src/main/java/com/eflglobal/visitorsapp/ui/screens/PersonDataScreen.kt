@@ -17,14 +17,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
+import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState
+import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,8 +38,13 @@ fun PersonDataScreen(
     onContinue: () -> Unit,
     onBack: () -> Unit,
     selectedLanguage: String = "es",
-    detectedName: String = "" // Nombre detectado automáticamente del documento OCR
+    viewModel: NewVisitViewModel = viewModel(
+        factory = ViewModelFactory(LocalContext.current)
+    )
 ) {
+    // Obtener nombre detectado del ViewModel
+    val detectedName = viewModel.getDetectedName() ?: ""
+
     // Si hay un nombre detectado, usarlo como valor inicial
     var fullName by remember { mutableStateOf(detectedName) }
     var company by remember { mutableStateOf("") }
@@ -47,6 +57,16 @@ fun PersonDataScreen(
 
     // Indicador si el nombre fue detectado automáticamente
     val isNameAutoDetected = detectedName.isNotEmpty()
+
+    // Observar estado del ViewModel
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Manejar navegación cuando se crea exitosamente la visita
+    LaunchedEffect(uiState) {
+        if (uiState is NewVisitUiState.Success) {
+            onContinue()
+        }
+    }
 
     LaunchedEffect(isCapturing) {
         if (isCapturing) {
@@ -327,8 +347,20 @@ fun PersonDataScreen(
 
             // Botón continuar
             Button(
-                onClick = onContinue,
-                enabled = fullName.isNotBlank() && email.isNotBlank() && phone.isNotBlank() && visitingPerson.isNotBlank() && photoTaken,
+                onClick = {
+                    // TODO: Aquí se pasará el path real de la foto
+                    val profilePhotoPath = if (photoTaken) "profile_${System.currentTimeMillis()}.jpg" else null
+
+                    viewModel.createPersonAndVisit(
+                        fullName = fullName,
+                        email = email,
+                        phoneNumber = phone,
+                        company = company.ifBlank { null },
+                        visitingPersonName = visitingPerson,
+                        profilePhotoPath = profilePhotoPath
+                    )
+                },
+                enabled = fullName.isNotBlank() && email.isNotBlank() && phone.isNotBlank() && visitingPerson.isNotBlank() && photoTaken && uiState !is NewVisitUiState.Loading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -338,10 +370,29 @@ fun PersonDataScreen(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
+                if (uiState is NewVisitUiState.Loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text(
+                        text = Strings.continueBtn(selectedLanguage),
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            // Mostrar error si existe
+            if (uiState is NewVisitUiState.Error) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = Strings.continueBtn(selectedLanguage),
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                    fontWeight = FontWeight.SemiBold
+                    text = (uiState as NewVisitUiState.Error).message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

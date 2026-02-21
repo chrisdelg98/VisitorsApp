@@ -28,6 +28,15 @@ fun AppNavHost(
     languageViewModel: LanguageViewModel,
     selectedLanguage: String
 ) {
+    val context = LocalContext.current
+    val factory = ViewModelFactory(context)
+
+    // ViewModels compartidos entre múltiples pantallas
+    val newVisitViewModel: NewVisitViewModel = viewModel(factory = factory)
+    val recurrentSearchViewModel: RecurrentSearchViewModel = viewModel(factory = factory)
+    val recurrentVisitViewModel: RecurrentVisitViewModel = viewModel(factory = factory)
+    val endVisitViewModel: EndVisitViewModel = viewModel(factory = factory)
+
     AnimatedNavHost(
         navController = navController,
         startDestination = Routes.Home,
@@ -104,7 +113,8 @@ fun AppNavHost(
             PersonDataScreen(
                 onContinue = { navController.navigate(Routes.Confirm) },
                 onBack = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage
+                selectedLanguage = selectedLanguage,
+                viewModel = newVisitViewModel
             )
         }
         composable(Routes.Confirm) {
@@ -118,7 +128,8 @@ fun AppNavHost(
             CheckoutQrScreen(
                 onFinish = { navController.navigate(Routes.Home) },
                 onBack = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage
+                selectedLanguage = selectedLanguage,
+                viewModel = endVisitViewModel
             )
         }
     }

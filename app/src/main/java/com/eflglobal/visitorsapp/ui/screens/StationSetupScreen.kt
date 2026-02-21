@@ -11,23 +11,44 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
+import com.eflglobal.visitorsapp.ui.viewmodel.StationSetupViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.StationSetupUiState
+import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StationSetupScreen(
     onActivate: () -> Unit,
     onBack: () -> Unit,
-    selectedLanguage: String = "es"
+    selectedLanguage: String = "es",
+    viewModel: StationSetupViewModel = viewModel(
+        factory = ViewModelFactory(LocalContext.current)
+    )
 ) {
     var pin by remember { mutableStateOf("") }
-    var isError by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Manejar navegación cuando se activa exitosamente
+    LaunchedEffect(uiState) {
+        when (uiState) {
+            is StationSetupUiState.Success -> {
+                onActivate()
+            }
+            is StationSetupUiState.StationExists -> {
+                onActivate()
+            }
+            else -> { /* No hacer nada */ }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -139,14 +160,9 @@ fun StationSetupScreen(
                 // Botón de activar
                 Button(
                     onClick = {
-                        if (pin == "00000000") {
-                            // Simular delay para mostrar éxito antes de navegar
-                            onActivate()
-                        } else {
-                            isError = true
-                        }
+                        viewModel.validatePin(pin)
                     },
-                    enabled = pin.length == 8,
+                    enabled = pin.length == 8 && uiState !is StationSetupUiState.Loading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
@@ -160,11 +176,18 @@ fun StationSetupScreen(
                         defaultElevation = 4.dp
                     )
                 ) {
-                    Text(
-                        text = "Activar Estación",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    if (uiState is StationSetupUiState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text(
+                            text = "Activar Estación",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
