@@ -59,7 +59,8 @@ class RecurrentVisitViewModel(
                         _uiState.value = RecurrentVisitUiState.Success(
                             qrCode = visit.qrCodeValue,
                             personName = person.fullName,
-                            visitingPerson = visitingPersonName
+                            visitingPerson = visitingPersonName,
+                            company = person.company
                         )
                     },
                     onFailure = { error ->
@@ -89,7 +90,8 @@ sealed class RecurrentVisitUiState {
     data class Success(
         val qrCode: String,
         val personName: String,
-        val visitingPerson: String
+        val visitingPerson: String,
+        val company: String?
     ) : RecurrentVisitUiState()
     data class Error(val message: String) : RecurrentVisitUiState()
 }

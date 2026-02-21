@@ -1,6 +1,12 @@
 package com.eflglobal.visitorsapp.ui.screens
 
-import androidx.compose.foundation.BorderStroke
+import android.graphics.Bitmap
+import androidx.camera.core.CameraSelector
+import com.eflglobal.visitorsapp.core.ocr.OCRHelper
+import com.eflglobal.visitorsapp.core.utils.ImageSaver
+import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
+import com.eflglobal.visitorsapp.ui.components.CameraPreviewComposable
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +43,9 @@ fun DocumentScanScreen(
         factory = ViewModelFactory(LocalContext.current)
     )
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     var selectedDocType by remember { mutableStateOf("DUI") }
 
     val visitorTypes = if (selectedLanguage == "es") {
@@ -247,47 +256,83 @@ fun DocumentScanScreen(
                 }
             }
 
-            // Modal de cámara para frente del documento
+            // Modal de cámara REAL para frente del documento
             if (showFrontCameraModal) {
-                DocumentCameraModal(
+                RealDocumentCameraModal(
                     title = if (selectedLanguage == "es") "Frente del Documento" else "Front of Document",
                     instruction = if (selectedLanguage == "es")
                         "Coloque el frente del documento dentro del marco.\nAsegúrese de que esté completamente visible y sin reflejos."
                     else
                         "Place the front of the document inside the frame.\nMake sure it is fully visible and glare-free.",
                     onDismiss = { showFrontCameraModal = false },
-                    onCapture = {
-                        frontScanned = true
-                        showFrontCameraModal = false
-                        // TODO: Aquí se capturará la imagen real y se extraerá el texto con ML Kit
-                        // Por ahora simulamos los datos
-                        val imagePath = "document_front_${System.currentTimeMillis()}.jpg"
-                        val detectedName = "" // OCR detectará el nombre
-                        val docNumber = "" // OCR detectará el número
-                        viewModel.setDocumentFront(imagePath, detectedName, docNumber)
+                    onCapture = { bitmap ->
+                        coroutineScope.launch {
+                            try {
+                                // Guardar imagen
+                                val personId = viewModel.getPersonId() ?: java.util.UUID.randomUUID().toString()
+                                val imagePath = ImageSaver.saveImage(
+                                    context = context,
+                                    bitmap = bitmap,
+                                    personId = personId,
+                                    imageType = ImageSaver.ImageType.DOCUMENT_FRONT
+                                )
+
+                                // Procesar con ML Kit OCR
+                                val ocrResult = OCRHelper.processDocument(bitmap)
+
+                                // Guardar en ViewModel
+                                viewModel.setDocumentFront(
+                                    imagePath = imagePath,
+                                    detectedName = ocrResult.detectedName ?: "",
+                                    documentNumber = ocrResult.detectedDocumentNumber ?: ""
+                                )
+
+                                frontScanned = true
+                                showFrontCameraModal = false
+                            } catch (e: Exception) {
+                                // Manejar error
+                                e.printStackTrace()
+                            }
+                        }
                     },
                     selectedLanguage = selectedLanguage
                 )
             }
 
-            // Modal de cámara para reverso del documento
+            // Modal de cámara REAL para reverso del documento
             if (showBackCameraModal) {
-                DocumentCameraModal(
+                RealDocumentCameraModal(
                     title = if (selectedLanguage == "es") "Reverso del Documento" else "Back of Document",
                     instruction = if (selectedLanguage == "es")
                         "Coloque el reverso del documento dentro del marco.\nAsegúrese de que esté completamente visible y sin reflejos."
                     else
                         "Place the back of the document inside the frame.\nMake sure it is fully visible and glare-free.",
                     onDismiss = { showBackCameraModal = false },
-                    onCapture = {
-                        backScanned = true
-                        showBackCameraModal = false
-                        // TODO: Aquí se capturará la imagen real
-                        val imagePath = "document_back_${System.currentTimeMillis()}.jpg"
-                        viewModel.setDocumentBack(imagePath)
+                    onCapture = { bitmap ->
+                        coroutineScope.launch {
+                            try {
+                                // Guardar imagen
+                                val personId = viewModel.getPersonId() ?: java.util.UUID.randomUUID().toString()
+                                val imagePath = ImageSaver.saveImage(
+                                    context = context,
+                                    bitmap = bitmap,
+                                    personId = personId,
+                                    imageType = ImageSaver.ImageType.DOCUMENT_BACK
+                                )
+
+                                // Guardar en ViewModel
+                                viewModel.setDocumentBack(imagePath)
+
+                                backScanned = true
+                                showBackCameraModal = false
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
                     },
                     selectedLanguage = selectedLanguage
                 )
+            }
             }
         }
     }
@@ -660,7 +705,139 @@ private fun DocumentCameraModal(
     }
 }
 
+/**
+ * Modal de cámara REAL con CameraX para capturar documentos.
+ */
+@Composable
+private fun RealDocumentCameraModal(
+    title: String,
+    instruction: String,
+    onDismiss: () -> Unit,
+    onCapture: (Bitmap) -> Unit,
+    selectedLanguage: String = "es"
+) {
+    var shouldCapture by remember { mutableStateOf(false) }
+    var isProcessing by remember { mutableStateOf(false) }
 
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(androidx.compose.ui.graphics.Color.Black)
+    ) {
+        // Vista previa de cámara REAL con CameraX
+        CameraPermissionHandler(
+            onPermissionGranted = {},
+            onPermissionDenied = { onDismiss() }
+        ) {
+            CameraPreviewComposable(
+                onImageCaptured = { bitmap ->
+                    isProcessing = true
+                    onCapture(bitmap)
+                },
+                onError = {
+                    onDismiss()
+                },
+                lensFacing = CameraSelector.LENS_FACING_BACK,
+                modifier = Modifier.fillMaxSize(),
+                shouldCapture = shouldCapture,
+                onCaptureComplete = { shouldCapture = false }
+            )
+        }
 
+        // Overlay con guías e instrucciones
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Título
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier
+                    .background(
+                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(16.dp)
+            )
 
+            Spacer(modifier = Modifier.weight(1f))
 
+            // Marco de guía para el documento
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .aspectRatio(1.6f)
+                    .border(
+                        width = 3.dp,
+                        color = OrangePrimary,
+                        shape = RoundedCornerShape(16.dp)
+                    )
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Instrucciones
+            Text(
+                text = instruction,
+                style = MaterialTheme.typography.bodyMedium,
+                color = androidx.compose.ui.graphics.Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .background(
+                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Botones
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Botón cancelar
+                OutlinedButton(
+                    onClick = onDismiss,
+                    enabled = !isProcessing,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = androidx.compose.ui.graphics.Color.White
+                    ),
+                    border = BorderStroke(2.dp, androidx.compose.ui.graphics.Color.White),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (selectedLanguage == "es") "Cancelar" else "Cancel")
+                }
+
+                // Botón capturar
+                Button(
+                    onClick = { shouldCapture = true },
+                    enabled = !isProcessing,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangePrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            color = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.CameraEnhance,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (selectedLanguage == "es") "Capturar" else "Capture")
+                    }
+                }
+            }
+        }
+    }
+}

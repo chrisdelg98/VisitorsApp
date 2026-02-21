@@ -150,6 +150,12 @@ fun AppNavHost(
                 else -> null
             }
 
+            val company = when {
+                newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.company
+                recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.company
+                else -> null
+            }
+
             ConfirmScreen(
                 onConfirm = {
                     // Resetear ViewModels antes de volver
@@ -163,7 +169,8 @@ fun AppNavHost(
                 selectedLanguage = selectedLanguage,
                 qrCode = qrCode,
                 personName = personName,
-                visitingPerson = visitingPerson
+                visitingPerson = visitingPerson,
+                company = company
             )
         }
         composable(Routes.CheckoutQr) {

@@ -55,6 +55,9 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.accompanist.navigation.animation)
 
+    // Accompanist Permissions
+    implementation("com.google.accompanist:accompanist-permissions:0.36.0")
+
     // DataStore for preferences
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
@@ -79,8 +82,9 @@ dependencies {
     // ML Kit Text Recognition
     implementation("com.google.mlkit:text-recognition:16.0.0")
 
-    // ZXing for QR Code generation
+    // ZXing for QR Code generation and scanning
     implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")

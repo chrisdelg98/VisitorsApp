@@ -24,12 +24,23 @@ class NewVisitViewModel(
     val uiState: StateFlow<NewVisitUiState> = _uiState.asStateFlow()
 
     // Datos temporales del visitante durante el flujo
+    private var personId: String? = null
     private var documentType: String = ""
     private var visitorType: String = "Visitante"
     private var documentFrontPath: String? = null
     private var documentBackPath: String? = null
     private var detectedName: String? = null
     private var documentNumber: String? = null
+
+    /**
+     * Obtiene o genera un personId único para esta visita.
+     */
+    fun getPersonId(): String {
+        if (personId == null) {
+            personId = java.util.UUID.randomUUID().toString()
+        }
+        return personId!!
+    }
 
     fun setDocumentType(type: String) {
         documentType = type
@@ -118,7 +129,8 @@ class NewVisitViewModel(
                         _uiState.value = NewVisitUiState.Success(
                             qrCode = visit.qrCodeValue,
                             personName = fullName,
-                            visitingPerson = visitingPersonName
+                            visitingPerson = visitingPersonName,
+                            company = company
                         )
                     },
                     onFailure = { error ->
@@ -152,7 +164,8 @@ sealed class NewVisitUiState {
     data class Success(
         val qrCode: String,
         val personName: String,
-        val visitingPerson: String
+        val visitingPerson: String,
+        val company: String?
     ) : NewVisitUiState()
     data class Error(val message: String) : NewVisitUiState()
 }

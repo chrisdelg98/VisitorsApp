@@ -1,5 +1,7 @@
 package com.eflglobal.visitorsapp.ui.screens
 
+import android.graphics.Bitmap
+import androidx.camera.core.CameraSelector
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Portrait
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
@@ -24,10 +27,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eflglobal.visitorsapp.core.utils.ImageSaver
+import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
+import com.eflglobal.visitorsapp.ui.components.CameraPreviewComposable
 import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState
+import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState
 import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 import kotlinx.coroutines.delay
@@ -42,6 +52,10 @@ fun PersonDataScreen(
         factory = ViewModelFactory(LocalContext.current)
     )
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
+
     // Obtener nombre detectado del ViewModel
     val detectedName = viewModel.getDetectedName() ?: ""
 
@@ -54,6 +68,7 @@ fun PersonDataScreen(
     var photoTaken by remember { mutableStateOf(false) }
     var isCapturing by remember { mutableStateOf(false) }
     var countdown by remember { mutableStateOf(0) }
+    var profilePhotoPath by remember { mutableStateOf<String?>(null) }
 
     // Indicador si el nombre fue detectado automáticamente
     val isNameAutoDetected = detectedName.isNotEmpty()
@@ -348,8 +363,6 @@ fun PersonDataScreen(
             // Botón continuar
             Button(
                 onClick = {
-                    // TODO: Aquí se pasará el path real de la foto
-                    val profilePhotoPath = if (photoTaken) "profile_${System.currentTimeMillis()}.jpg" else null
 
                     viewModel.createPersonAndVisit(
                         fullName = fullName,
@@ -397,164 +410,237 @@ fun PersonDataScreen(
             }
         }
 
-        // Modal fullscreen para capturar foto
+        // Modal fullscreen para capturar foto REAL con CameraX
         if (isCapturing) {
+            SelfieCapture​ModalWithTimer(
+                selectedLanguage = selectedLanguage,
+                onDismiss = {
+                    isCapturing = false
+                    countdown = 0
+                },
+                onPhotoCaptured = { bitmap ->
+                    coroutineScope.launch {
+                        try {
+                            // Guardar la foto con ImageSaver
+                            val personId = viewModel.getPersonId()
+                            val savedPath = ImageSaver.saveImage(
+                                context = context,
+                                bitmap = bitmap,
+                                personId = personId,
+                                imageType = ImageSaver.ImageType.PROFILE
+                            )
+
+                            // Actualizar estados
+                            profilePhotoPath = savedPath
+                            photoTaken = true
+                            isCapturing = false
+                            countdown = 0
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Modal para captura de selfie con timer de 5 segundos y cámara frontal REAL.
+ */
+@Composable
+private fun SelfieCapture​ModalWithTimer(
+    selectedLanguage: String,
+    onDismiss: () -> Unit,
+    onPhotoCaptured: (Bitmap) -> Unit
+) {
+    var countdown by remember { mutableStateOf(0) }
+    var shouldCapture by remember { mutableStateOf(false) }
+    var isProcessing by remember { mutableStateOf(false) }
+
+    // Timer countdown
+    LaunchedEffect(countdown) {
+        if (countdown > 0) {
+            delay(1000)
+            countdown--
+            if (countdown == 0) {
+                // Capturar cuando llega a 0
+                shouldCapture = true
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(androidx.compose.ui.graphics.Color.Black)
+    ) {
+        // Vista previa de cámara frontal REAL
+        CameraPermissionHandler(
+            onPermissionGranted = {},
+            onPermissionDenied = { onDismiss() }
+        ) {
+            CameraPreviewComposable(
+                onImageCaptured = { bitmap ->
+                    isProcessing = true
+                    onPhotoCaptured(bitmap)
+                },
+                onError = {
+                    onDismiss()
+                },
+                lensFacing = CameraSelector.LENS_FACING_FRONT,
+                modifier = Modifier.fillMaxSize(),
+                shouldCapture = shouldCapture,
+                onCaptureComplete = { shouldCapture = false }
+            )
+        }
+
+        // Overlay con guías e instrucciones
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (selectedLanguage == "es") "Foto Personal" else "Personal Photo",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    modifier = Modifier
+                        .background(
+                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(16.dp)
+                )
+
+                if (countdown == 0 && !isProcessing) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .background(
+                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = androidx.compose.ui.graphics.Color.White
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Marco de guía para rostro
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
+                    .size(250.dp)
+                    .border(
+                        width = 4.dp,
+                        color = OrangePrimary,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Header con título y botón cerrar
-                    Row(
+                // Countdown en el centro
+                if (countdown > 0) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 32.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .size(150.dp)
+                            .background(
+                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = Strings.personalPhoto(selectedLanguage),
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
-                            fontWeight = FontWeight.SemiBold,
-                            color = SlatePrimary
-                        )
-
-                        TextButton(
-                            onClick = {
-                                isCapturing = false
-                                countdown = 0
-                            }
-                        ) {
-                            Text(
-                                text = Strings.cancel(selectedLanguage),
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Área de captura centrada
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        // Preview de captura
-                        Card(
-                            modifier = Modifier
-                                .size(300.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            border = BorderStroke(3.dp, OrangePrimary.copy(alpha = 0.5f))
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (countdown > 0) {
-                                    // Mostrando countdown
-                                    Box(
-                                        modifier = Modifier.size(150.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(
-                                            progress = { countdown / 5f },
-                                            modifier = Modifier.size(150.dp),
-                                            color = OrangePrimary,
-                                            strokeWidth = 8.dp,
-                                            trackColor = MaterialTheme.colorScheme.surface
-                                        )
-
-                                        Text(
-                                            text = countdown.toString(),
-                                            style = MaterialTheme.typography.displayLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = OrangePrimary
-                                        )
-                                    }
-                                } else {
-                                    // Guía de rostro
-                                    Box(
-                                        modifier = Modifier
-                                            .size(200.dp)
-                                            .background(
-                                                color = MaterialTheme.colorScheme.surface,
-                                                shape = CircleShape
-                                            )
-                                            .border(
-                                                width = 4.dp,
-                                                color = OrangePrimary.copy(alpha = 0.5f),
-                                                shape = CircleShape
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Portrait,
-                                            contentDescription = null,
-                                            tint = OrangePrimary.copy(alpha = 0.5f),
-                                            modifier = Modifier.size(100.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Instrucciones
-                        Text(
-                            text = if (countdown > 0) {
-                                Strings.lookAtCamera(selectedLanguage)
-                            } else {
-                                Strings.positionFace(selectedLanguage)
-                            },
-                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                            color = SlatePrimary,
-                            textAlign = TextAlign.Center
+                            text = countdown.toString(),
+                            style = MaterialTheme.typography.displayLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = OrangePrimary,
+                            fontSize = 72.sp
                         )
                     }
+                } else if (isProcessing) {
+                    CircularProgressIndicator(
+                        color = OrangePrimary,
+                        modifier = Modifier.size(60.dp)
+                    )
+                }
+            }
 
-                    Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.weight(1f))
 
-                    // Botón de captura
-                    if (countdown == 0) {
-                        Button(
-                            onClick = { countdown = 5 },
-                            modifier = Modifier
-                                .fillMaxWidth(0.6f)
-                                .height(56.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = OrangePrimary
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Portrait,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = Strings.takePhoto(selectedLanguage),
-                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
+            // Instrucciones
+            Text(
+                text = when {
+                    countdown > 0 -> if (selectedLanguage == "es")
+                        "¡Mira a la cámara!"
+                    else
+                        "Look at the camera!"
+                    isProcessing -> if (selectedLanguage == "es")
+                        "Procesando..."
+                    else
+                        "Processing..."
+                    else -> if (selectedLanguage == "es")
+                        "Posiciona tu rostro en el círculo"
+                    else
+                        "Position your face in the circle"
+                },
+                style = MaterialTheme.typography.titleMedium,
+                color = androidx.compose.ui.graphics.Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .background(
+                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Botón capturar
+            if (countdown == 0 && !isProcessing) {
+                Button(
+                    onClick = { countdown = 5 },
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .height(60.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangePrimary
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Portrait,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = if (selectedLanguage == "es")
+                            "Tomar Foto (5s)"
+                        else
+                            "Take Photo (5s)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
     }
 }
-
-
-
-
-
 

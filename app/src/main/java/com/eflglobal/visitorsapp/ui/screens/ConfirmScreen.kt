@@ -24,10 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.core.utils.QRCodeGenerator
+import com.eflglobal.visitorsapp.ui.components.VisitorBadgeButton
 import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,10 +40,15 @@ fun ConfirmScreen(
     selectedLanguage: String = "es",
     qrCode: String? = null,
     personName: String? = null,
-    visitingPerson: String? = null
+    visitingPerson: String? = null,
+    company: String? = null
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     var showSuccessDialog by remember { mutableStateOf(false) }
     var printerAvailable by remember { mutableStateOf(false) }
+    var qrSaved by remember { mutableStateOf(false) }
 
     // Generar QR Code si existe el código
     val qrBitmap: Bitmap? = remember(qrCode) {
@@ -49,6 +57,29 @@ fun ConfirmScreen(
                 QRCodeGenerator.generateQRCode(it, 400)
             } catch (e: Exception) {
                 null
+            }
+        }
+    }
+
+    // Guardar QR Code automáticamente cuando se genera
+    LaunchedEffect(qrBitmap, qrCode) {
+        if (qrBitmap != null && qrCode != null && !qrSaved) {
+            coroutineScope.launch {
+                try {
+                    // Extraer visitId del qrCode (formato: VISIT-{visitId})
+                    val visitId = qrCode.removePrefix("VISIT-")
+
+                    // Guardar QR como imagen
+                    ImageSaver.saveVisitImage(
+                        context = context,
+                        bitmap = qrBitmap,
+                        visitId = visitId
+                    )
+
+                    qrSaved = true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
@@ -203,6 +234,20 @@ fun ConfirmScreen(
                                 text = Strings.editInformation(selectedLanguage),
                                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                                 fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        // Botón Ver Carnet de Visitante
+                        if (qrBitmap != null && personName != null && visitingPerson != null) {
+                            VisitorBadgeButton(
+                                visitorName = personName,
+                                company = company,
+                                visitingPerson = visitingPerson,
+                                visitDate = System.currentTimeMillis(),
+                                printedDate = System.currentTimeMillis(),
+                                qrBitmap = qrBitmap,
+                                selectedLanguage = selectedLanguage,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
