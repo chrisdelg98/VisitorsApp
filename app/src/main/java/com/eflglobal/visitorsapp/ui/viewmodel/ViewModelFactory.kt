@@ -56,7 +56,8 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
             modelClass.isAssignableFrom(EndVisitViewModel::class.java) -> {
                 EndVisitViewModel(
                     endVisitByQRUseCase = EndVisitByQRUseCase(visitRepository),
-                    searchActiveVisitsUseCase = SearchActiveVisitsUseCase(visitRepository)
+                    searchActiveVisitsUseCase = SearchActiveVisitsUseCase(visitRepository),
+                    personRepository = personRepository
                 ) as T
             }
 

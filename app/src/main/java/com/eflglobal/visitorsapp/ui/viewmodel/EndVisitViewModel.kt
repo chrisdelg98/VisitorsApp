@@ -3,6 +3,7 @@ package com.eflglobal.visitorsapp.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eflglobal.visitorsapp.domain.model.ActiveVisit
+import com.eflglobal.visitorsapp.domain.repository.PersonRepository
 import com.eflglobal.visitorsapp.domain.usecase.visit.EndVisitByQRUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.SearchActiveVisitsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +16,8 @@ import kotlinx.coroutines.launch
  */
 class EndVisitViewModel(
     private val endVisitByQRUseCase: EndVisitByQRUseCase,
-    private val searchActiveVisitsUseCase: SearchActiveVisitsUseCase
+    private val searchActiveVisitsUseCase: SearchActiveVisitsUseCase,
+    private val personRepository: PersonRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<EndVisitUiState>(EndVisitUiState.Idle)
@@ -38,11 +40,12 @@ class EndVisitViewModel(
                 if (results.isEmpty()) {
                     _uiState.value = EndVisitUiState.SearchNoResults
                 } else {
-                    // Convertir Visit a ActiveVisit
+                    // Convertir Visit a ActiveVisit y obtener el nombre de la persona
                     val activeVisits = results.map { visit ->
+                        val person = personRepository.getPersonById(visit.personId)
                         ActiveVisit(
                             visitId = visit.visitId,
-                            personName = visit.personName ?: "Unknown",
+                            personName = person?.fullName ?: "Unknown",
                             visitingPerson = visit.visitingPersonName,
                             entryTime = formatTime(visit.entryDate)
                         )

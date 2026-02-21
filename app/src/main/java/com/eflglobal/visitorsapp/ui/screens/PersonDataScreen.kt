@@ -38,9 +38,6 @@ import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState
 import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState
-import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,8 +70,6 @@ fun PersonDataScreen(
     // Indicador si el nombre fue detectado automáticamente
     val isNameAutoDetected = detectedName.isNotEmpty()
 
-    // Observar estado del ViewModel
-    val uiState by viewModel.uiState.collectAsState()
 
     // Manejar navegación cuando se crea exitosamente la visita
     LaunchedEffect(uiState) {
@@ -412,7 +407,7 @@ fun PersonDataScreen(
 
         // Modal fullscreen para capturar foto REAL con CameraX
         if (isCapturing) {
-            SelfieCapture​ModalWithTimer(
+            SelfieCaptureModalWithTimer(
                 selectedLanguage = selectedLanguage,
                 onDismiss = {
                     isCapturing = false
@@ -449,7 +444,7 @@ fun PersonDataScreen(
  * Modal para captura de selfie con timer de 5 segundos y cámara frontal REAL.
  */
 @Composable
-private fun SelfieCapture​ModalWithTimer(
+private fun SelfieCaptureModalWithTimer(
     selectedLanguage: String,
     onDismiss: () -> Unit,
     onPhotoCaptured: (Bitmap) -> Unit

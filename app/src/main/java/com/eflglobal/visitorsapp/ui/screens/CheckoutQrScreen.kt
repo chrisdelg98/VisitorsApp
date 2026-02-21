@@ -13,8 +13,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -155,7 +157,6 @@ fun CheckoutQrScreen(
                             value = searchQuery,
                             onValueChange = {
                                 searchQuery = it
-                                showSearchResults = it.length >= 3
                             },
                             placeholder = {
                                 Text(
@@ -183,7 +184,6 @@ fun CheckoutQrScreen(
                                 if (searchQuery.isNotEmpty()) {
                                     IconButton(onClick = {
                                         searchQuery = ""
-                                        showSearchResults = false
                                     }) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
@@ -286,11 +286,6 @@ fun CheckoutQrScreen(
                         }
 
                         else -> { /* Idle state */ }
-                    }
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -588,84 +583,6 @@ fun CheckoutQrScreen(
                             Text(Strings.accept(selectedLanguage))
                         }
                     }
-                )
-            }
-                                .size(80.dp)
-                                .background(
-                                    color = OrangePrimary.copy(alpha = 0.1f),
-                                    shape = RoundedCornerShape(40.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = OrangePrimary,
-                                modifier = Modifier.size(48.dp)
-                            )
-                        }
-                    },
-                    title = {
-                        Text(
-                            text = Strings.checkoutRegistered(selectedLanguage),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    text = {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            if (visitorName.isNotEmpty()) {
-                                Text(
-                                    text = visitorName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = SlatePrimary
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-
-                            Text(
-                                text = "${Strings.checkoutTime(selectedLanguage)}: $checkoutTime",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = Strings.thanksForVisit(selectedLanguage),
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                showSuccessDialog = false
-                                onFinish()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = OrangePrimary
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(
-                                text = Strings.finish(selectedLanguage),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    },
-                    shape = RoundedCornerShape(24.dp)
                 )
             }
         }

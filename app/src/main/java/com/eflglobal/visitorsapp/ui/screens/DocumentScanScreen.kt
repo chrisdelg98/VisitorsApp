@@ -2,12 +2,9 @@ package com.eflglobal.visitorsapp.ui.screens
 
 import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
-import com.eflglobal.visitorsapp.core.ocr.OCRHelper
-import com.eflglobal.visitorsapp.core.utils.ImageSaver
-import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
-import com.eflglobal.visitorsapp.ui.components.CameraPreviewComposable
-import kotlinx.coroutines.launch
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +23,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eflglobal.visitorsapp.core.ocr.OCRHelper
+import com.eflglobal.visitorsapp.core.utils.ImageSaver
+import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
+import com.eflglobal.visitorsapp.ui.components.CameraPreviewComposable
+import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
@@ -269,8 +271,8 @@ fun DocumentScanScreen(
                         coroutineScope.launch {
                             try {
                                 // Guardar imagen
-                                val personId = viewModel.getPersonId() ?: java.util.UUID.randomUUID().toString()
-                                val imagePath = ImageSaver.saveImage(
+                                val personId = viewModel.getPersonId()
+                                val savedImagePath = ImageSaver.saveImage(
                                     context = context,
                                     bitmap = bitmap,
                                     personId = personId,
@@ -282,15 +284,14 @@ fun DocumentScanScreen(
 
                                 // Guardar en ViewModel
                                 viewModel.setDocumentFront(
-                                    imagePath = imagePath,
-                                    detectedName = ocrResult.detectedName ?: "",
-                                    documentNumber = ocrResult.detectedDocumentNumber ?: ""
+                                    path = savedImagePath,
+                                    name = ocrResult.detectedName ?: "",
+                                    docNumber = ocrResult.detectedDocumentNumber ?: ""
                                 )
 
                                 frontScanned = true
                                 showFrontCameraModal = false
                             } catch (e: Exception) {
-                                // Manejar error
                                 e.printStackTrace()
                             }
                         }
@@ -312,8 +313,8 @@ fun DocumentScanScreen(
                         coroutineScope.launch {
                             try {
                                 // Guardar imagen
-                                val personId = viewModel.getPersonId() ?: java.util.UUID.randomUUID().toString()
-                                val imagePath = ImageSaver.saveImage(
+                                val personId = viewModel.getPersonId()
+                                val savedImagePath = ImageSaver.saveImage(
                                     context = context,
                                     bitmap = bitmap,
                                     personId = personId,
@@ -321,7 +322,7 @@ fun DocumentScanScreen(
                                 )
 
                                 // Guardar en ViewModel
-                                viewModel.setDocumentBack(imagePath)
+                                viewModel.setDocumentBack(savedImagePath)
 
                                 backScanned = true
                                 showBackCameraModal = false
@@ -332,7 +333,6 @@ fun DocumentScanScreen(
                     },
                     selectedLanguage = selectedLanguage
                 )
-            }
             }
         }
     }

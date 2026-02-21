@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
+import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
@@ -174,8 +175,8 @@ private fun OptionsSection(
 
         HomeOptionCard(
             icon = Icons.Default.Person,
-            title = Strings.recurringVisit(selectedLanguage),
-            description = Strings.recurringVisitDesc(selectedLanguage),
+            title = Strings.returningVisit(selectedLanguage),
+            description = Strings.returningVisitDesc(selectedLanguage),
             onClick = onRecurrentVisit
         )
 

@@ -114,8 +114,10 @@ object Strings {
     fun startScanning(lang: String) = if (lang == "es") "Iniciar Escaneo" else "Start Scanning"
     fun useQRReceived(lang: String) = if (lang == "es") "ℹ️ Utilice el código QR que recibió al momento del registro de entrada" else "ℹ️ Use the QR code you received at check-in"
     fun checkoutRegistered(lang: String) = if (lang == "es") "¡Salida Registrada!" else "Checkout Registered!"
+    fun checkoutSuccess(lang: String) = if (lang == "es") "¡Salida Registrada!" else "Checkout Successful!"
     fun checkoutTime(lang: String) = if (lang == "es") "Hora de salida" else "Checkout time"
     fun thanksForVisit(lang: String) = if (lang == "es") "Gracias por su visita" else "Thank you for your visit"
+    fun accept(lang: String) = if (lang == "es") "Aceptar" else "Accept"
 
     // Recurring Visit Screen
     fun recurringVisit(lang: String) = if (lang == "es") "Visita Recurrente" else "Recurring Visit"
