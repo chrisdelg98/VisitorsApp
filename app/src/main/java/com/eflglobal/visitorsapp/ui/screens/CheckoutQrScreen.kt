@@ -32,6 +32,7 @@ import kotlinx.coroutines.delay
 fun CheckoutQrScreen(
     onFinish: () -> Unit,
     onBack: () -> Unit,
+    viewModel: com.eflglobal.visitorsapp.ui.viewmodel.EndVisitViewModel? = null,
     selectedLanguage: String = "es"
 ) {
     var isScanning by remember { mutableStateOf(false) }

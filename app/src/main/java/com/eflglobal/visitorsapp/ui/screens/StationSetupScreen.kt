@@ -129,15 +129,17 @@ fun StationSetupScreen(
                     onValueChange = {
                         if (it.length <= 8 && it.all { char -> char.isDigit() }) {
                             pin = it
-                            isError = false
+                            if (uiState is StationSetupUiState.Error) {
+                                viewModel.clearError()
+                            }
                         }
                     },
                     label = { Text("PIN de Estación") },
                     placeholder = { Text("00000000") },
-                    isError = isError,
+                    isError = uiState is StationSetupUiState.Error,
                     supportingText = {
-                        if (isError) {
-                            Text("PIN incorrecto. Intente nuevamente.")
+                        if (uiState is StationSetupUiState.Error) {
+                            Text((uiState as StationSetupUiState.Error).message)
                         } else {
                             Text("${pin.length}/8 dígitos")
                         }

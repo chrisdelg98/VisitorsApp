@@ -1,6 +1,8 @@
 package com.eflglobal.visitorsapp.ui.screens
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -16,10 +18,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.eflglobal.visitorsapp.core.utils.QRCodeGenerator
 import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
@@ -29,10 +34,24 @@ import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 fun ConfirmScreen(
     onConfirm: () -> Unit,
     onEdit: () -> Unit,
-    selectedLanguage: String = "es"
+    selectedLanguage: String = "es",
+    qrCode: String? = null,
+    personName: String? = null,
+    visitingPerson: String? = null
 ) {
     var showSuccessDialog by remember { mutableStateOf(false) }
     var printerAvailable by remember { mutableStateOf(false) }
+
+    // Generar QR Code si existe el código
+    val qrBitmap: Bitmap? = remember(qrCode) {
+        qrCode?.let {
+            try {
+                QRCodeGenerator.generateQRCode(it, 400)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -216,23 +235,60 @@ fun ConfirmScreen(
                                 .verticalScroll(rememberScrollState()),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Foto del visitante (simulada)
-                            Box(
-                                modifier = Modifier
-                                    .size(140.dp)
-                                    .background(
-                                        color = OrangePrimary.copy(alpha = 0.15f),
-                                        shape = CircleShape
-                                    )
-                                    .border(4.dp, OrangePrimary, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = OrangePrimary,
-                                    modifier = Modifier.size(70.dp)
+                            // QR Code generado
+                            if (qrBitmap != null) {
+                                Card(
+                                    modifier = Modifier.size(200.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surface
+                                    ),
+                                    elevation = CardDefaults.cardElevation(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Image(
+                                            bitmap = qrBitmap.asImageBitmap(),
+                                            contentDescription = "Visit QR Code",
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = if (selectedLanguage == "es")
+                                        "Código QR de Visita"
+                                    else
+                                        "Visit QR Code",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = OrangePrimary,
+                                    fontWeight = FontWeight.SemiBold
                                 )
+                            } else {
+                                // Foto del visitante (simulada)
+                                Box(
+                                    modifier = Modifier
+                                        .size(140.dp)
+                                        .background(
+                                            color = OrangePrimary.copy(alpha = 0.15f),
+                                            shape = CircleShape
+                                        )
+                                        .border(4.dp, OrangePrimary, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = OrangePrimary,
+                                        modifier = Modifier.size(70.dp)
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
@@ -245,27 +301,20 @@ fun ConfirmScreen(
                             // Información del visitante
                             InfoRow(
                                 label = Strings.fullNameLabel(selectedLanguage),
-                                value = "Juan Carlos Pérez Martínez"
-                            )
-
-                            InfoRow(
-                                label = Strings.documentType(selectedLanguage),
-                                value = "DUI / ID"
-                            )
-
-                            InfoRow(
-                                label = Strings.documentNumber(selectedLanguage),
-                                value = "12345678-9"
+                                value = personName ?: "Juan Carlos Pérez Martínez"
                             )
 
                             InfoRow(
                                 label = Strings.visitTo(selectedLanguage),
-                                value = "María García - Recursos Humanos"
+                                value = visitingPerson ?: "María García"
                             )
 
                             InfoRow(
                                 label = Strings.dateAndTime(selectedLanguage),
-                                value = "9 Feb 2026, 10:30 AM",
+                                value = java.text.SimpleDateFormat(
+                                    "d MMM yyyy, h:mm a",
+                                    java.util.Locale.getDefault()
+                                ).format(java.util.Date()),
                                 isLast = true
                             )
                         }

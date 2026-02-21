@@ -7,6 +7,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import com.eflglobal.visitorsapp.ui.screens.CheckoutQrScreen
 import com.eflglobal.visitorsapp.ui.screens.ConfirmScreen
 import com.eflglobal.visitorsapp.ui.screens.DocumentScanScreen
@@ -16,10 +20,14 @@ import com.eflglobal.visitorsapp.ui.screens.RecurrentDocumentScanScreen
 import com.eflglobal.visitorsapp.ui.screens.RecurrentSearchScreen
 import com.eflglobal.visitorsapp.ui.screens.RecurrentVisitDataScreen
 import com.eflglobal.visitorsapp.ui.screens.StationSetupScreen
+import com.eflglobal.visitorsapp.ui.viewmodel.EndVisitViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.LanguageViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentSearchViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
-import androidx.navigation.NavHostController
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -101,12 +109,14 @@ fun AppNavHost(
             )
         }
         composable(Routes.RecurrentVisitData) {
+            val person = recurrentVisitViewModel.getSelectedPerson()
             RecurrentVisitDataScreen(
-                visitorName = "Juan Pérez", // TODO: Pasar datos reales desde búsqueda
-                documentNumber = "12345678-9",
+                visitorName = person?.fullName ?: "",
+                documentNumber = person?.documentNumber ?: "",
                 onContinue = { navController.navigate(Routes.Confirm) },
                 onBack = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage
+                selectedLanguage = selectedLanguage,
+                viewModel = recurrentVisitViewModel
             )
         }
         composable(Routes.PersonData) {
@@ -118,18 +128,50 @@ fun AppNavHost(
             )
         }
         composable(Routes.Confirm) {
+            // Obtener datos del estado del ViewModel
+            val newVisitState = newVisitViewModel.uiState.collectAsState().value
+            val recurrentVisitState = recurrentVisitViewModel.uiState.collectAsState().value
+
+            val qrCode = when {
+                newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.qrCode
+                recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.qrCode
+                else -> null
+            }
+
+            val personName = when {
+                newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.personName
+                recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.personName
+                else -> null
+            }
+
+            val visitingPerson = when {
+                newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.visitingPerson
+                recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.visitingPerson
+                else -> null
+            }
+
             ConfirmScreen(
-                onConfirm = { navController.navigate(Routes.Home) },
+                onConfirm = {
+                    // Resetear ViewModels antes de volver
+                    newVisitViewModel.resetState()
+                    recurrentVisitViewModel.resetState()
+                    navController.navigate(Routes.Home) {
+                        popUpTo(Routes.Home) { inclusive = false }
+                    }
+                },
                 onEdit = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage
+                selectedLanguage = selectedLanguage,
+                qrCode = qrCode,
+                personName = personName,
+                visitingPerson = visitingPerson
             )
         }
         composable(Routes.CheckoutQr) {
             CheckoutQrScreen(
                 onFinish = { navController.navigate(Routes.Home) },
                 onBack = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage,
-                viewModel = endVisitViewModel
+                viewModel = endVisitViewModel,
+                selectedLanguage = selectedLanguage
             )
         }
     }

@@ -30,6 +30,7 @@ fun RecurrentVisitDataScreen(
     documentNumber: String,
     onContinue: () -> Unit,
     onBack: () -> Unit,
+    viewModel: com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitViewModel? = null,
     selectedLanguage: String = "es"
 ) {
     var visitingPerson by remember { mutableStateOf("") }
