@@ -1,6 +1,6 @@
 package com.eflglobal.visitorsapp.domain.repository
 
-import com.eflglobal.visitorsapp.data.local.entity.StationEntity
+import com.eflglobal.visitorsapp.domain.model.Station
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -13,12 +13,12 @@ interface StationRepository {
      * Obtiene la estación activa actual.
      * Solo puede haber una estación activa a la vez.
      */
-    suspend fun getActiveStation(): StationEntity?
+    suspend fun getActiveStation(): Station?
 
     /**
      * Obtiene la estación activa como Flow para observar cambios.
      */
-    fun getActiveStationFlow(): Flow<StationEntity?>
+    fun getActiveStationFlow(): Flow<Station?>
 
     /**
      * Valida un PIN y retorna true si es correcto.
@@ -34,7 +34,7 @@ interface StationRepository {
         pin: String,
         stationName: String,
         countryCode: String
-    ): Result<StationEntity>
+    ): Result<Station>
 
     /**
      * Verifica si ya existe una estación activa.

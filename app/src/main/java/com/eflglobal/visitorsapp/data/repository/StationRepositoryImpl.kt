@@ -2,8 +2,11 @@ package com.eflglobal.visitorsapp.data.repository
 
 import com.eflglobal.visitorsapp.data.local.dao.StationDao
 import com.eflglobal.visitorsapp.data.local.entity.StationEntity
+import com.eflglobal.visitorsapp.data.local.mapper.toDomain
+import com.eflglobal.visitorsapp.domain.model.Station
 import com.eflglobal.visitorsapp.domain.repository.StationRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.UUID
 
 /**
@@ -25,12 +28,14 @@ class StationRepositoryImpl(
         private const val DEFAULT_COUNTRY_CODE = "SV"
     }
 
-    override suspend fun getActiveStation(): StationEntity? {
-        return stationDao.getActiveStation()
+    override suspend fun getActiveStation(): Station? {
+        return stationDao.getActiveStation()?.toDomain()
     }
 
-    override fun getActiveStationFlow(): Flow<StationEntity?> {
-        return stationDao.getActiveStationFlow()
+    override fun getActiveStationFlow(): Flow<Station?> {
+        return stationDao.getActiveStationFlow().map { entity ->
+            entity?.toDomain()
+        }
     }
 
     override suspend fun validatePin(pin: String): Boolean {
@@ -43,7 +48,7 @@ class StationRepositoryImpl(
         pin: String,
         stationName: String,
         countryCode: String
-    ): Result<StationEntity> {
+    ): Result<Station> {
         return try {
             // Validar PIN primero
             if (!validatePin(pin)) {
@@ -70,7 +75,7 @@ class StationRepositoryImpl(
             // Guardar en la base de datos
             stationDao.insertStation(newStation)
 
-            Result.success(newStation)
+            Result.success(newStation.toDomain())
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -1,6 +1,6 @@
 package com.eflglobal.visitorsapp.domain.repository
 
-import com.eflglobal.visitorsapp.data.local.entity.VisitEntity
+import com.eflglobal.visitorsapp.domain.model.Visit
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -12,52 +12,52 @@ interface VisitRepository {
     /**
      * Crea una nueva visita.
      */
-    suspend fun createVisit(visit: VisitEntity): Result<VisitEntity>
+    suspend fun createVisit(visit: Visit): Result<Visit>
 
     /**
      * Obtiene una visita por su ID.
      */
-    suspend fun getVisitById(visitId: String): VisitEntity?
+    suspend fun getVisitById(visitId: String): Visit?
 
     /**
      * Obtiene una visita por el código QR.
      */
-    suspend fun getVisitByQRCode(qrCode: String): VisitEntity?
+    suspend fun getVisitByQRCode(qrCode: String): Visit?
 
     /**
      * Obtiene todas las visitas de una persona.
      */
-    suspend fun getVisitsByPersonId(personId: String): List<VisitEntity>
+    suspend fun getVisitsByPersonId(personId: String): List<Visit>
 
     /**
      * Obtiene la última visita de una persona.
      */
-    suspend fun getLastVisitByPersonId(personId: String): VisitEntity?
+    suspend fun getLastVisitByPersonId(personId: String): Visit?
 
     /**
      * Obtiene todas las visitas activas (sin fecha de salida).
      */
-    suspend fun getActiveVisits(): List<VisitEntity>
+    suspend fun getActiveVisits(): List<Visit>
 
     /**
      * Obtiene visitas activas como Flow (observable).
      */
-    fun getActiveVisitsFlow(): Flow<List<VisitEntity>>
+    fun getActiveVisitsFlow(): Flow<List<Visit>>
 
     /**
      * Busca en visitas activas por nombre de visitante o persona visitada.
      */
-    suspend fun searchActiveVisits(query: String): List<VisitEntity>
+    suspend fun searchActiveVisits(query: String): List<Visit>
 
     /**
      * Obtiene las visitas del día actual.
      */
-    suspend fun getTodayVisits(): List<VisitEntity>
+    suspend fun getTodayVisits(): List<Visit>
 
     /**
      * Obtiene visitas en un rango de fechas.
      */
-    suspend fun getVisitsByDateRange(startDate: Long, endDate: Long): List<VisitEntity>
+    suspend fun getVisitsByDateRange(startDate: Long, endDate: Long): List<Visit>
 
     /**
      * Registra la salida de una visita.
@@ -72,7 +72,7 @@ interface VisitRepository {
     /**
      * Actualiza una visita.
      */
-    suspend fun updateVisit(visit: VisitEntity): Result<Unit>
+    suspend fun updateVisit(visit: Visit): Result<Unit>
 
     /**
      * Obtiene el conteo de visitas activas.

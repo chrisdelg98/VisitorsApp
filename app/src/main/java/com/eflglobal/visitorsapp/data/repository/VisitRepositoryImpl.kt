@@ -1,9 +1,12 @@
 package com.eflglobal.visitorsapp.data.repository
 
 import com.eflglobal.visitorsapp.data.local.dao.VisitDao
-import com.eflglobal.visitorsapp.data.local.entity.VisitEntity
+import com.eflglobal.visitorsapp.data.local.mapper.toDomain
+import com.eflglobal.visitorsapp.data.local.mapper.toEntity
+import com.eflglobal.visitorsapp.domain.model.Visit
 import com.eflglobal.visitorsapp.domain.repository.VisitRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.Calendar
 
 /**
@@ -16,72 +19,74 @@ class VisitRepositoryImpl(
     private val visitDao: VisitDao
 ) : VisitRepository {
 
-    override suspend fun createVisit(visit: VisitEntity): Result<VisitEntity> {
+    override suspend fun createVisit(visit: Visit): Result<Visit> {
         return try {
-            visitDao.insertVisit(visit)
+            visitDao.insertVisit(visit.toEntity())
             Result.success(visit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    override suspend fun getVisitById(visitId: String): VisitEntity? {
+    override suspend fun getVisitById(visitId: String): Visit? {
         return try {
-            visitDao.getVisitById(visitId)
+            visitDao.getVisitById(visitId)?.toDomain()
         } catch (e: Exception) {
             null
         }
     }
 
-    override suspend fun getVisitByQRCode(qrCode: String): VisitEntity? {
+    override suspend fun getVisitByQRCode(qrCode: String): Visit? {
         return try {
-            visitDao.getVisitByQRCode(qrCode)
+            visitDao.getVisitByQRCode(qrCode)?.toDomain()
         } catch (e: Exception) {
             null
         }
     }
 
-    override suspend fun getVisitsByPersonId(personId: String): List<VisitEntity> {
+    override suspend fun getVisitsByPersonId(personId: String): List<Visit> {
         return try {
-            visitDao.getVisitsByPersonId(personId)
+            visitDao.getVisitsByPersonId(personId).map { it.toDomain() }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    override suspend fun getLastVisitByPersonId(personId: String): VisitEntity? {
+    override suspend fun getLastVisitByPersonId(personId: String): Visit? {
         return try {
-            visitDao.getLastVisitByPersonId(personId)
+            visitDao.getLastVisitByPersonId(personId)?.toDomain()
         } catch (e: Exception) {
             null
         }
     }
 
-    override suspend fun getActiveVisits(): List<VisitEntity> {
+    override suspend fun getActiveVisits(): List<Visit> {
         return try {
-            visitDao.getActiveVisits()
+            visitDao.getActiveVisits().map { it.toDomain() }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    override fun getActiveVisitsFlow(): Flow<List<VisitEntity>> {
-        return visitDao.getActiveVisitsFlow()
+    override fun getActiveVisitsFlow(): Flow<List<Visit>> {
+        return visitDao.getActiveVisitsFlow().map { entities ->
+            entities.map { it.toDomain() }
+        }
     }
 
-    override suspend fun searchActiveVisits(query: String): List<VisitEntity> {
+    override suspend fun searchActiveVisits(query: String): List<Visit> {
         return try {
             if (query.isBlank()) {
                 emptyList()
             } else {
-                visitDao.searchActiveVisits(query)
+                visitDao.searchActiveVisits(query).map { it.toDomain() }
             }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    override suspend fun getTodayVisits(): List<VisitEntity> {
+    override suspend fun getTodayVisits(): List<Visit> {
         return try {
             val calendar = Calendar.getInstance()
 
@@ -99,15 +104,15 @@ class VisitRepositoryImpl(
             calendar.set(Calendar.MILLISECOND, 999)
             val endOfDay = calendar.timeInMillis
 
-            visitDao.getTodayVisits(startOfDay, endOfDay)
+            visitDao.getTodayVisits(startOfDay, endOfDay).map { it.toDomain() }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    override suspend fun getVisitsByDateRange(startDate: Long, endDate: Long): List<VisitEntity> {
+    override suspend fun getVisitsByDateRange(startDate: Long, endDate: Long): List<Visit> {
         return try {
-            visitDao.getVisitsByDateRange(startDate, endDate)
+            visitDao.getVisitsByDateRange(startDate, endDate).map { it.toDomain() }
         } catch (e: Exception) {
             emptyList()
         }
@@ -144,9 +149,9 @@ class VisitRepositoryImpl(
         }
     }
 
-    override suspend fun updateVisit(visit: VisitEntity): Result<Unit> {
+    override suspend fun updateVisit(visit: Visit): Result<Unit> {
         return try {
-            visitDao.updateVisit(visit)
+            visitDao.updateVisit(visit.toEntity())
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
