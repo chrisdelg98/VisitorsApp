@@ -1,6 +1,6 @@
 package com.eflglobal.visitorsapp.ui.components
 
-import android.graphics.ImageFormat
+import android.view.Surface
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -14,7 +14,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.zxing.*
 import com.google.zxing.common.HybridBinarizer
-import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 /**
@@ -34,7 +33,19 @@ fun QRScannerComposable(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val previewView = remember { PreviewView(context) }
+    // Forzar rotación landscape (90 grados) para mantener consistencia
+    val targetRotation = Surface.ROTATION_90
+
+    val previewView = remember {
+        PreviewView(context).apply {
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+            implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+    }
     val executor = remember { Executors.newSingleThreadExecutor() }
 
     var hasScanned by remember { mutableStateOf(false) }
@@ -47,12 +58,16 @@ fun QRScannerComposable(
                 val cameraProvider = cameraProviderFuture.get()
 
                 // Preview
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
+                val preview = Preview.Builder()
+                    .setTargetRotation(targetRotation)
+                    .build()
+                    .also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
 
                 // Image Analysis para escanear QR
                 val imageAnalysis = ImageAnalysis.Builder()
+                    .setTargetRotation(targetRotation)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
                     .also { analysis ->

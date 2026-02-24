@@ -4,8 +4,6 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
@@ -49,20 +47,16 @@ fun AppNavHost(
         navController = navController,
         startDestination = Routes.Home,
         enterTransition = {
-            fadeIn(animationSpec = tween(220)) +
-                slideInHorizontally(animationSpec = tween(220)) { it / 6 }
+            fadeIn(animationSpec = tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         },
         exitTransition = {
-            fadeOut(animationSpec = tween(160)) +
-                slideOutHorizontally(animationSpec = tween(160)) { -it / 6 }
+            fadeOut(animationSpec = tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         },
         popEnterTransition = {
-            fadeIn(animationSpec = tween(200)) +
-                slideInHorizontally(animationSpec = tween(200)) { -it / 6 }
+            fadeIn(animationSpec = tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         },
         popExitTransition = {
-            fadeOut(animationSpec = tween(140)) +
-                slideOutHorizontally(animationSpec = tween(140)) { it / 6 }
+            fadeOut(animationSpec = tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         }
     ) {
         composable(Routes.Home) {

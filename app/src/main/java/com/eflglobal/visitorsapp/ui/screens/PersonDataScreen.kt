@@ -53,10 +53,11 @@ fun PersonDataScreen(
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Obtener nombre detectado del ViewModel
+    // Obtener nombre y documento detectados del ViewModel
     val detectedName = viewModel.getDetectedName() ?: ""
+    val detectedDocNumber = viewModel.getDocumentNumber() ?: ""
 
-    // Si hay un nombre detectado, usarlo como valor inicial
+    // Si hay datos detectados, usarlos como valores iniciales
     var fullName by remember { mutableStateOf(detectedName) }
     var company by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -66,6 +67,13 @@ fun PersonDataScreen(
     var isCapturing by remember { mutableStateOf(false) }
     var countdown by remember { mutableStateOf(0) }
     var profilePhotoPath by remember { mutableStateOf<String?>(null) }
+
+    // Actualizar fullName cuando cambie detectedName
+    LaunchedEffect(detectedName) {
+        if (detectedName.isNotEmpty() && fullName.isEmpty()) {
+            fullName = detectedName
+        }
+    }
 
     // Indicador si el nombre fue detectado automáticamente
     val isNameAutoDetected = detectedName.isNotEmpty()
@@ -129,7 +137,7 @@ fun PersonDataScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Primera fila: Nombre y Apellido (mitad) + Empresa (mitad)
+            // Primera fila: Nombre y Apellido (mitad) + Número de Documento (mitad)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -165,13 +173,54 @@ fun PersonDataScreen(
                     }
                 }
 
+                // Campo número de documento (solo lectura, detectado automáticamente)
+                Column(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = detectedDocNumber,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(if (selectedLanguage == "es") "N° Documento" else "Document No.", fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangePrimary,
+                            focusedLabelColor = OrangePrimary,
+                            unfocusedBorderColor = OrangePrimary.copy(alpha = 0.5f),
+                            disabledBorderColor = OrangePrimary.copy(alpha = 0.3f),
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        enabled = false,
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    )
+
+                    // Indicador que fue detectado automáticamente
+                    if (detectedDocNumber.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "✓ ${Strings.detectedFromDocument(selectedLanguage)}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                            color = OrangePrimary,
+                            modifier = Modifier.padding(start = 12.dp)
+                        )
+                    }
+                }
+            }
+
+            // Segunda fila: Empresa (ancho completo)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 // Campo empresa (opcional)
                 OutlinedTextField(
                     value = company,
                     onValueChange = { company = it },
                     label = { Text("${Strings.company(selectedLanguage)} (${Strings.optional(selectedLanguage)})", fontSize = 12.sp) },
                     placeholder = { Text(Strings.company(selectedLanguage), fontSize = 12.sp) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = SlatePrimary,
@@ -182,7 +231,7 @@ fun PersonDataScreen(
                 )
             }
 
-            // Segunda fila: Email y Teléfono
+            // Tercera fila: Email y Teléfono
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

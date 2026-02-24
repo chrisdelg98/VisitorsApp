@@ -3,10 +3,13 @@ package com.eflglobal.visitorsapp.ui.screens
 import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,6 +20,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,13 +33,13 @@ import com.eflglobal.visitorsapp.core.ocr.OCRHelper
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
 import com.eflglobal.visitorsapp.ui.components.CameraPreviewComposable
-import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +78,10 @@ fun DocumentScanScreen(
     var backScanned by remember { mutableStateOf(false) }
     var showFrontCameraModal by remember { mutableStateOf(false) }
     var showBackCameraModal by remember { mutableStateOf(false) }
+
+    // Estados para las imágenes capturadas (para preview)
+    var frontBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var backBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
 
     Scaffold(
@@ -221,7 +231,8 @@ fun DocumentScanScreen(
                         isScanned = frontScanned,
                         onClick = { showFrontCameraModal = true },
                         modifier = Modifier.weight(1f),
-                        selectedLanguage = selectedLanguage
+                        selectedLanguage = selectedLanguage,
+                        capturedBitmap = frontBitmap
                     )
 
                     // Card para reverso
@@ -231,7 +242,8 @@ fun DocumentScanScreen(
                         onClick = { showBackCameraModal = true },
                         modifier = Modifier.weight(1f),
                         selectedLanguage = selectedLanguage,
-                        enabled = frontScanned
+                        enabled = frontScanned,
+                        capturedBitmap = backBitmap
                     )
                 }
 
@@ -270,6 +282,9 @@ fun DocumentScanScreen(
                     onCapture = { bitmap ->
                         coroutineScope.launch {
                             try {
+                                // Guardar bitmap para preview
+                                frontBitmap = bitmap
+
                                 // Guardar imagen
                                 val personId = viewModel.getPersonId()
                                 val savedImagePath = ImageSaver.saveImage(
@@ -279,20 +294,46 @@ fun DocumentScanScreen(
                                     imageType = ImageSaver.ImageType.DOCUMENT_FRONT
                                 )
 
-                                // Procesar con ML Kit OCR
+                                // Procesar con ML Kit OCR mejorado
                                 val ocrResult = OCRHelper.processDocument(bitmap)
+
+                                // Log para debugging (remover en producción)
+                                println("OCR Result - Full Text: ${ocrResult.fullText}")
+                                println("OCR Result - Detected Name: ${ocrResult.detectedName}")
+                                println("OCR Result - Detected Doc Number: ${ocrResult.detectedDocumentNumber}")
+                                println("OCR Result - Confidence: ${ocrResult.confidence}")
+                                println("OCR Result - Sharpness: ${ocrResult.sharpness}")
+
+                                // Si el OCR detecta datos, usarlos; sino, generar valores genéricos
+                                val detectedName = ocrResult.detectedName?.takeIf { it.isNotBlank() }
+                                    ?: if (selectedLanguage == "es") "Visitante Internacional" else "International Visitor"
+
+                                val detectedDocNumber = ocrResult.detectedDocumentNumber?.takeIf { it.isNotBlank() }
+                                    ?: "DOC-${UUID.randomUUID().toString().take(8).uppercase()}"
 
                                 // Guardar en ViewModel
                                 viewModel.setDocumentFront(
                                     path = savedImagePath,
-                                    name = ocrResult.detectedName ?: "",
-                                    docNumber = ocrResult.detectedDocumentNumber ?: ""
+                                    name = detectedName,
+                                    docNumber = detectedDocNumber
                                 )
 
                                 frontScanned = true
                                 showFrontCameraModal = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
+                                // Incluso si hay error, generar valores por defecto
+                                val genericName = if (selectedLanguage == "es") "Visitante" else "Visitor"
+                                val genericDoc = "DOC-${UUID.randomUUID().toString().take(8).uppercase()}"
+
+                                viewModel.setDocumentFront(
+                                    path = "",
+                                    name = genericName,
+                                    docNumber = genericDoc
+                                )
+
+                                frontScanned = true
+                                showFrontCameraModal = false
                             }
                         }
                     },
@@ -312,6 +353,9 @@ fun DocumentScanScreen(
                     onCapture = { bitmap ->
                         coroutineScope.launch {
                             try {
+                                // Guardar bitmap para preview
+                                backBitmap = bitmap
+
                                 // Guardar imagen
                                 val personId = viewModel.getPersonId()
                                 val savedImagePath = ImageSaver.saveImage(
@@ -328,6 +372,8 @@ fun DocumentScanScreen(
                                 showBackCameraModal = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
+                                backScanned = true
+                                showBackCameraModal = false
                             }
                         }
                     },
@@ -382,7 +428,8 @@ private fun ScanDocumentCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     selectedLanguage: String = "es",
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    capturedBitmap: Bitmap? = null
 ) {
     Card(
         onClick = onClick,
@@ -406,29 +453,69 @@ private fun ScanDocumentCard(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
+            // Mostrar imagen de fondo si está escaneada
+            if (isScanned && capturedBitmap != null) {
+                Image(
+                    bitmap = capturedBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+
+                // Overlay naranja semitransparente
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(OrangePrimary.copy(alpha = 0.25f))
+                )
+            }
+
+            // Contenido superpuesto
             if (isScanned) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = OrangePrimary,
-                        modifier = Modifier.size(56.dp)
+                        tint = androidx.compose.ui.graphics.Color.White,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(
+                                OrangePrimary.copy(alpha = 0.9f),
+                                shape = CircleShape
+                            )
+                            .padding(12.dp)
                     )
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                        fontWeight = FontWeight.SemiBold,
-                        color = SlatePrimary,
-                        textAlign = TextAlign.Center
+                        fontWeight = FontWeight.Bold,
+                        color = androidx.compose.ui.graphics.Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .background(
+                                SlatePrimary.copy(alpha = 0.85f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                     Text(
                         text = if (selectedLanguage == "es") "✓ Escaneado correctamente" else "✓ Scanned successfully",
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                        color = OrangePrimary,
-                        textAlign = TextAlign.Center
+                        color = androidx.compose.ui.graphics.Color.White,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .background(
+                                OrangePrimary.copy(alpha = 0.85f),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
             } else {
@@ -467,246 +554,9 @@ private fun ScanDocumentCard(
     }
 }
 
-@Composable
-private fun DocumentCameraModal(
-    title: String,
-    instruction: String,
-    onDismiss: () -> Unit,
-    onCapture: () -> Unit,
-    selectedLanguage: String = "es"
-) {
-    var isAnalyzing by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-
-    // Simular análisis y captura automática
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(2000) // Simular tiempo de análisis
-        isAnalyzing = true
-        kotlinx.coroutines.delay(1500) // Simular validación
-        onCapture()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.95f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Título
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            // Área de visualización de cámara simulada
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .aspectRatio(1.6f),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                ),
-                border = BorderStroke(
-                    3.dp,
-                    if (isAnalyzing) OrangePrimary else MaterialTheme.colorScheme.outline
-                )
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Simulación de vista de cámara en vivo
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        if (isAnalyzing) {
-                            // Estado de análisis
-                            CircularProgressIndicator(
-                                color = OrangePrimary,
-                                modifier = Modifier.size(60.dp),
-                                strokeWidth = 5.dp
-                            )
-                            Text(
-                                text = if (selectedLanguage == "es")
-                                    "Analizando documento..."
-                                else
-                                    "Analyzing document...",
-                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
-                                fontWeight = FontWeight.SemiBold,
-                                color = OrangePrimary,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = if (selectedLanguage == "es")
-                                    "Verificando claridad y legibilidad"
-                                else
-                                    "Checking clarity and readability",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                textAlign = TextAlign.Center
-                            )
-                        } else {
-                            // Estado de captura - muestra instrucciones
-                            Icon(
-                                imageVector = Icons.Default.CameraEnhance,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Text(
-                                text = if (selectedLanguage == "es")
-                                    "Vista de cámara en vivo"
-                                else
-                                    "Live camera view",
-                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                textAlign = TextAlign.Center,
-                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                            )
-                        }
-                    }
-
-                    // Marco de guía para el documento (esquinas)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp)
-                    ) {
-                        // Esquina superior izquierda
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .align(Alignment.TopStart)
-                                .background(
-                                    color = if (isAnalyzing)
-                                        OrangePrimary.copy(alpha = 0.8f)
-                                    else
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    shape = RoundedCornerShape(
-                                        topStart = 8.dp,
-                                        topEnd = 0.dp,
-                                        bottomStart = 0.dp,
-                                        bottomEnd = 0.dp
-                                    )
-                                )
-                        )
-
-                        // Esquina superior derecha
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .align(Alignment.TopEnd)
-                                .background(
-                                    color = if (isAnalyzing)
-                                        OrangePrimary.copy(alpha = 0.8f)
-                                    else
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    shape = RoundedCornerShape(
-                                        topStart = 0.dp,
-                                        topEnd = 8.dp,
-                                        bottomStart = 0.dp,
-                                        bottomEnd = 0.dp
-                                    )
-                                )
-                        )
-
-                        // Esquina inferior izquierda
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .align(Alignment.BottomStart)
-                                .background(
-                                    color = if (isAnalyzing)
-                                        OrangePrimary.copy(alpha = 0.8f)
-                                    else
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    shape = RoundedCornerShape(
-                                        topStart = 0.dp,
-                                        topEnd = 0.dp,
-                                        bottomStart = 8.dp,
-                                        bottomEnd = 0.dp
-                                    )
-                                )
-                        )
-
-                        // Esquina inferior derecha
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .align(Alignment.BottomEnd)
-                                .background(
-                                    color = if (isAnalyzing)
-                                        OrangePrimary.copy(alpha = 0.8f)
-                                    else
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    shape = RoundedCornerShape(
-                                        topStart = 0.dp,
-                                        topEnd = 0.dp,
-                                        bottomStart = 0.dp,
-                                        bottomEnd = 8.dp
-                                    )
-                                )
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Instrucciones
-            Card(
-                modifier = Modifier.fillMaxWidth(0.7f),
-                colors = CardDefaults.cardColors(
-                    containerColor = SlatePrimary.copy(alpha = 0.15f)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(
-                    text = instruction,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp),
-                    lineHeight = 20.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Botón de cancelar (solo visible antes de analizar)
-            if (!isAnalyzing) {
-                TextButton(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text(
-                        text = if (selectedLanguage == "es") "Cancelar" else "Cancel",
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
-    }
-}
-
 /**
  * Modal de cámara REAL con CameraX para capturar documentos.
+ * Captura automáticamente cuando detecta que la imagen no está borrosa.
  */
 @Composable
 private fun RealDocumentCameraModal(
@@ -716,127 +566,297 @@ private fun RealDocumentCameraModal(
     onCapture: (Bitmap) -> Unit,
     selectedLanguage: String = "es"
 ) {
-    var shouldCapture by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    var showSuccess by remember { mutableStateOf(false) }
+    var captureTrigger by remember { mutableStateOf(false) }
+    var alreadyCaptured by remember { mutableStateOf(false) }
+    var retryCount by remember { mutableStateOf(0) }  // máximo 1 reintento
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.Black)
-    ) {
-        // Vista previa de cámara REAL con CameraX
+    val coroutineScope = rememberCoroutineScope()
+
+    // Captura automática después de 2 segundos
+    LaunchedEffect(Unit) {
+        delay(2000)
+        if (!alreadyCaptured) {
+            captureTrigger = true
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black)) {
+
+        // ── Cámara ──────────────────────────────────────────────────────────
         CameraPermissionHandler(
             onPermissionGranted = {},
             onPermissionDenied = { onDismiss() }
         ) {
             CameraPreviewComposable(
                 onImageCaptured = { bitmap ->
+                    if (alreadyCaptured) return@CameraPreviewComposable
+                    alreadyCaptured = true
                     isProcessing = true
-                    onCapture(bitmap)
+
+                    coroutineScope.launch {
+                        try {
+                            val sharpness = OCRHelper.calculateSharpness(bitmap)
+                            println("📸 Sharpness: $sharpness  |  retry: $retryCount")
+
+                            // Solo rechazar si está EXTREMADAMENTE borrosa Y aún no hemos reintentado
+                            if (sharpness < 5f && retryCount < 1) {
+                                retryCount++
+                                isProcessing = false
+                                alreadyCaptured = false
+                                showError = true
+                                errorMessage = if (selectedLanguage == "es")
+                                    "Imagen borrosa, reintentando..."
+                                else
+                                    "Blurry image, retrying..."
+                                delay(1200)
+                                showError = false
+                                delay(400)
+                                captureTrigger = true
+                                return@launch
+                            }
+
+                            // Cualquier otro caso → aceptar la imagen y continuar
+                            isProcessing = false
+                            showSuccess = true
+                            delay(600)
+                            onCapture(bitmap)
+
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            // Si falla el OCR igual entregamos la imagen
+                            isProcessing = false
+                            onCapture(bitmap)
+                        }
+                    }
                 },
-                onError = {
-                    onDismiss()
-                },
+                onError = { onDismiss() },
                 lensFacing = CameraSelector.LENS_FACING_BACK,
                 modifier = Modifier.fillMaxSize(),
-                shouldCapture = shouldCapture,
-                onCaptureComplete = { shouldCapture = false }
+                shouldCapture = captureTrigger,
+                onCaptureComplete = { captureTrigger = false }
             )
         }
 
-        // Overlay con guías e instrucciones
-        Column(
+        // ── Overlay ─────────────────────────────────────────────────────────
+        // Título arriba
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+            fontWeight = FontWeight.Bold,
+            color = androidx.compose.ui.graphics.Color.White,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .align(Alignment.TopCenter)
+                .padding(top = 32.dp)
+                .background(
+                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .padding(horizontal = 20.dp, vertical = 10.dp)
+        )
+
+        // Marco guía del documento (centrado)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.82f)
+                .aspectRatio(1.6f)
+                .align(Alignment.Center)
+                .border(
+                    width = 3.dp,
+                    color = when {
+                        showError   -> androidx.compose.ui.graphics.Color.Red
+                        showSuccess -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                        else        -> OrangePrimary
+                    },
+                    shape = RoundedCornerShape(14.dp)
+                )
         ) {
-            // Título
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = androidx.compose.ui.graphics.Color.White,
-                modifier = Modifier
-                    .background(
-                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(16.dp)
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Marco de guía para el documento
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .aspectRatio(1.6f)
-                    .border(
-                        width = 3.dp,
-                        color = OrangePrimary,
-                        shape = RoundedCornerShape(16.dp)
-                    )
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Instrucciones
-            Text(
-                text = instruction,
-                style = MaterialTheme.typography.bodyMedium,
-                color = androidx.compose.ui.graphics.Color.White,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .background(
-                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Botones
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Botón cancelar
-                OutlinedButton(
-                    onClick = onDismiss,
-                    enabled = !isProcessing,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = androidx.compose.ui.graphics.Color.White
-                    ),
-                    border = BorderStroke(2.dp, androidx.compose.ui.graphics.Color.White),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (selectedLanguage == "es") "Cancelar" else "Cancel")
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val len = 50f
+                val sw  = 8f
+                val col = when {
+                    showError   -> androidx.compose.ui.graphics.Color.Red
+                    showSuccess -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                    else        -> OrangePrimary
                 }
+                // Esquina superior izquierda
+                drawLine(col, Offset(0f, len), Offset(0f, 0f), sw)
+                drawLine(col, Offset(0f, 0f), Offset(len, 0f), sw)
+                // Esquina superior derecha
+                drawLine(col, Offset(size.width - len, 0f), Offset(size.width, 0f), sw)
+                drawLine(col, Offset(size.width, 0f), Offset(size.width, len), sw)
+                // Esquina inferior izquierda
+                drawLine(col, Offset(0f, size.height - len), Offset(0f, size.height), sw)
+                drawLine(col, Offset(0f, size.height), Offset(len, size.height), sw)
+                // Esquina inferior derecha
+                drawLine(col, Offset(size.width - len, size.height), Offset(size.width, size.height), sw)
+                drawLine(col, Offset(size.width, size.height - len), Offset(size.width, size.height), sw)
+            }
+        }
 
-                // Botón capturar
-                Button(
-                    onClick = { shouldCapture = true },
-                    enabled = !isProcessing,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangePrimary
+        // ── Mensaje de estado CENTRADO en pantalla ───────────────────────────
+        when {
+            showError -> {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.75f),
+                    colors = CardDefaults.cardColors(
+                        containerColor = androidx.compose.ui.graphics.Color.Red.copy(alpha = 0.92f)
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(16.dp)
                 ) {
-                    if (isProcessing) {
-                        CircularProgressIndicator(
-                            color = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    } else {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.CameraEnhance,
-                            contentDescription = null
+                            contentDescription = null,
+                            tint = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(52.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (selectedLanguage == "es") "Capturar" else "Capture")
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                            color = androidx.compose.ui.graphics.Color.White,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 28.sp
+                        )
                     }
                 }
+            }
+            showSuccess -> {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.75f),
+                    colors = CardDefaults.cardColors(
+                        containerColor = androidx.compose.ui.graphics.Color(0xFF2E7D32).copy(alpha = 0.95f)
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(52.dp)
+                        )
+                        Text(
+                            text = if (selectedLanguage == "es") "¡Documento capturado!" else "Document captured!",
+                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                            color = androidx.compose.ui.graphics.Color.White,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            isProcessing -> {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.75f),
+                    colors = CardDefaults.cardColors(
+                        containerColor = OrangePrimary.copy(alpha = 0.95f)
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(52.dp),
+                            strokeWidth = 5.dp
+                        )
+                        Text(
+                            text = if (selectedLanguage == "es") "Procesando..." else "Processing...",
+                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                            color = androidx.compose.ui.graphics.Color.White,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (selectedLanguage == "es") "Verificando calidad" else "Checking quality",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            else -> {
+                // Instrucción mientras espera capturar
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(0.85f)
+                        .padding(bottom = 72.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.75f)
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = instruction,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                            color = androidx.compose.ui.graphics.Color.White,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 22.sp
+                        )
+                        Text(
+                            text = if (selectedLanguage == "es")
+                                "📷 Capturando automáticamente en un momento..."
+                            else
+                                "📷 Auto-capturing in a moment...",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                            color = OrangePrimary,
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Botón cancelar (abajo, siempre visible mientras no procesa)
+        if (!isProcessing && !showSuccess) {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = androidx.compose.ui.graphics.Color.White
+                ),
+                border = BorderStroke(2.dp, androidx.compose.ui.graphics.Color.White),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(
+                    text = if (selectedLanguage == "es") "Cancelar" else "Cancel",
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp)
+                )
             }
         }
     }

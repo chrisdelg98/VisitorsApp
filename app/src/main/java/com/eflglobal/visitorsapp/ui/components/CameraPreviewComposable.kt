@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp.ui.components
 
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.view.Surface
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -14,9 +15,6 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
 
 /**
  * Composable que muestra preview de cámara con CameraX.
@@ -36,8 +34,28 @@ fun CameraPreviewComposable(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    val previewView = remember { PreviewView(context) }
-    val imageCapture = remember { ImageCapture.Builder().build() }
+    // Forzar rotación landscape (90 grados) para mantener consistencia
+    // Esto previene que CameraX intente auto-rotar
+    val targetRotation = Surface.ROTATION_90
+
+    val previewView = remember {
+        PreviewView(context).apply {
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+            implementationMode = PreviewView.ImplementationMode.PERFORMANCE
+            // Configurar el layout para que no se auto-ajuste
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+    }
+
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setTargetRotation(targetRotation)
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
 
     val executor = remember { Executors.newSingleThreadExecutor() }
 
@@ -61,16 +79,19 @@ fun CameraPreviewComposable(
             try {
                 val cameraProvider = cameraProviderFuture.get()
 
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
+                val preview = Preview.Builder()
+                    .setTargetRotation(targetRotation)
+                    .build()
+                    .also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
 
                 val cameraSelector = CameraSelector.Builder()
                     .requireLensFacing(lensFacing)
                     .build()
 
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
+                val camera = cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
                     preview,
