@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.core.validation.DocumentValidator
 import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
@@ -45,7 +46,6 @@ import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DocumentScanScreen
@@ -270,21 +270,22 @@ fun DocumentScanScreen(
                                     personId  = personId,
                                     imageType = ImageSaver.ImageType.DOCUMENT_FRONT
                                 )
-                                val name = ocrData?.detectedName?.takeIf { it.isNotBlank() }
-                                    ?: if (selectedLanguage == "es") "Visitante Internacional" else "International Visitor"
-                                val doc  = ocrData?.detectedDocNumber?.takeIf { it.isNotBlank() }
-                                    ?: "DOC-${UUID.randomUUID().toString().take(8).uppercase()}"
-                                viewModel.setDocumentFront(path = path, name = name, docNumber = doc)
-                                frontScanned   = true
+                                viewModel.setDocumentFront(
+                                    path       = path,
+                                    firstName  = ocrData?.firstName,
+                                    lastName   = ocrData?.lastName,
+                                    docNumber  = ocrData?.detectedDocNumber,
+                                    source     = ocrData?.extractionSource
+                                        ?: DocumentDataExtractor.ExtractionSource.NONE,
+                                    confidence = ocrData?.extractionConfidence
+                                        ?: DocumentDataExtractor.Confidence.NONE
+                                )
+                                frontScanned    = true
                                 showFrontCamera = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                viewModel.setDocumentFront(
-                                    path      = "",
-                                    name      = if (selectedLanguage == "es") "Visitante" else "Visitor",
-                                    docNumber = "DOC-${UUID.randomUUID().toString().take(8).uppercase()}"
-                                )
-                                frontScanned   = true
+                                viewModel.setDocumentFront(path = "")
+                                frontScanned    = true
                                 showFrontCamera = false
                             }
                         }

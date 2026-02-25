@@ -80,7 +80,8 @@ fun AppNavHost(
             DocumentScanScreen(
                 onContinue = { navController.navigate(Routes.PersonData) },
                 onBack = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage
+                selectedLanguage = selectedLanguage,
+                viewModel = newVisitViewModel
             )
         }
         composable(Routes.RecurrentSearch) {

@@ -1,8 +1,8 @@
 package com.eflglobal.visitorsapp.core.validation
 
 import android.graphics.Bitmap
+import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlin.coroutines.resume
@@ -90,11 +90,17 @@ object DocumentValidator {
     data class OcrData(
         val fullText: String,
         val detectedName: String?,
+        val firstName: String?,
+        val lastName: String?,
         val detectedDocNumber: String?,
         val detectedDob: String?,
         val lineCount: Int,
         val wordCount: Int,
-        val charCount: Int
+        val charCount: Int,
+        val extractionSource: DocumentDataExtractor.ExtractionSource =
+            DocumentDataExtractor.ExtractionSource.NONE,
+        val extractionConfidence: DocumentDataExtractor.Confidence =
+            DocumentDataExtractor.Confidence.NONE
     )
 
     // ─── Public API ───────────────────────────────────────────────────────────
@@ -167,13 +173,17 @@ object DocumentValidator {
             log("STEP 4 — OCR failed: ${e.message}")
             // OCR failure is non-blocking — proceed with empty data
             OcrData(
-                fullText       = "",
-                detectedName   = null,
-                detectedDocNumber = null,
-                detectedDob    = null,
-                lineCount      = 0,
-                wordCount      = 0,
-                charCount      = 0
+                fullText             = "",
+                detectedName         = null,
+                firstName            = null,
+                lastName             = null,
+                detectedDocNumber    = null,
+                detectedDob          = null,
+                lineCount            = 0,
+                wordCount            = 0,
+                charCount            = 0,
+                extractionSource     = DocumentDataExtractor.ExtractionSource.NONE,
+                extractionConfidence = DocumentDataExtractor.Confidence.NONE
             )
         }
         log("STEP 4 — OCR: chars=${ocrData.charCount} lines=${ocrData.lineCount} name=${ocrData.detectedName} docNum=${ocrData.detectedDocNumber}")
@@ -259,10 +269,10 @@ object DocumentValidator {
         val imgW = src.width.toFloat()
         val imgH = src.height.toFloat()
 
-        // 55% of image width corresponds to the 70% guide-frame width
-        // (camera FOV is wider than the guide frame)
-        val cropW      = (imgW * 0.55f).toInt()
-        val cropH      = minOf((cropW / 1.6f).toInt(), (imgH * 0.82f).toInt())
+        // 65% of image width — generous crop so field labels near edges are not cut.
+        // (was 55%, increased to capture more of the document area)
+        val cropW      = (imgW * 0.65f).toInt()
+        val cropH      = minOf((cropW / 1.6f).toInt(), (imgH * 0.88f).toInt())
         val finalCropW = (cropH * 1.6f).toInt().coerceAtMost(cropW)
 
         val left  = ((imgW - finalCropW) / 2f).toInt().coerceAtLeast(0)
@@ -322,23 +332,78 @@ object DocumentValidator {
     // ─── STEP 4: OCR ─────────────────────────────────────────────────────────
 
     /**
-     * Runs ML Kit OCR on [bitmap] and returns structured [OcrData].
+     * Runs ML Kit OCR + DocumentDataExtractor (MRZ → Keyed OCR → Heuristic)
+     * on [bitmap] and returns structured [OcrData].
+     *
+     * Enhancement: if the first OCR pass yields < 20 chars, a second pass is run
+     * on a slightly up-scaled version of the bitmap to improve recognition of
+     * small text (e.g. when the document is far from the camera).
      */
     suspend fun runOcr(bitmap: Bitmap): OcrData = suspendCoroutine { cont ->
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        recognizer.process(InputImage.fromBitmap(bitmap, 0))
+
+        // Scale up if image is small — ML Kit works best at 1080p+ resolution
+        val processedBitmap = if (bitmap.width < 800 || bitmap.height < 500) {
+            val scale = maxOf(800f / bitmap.width, 500f / bitmap.height)
+            val scaledW = (bitmap.width  * scale).toInt().coerceAtLeast(1)
+            val scaledH = (bitmap.height * scale).toInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(bitmap, scaledW, scaledH, true)
+        } else bitmap
+
+        // Rotation is already applied in proxyToBitmap — pass 0 to ML Kit
+        recognizer.process(InputImage.fromBitmap(processedBitmap, 0))
             .addOnSuccessListener { visionText ->
-                val fullText  = visionText.text
-                val lines     = visionText.textBlocks.sumOf { it.lines.size }
-                val words     = fullText.trim().split(Regex("\\s+")).count { it.length >= 2 }
-                val chars     = fullText.trim().length
-                val name      = extractName(fullText, visionText)
-                val docNumber = extractDocNumber(fullText)
-                val dob       = extractDateOfBirth(fullText)
-                cont.resume(OcrData(fullText, name, docNumber, dob, lines, words, chars))
+                val fullText = visionText.text
+                val lines    = visionText.textBlocks.sumOf { it.lines.size }
+                val words    = fullText.trim().split(Regex("\\s+")).count { it.length >= 2 }
+                val chars    = fullText.trim().length
+
+                log("STEP 4 OCR — ${processedBitmap.width}×${processedBitmap.height} → chars=$chars lines=$lines")
+                log("STEP 4 OCR full text: ${fullText.take(300)}")
+
+                if (processedBitmap !== bitmap) processedBitmap.recycle()
+
+                // Run the three-layer extractor
+                val extraction = DocumentDataExtractor.extractFromText(fullText, visionText)
+
+                val detectedName = when {
+                    extraction.firstName != null && extraction.lastName != null ->
+                        "${extraction.firstName} ${extraction.lastName}"
+                    extraction.firstName != null -> extraction.firstName
+                    extraction.lastName  != null -> extraction.lastName
+                    else -> null
+                }
+
+                cont.resume(OcrData(
+                    fullText             = fullText,
+                    detectedName         = detectedName,
+                    firstName            = extraction.firstName,
+                    lastName             = extraction.lastName,
+                    detectedDocNumber    = extraction.documentNumber,
+                    detectedDob          = extraction.dateOfBirth,
+                    lineCount            = lines,
+                    wordCount            = words,
+                    charCount            = chars,
+                    extractionSource     = extraction.source,
+                    extractionConfidence = extraction.confidence
+                ))
             }
-            .addOnFailureListener {
-                cont.resume(OcrData("", null, null, null, 0, 0, 0))
+            .addOnFailureListener { e ->
+                log("STEP 4 OCR FAILED: ${e.message}")
+                if (processedBitmap !== bitmap) processedBitmap.recycle()
+                cont.resume(OcrData(
+                    fullText             = "",
+                    detectedName         = null,
+                    firstName            = null,
+                    lastName             = null,
+                    detectedDocNumber    = null,
+                    detectedDob          = null,
+                    lineCount            = 0,
+                    wordCount            = 0,
+                    charCount            = 0,
+                    extractionSource     = DocumentDataExtractor.ExtractionSource.NONE,
+                    extractionConfidence = DocumentDataExtractor.Confidence.NONE
+                ))
             }
     }
 
@@ -529,148 +594,6 @@ object DocumentValidator {
             .filter { it.length >= 3 }
             .toSet()
 
-    /**
-     * Extracts full name from OCR text.
-     * Strategy: look for name-field keywords, then read the following lines.
-     * Falls back to heuristic (all-letter lines ≥6 chars).
-     */
-    private fun extractName(fullText: String, visionText: Text): String? {
-        val lines = fullText.split("\n").map { it.trim() }.filter { it.isNotBlank() }
-
-        val nameKeywords  = listOf(
-            "nombres", "nombre", "forename", "given name", "given names",
-            "first name", "primer nombre", "prénom", "prenom"
-        )
-        val surnameKeywords = listOf(
-            "apellidos", "apellido", "surname", "last name",
-            "family name", "nom", "nom de famille"
-        )
-
-        fun findAfterKeyword(keywords: List<String>): String? {
-            for (i in lines.indices) {
-                if (keywords.any { lines[i].lowercase().contains(it) }) {
-                    // Try same line (after the colon / keyword)
-                    val inline = lines[i].replace(Regex("(?i)(${keywords.joinToString("|")})\\s*[:.]?\\s*"), "").trim()
-                    if (isNameCandidate(inline)) return cleanName(inline)
-                    // Try next 1–3 lines
-                    for (j in 1..3) {
-                        if (i + j < lines.size && isNameCandidate(lines[i + j])) {
-                            return cleanName(lines[i + j])
-                        }
-                    }
-                }
-            }
-            return null
-        }
-
-        val first  = findAfterKeyword(nameKeywords)
-        val last   = findAfterKeyword(surnameKeywords)
-
-        if (first != null && last != null) return cleanName("$first $last")
-        if (first != null) return first
-        if (last  != null) return last
-
-        // Heuristic: long all-letter uppercase line
-        for (line in lines) {
-            if (isNameCandidate(line) && line.length >= 6 &&
-                line == line.uppercase() && line.count { it.isLetter() } >= 4) {
-                return cleanName(line)
-            }
-        }
-
-        // Relaxed heuristic
-        for (block in visionText.textBlocks) {
-            for (ln in block.lines) {
-                val t = ln.text.trim()
-                if (isNameCandidate(t) && t.length >= 6) return cleanName(t)
-            }
-        }
-
-        return null
-    }
-
-    private fun isNameCandidate(text: String): Boolean {
-        if (text.length < 2) return false
-        val letters = text.count { it.isLetter() }
-        if (letters < text.length * 0.55) return false
-        if (text.count { it.isDigit() } > 2) return false
-        return text.all { it.isLetter() || it.isWhitespace() || it == '\'' || it == '-' || it == '.' || it == ',' }
-    }
-
-    private fun cleanName(name: String): String =
-        name.trim()
-            .replace(Regex("\\s+"), " ")
-            .split(" ")
-            .joinToString(" ") { w ->
-                if (w.isNotEmpty()) w.lowercase().replaceFirstChar { it.uppercase() } else w
-            }
-
-    /**
-     * Extracts document number using priority-ordered patterns + keyword search.
-     */
-    private fun extractDocNumber(text: String): String? {
-        // P1: DUI salvadoreño — most specific, check first
-        Regex("""\b(\d{8})-(\d)\b""").find(text)?.let { return it.value }
-
-        // P2: DUI without hyphen
-        Regex("""\b(\d{9})\b""").find(text)?.let { v ->
-            val n = v.value; return "${n.take(8)}-${n[8]}"
-        }
-
-        // P3: Passport — one/two letters + 6-8 digits
-        Regex("""\b([A-Z]{1,2}\d{6,8})\b""").find(text)?.let { return it.value }
-
-        // P4: Generic ID — 6–15 digits (must be isolated)
-        Regex("""\b(\d{7,15})\b""").find(text)?.let { return it.value }
-
-        // P5: Keyword-guided search
-        val keywordsId = listOf(
-            "dui", "número único de identidad", "numero unico de identidad",
-            "id number", "document number", "número de documento",
-            "numero de identificacion", "identificacion", "passport no",
-            "passport number", "cedula", "dni", "no.", "nº", "num"
-        )
-        val lines = text.split("\n")
-        for (i in lines.indices) {
-            if (keywordsId.any { lines[i].lowercase().contains(it) }) {
-                val numOnSameLine = Regex("""[\d-]{6,}""").find(lines[i])?.value
-                if (numOnSameLine != null) return numOnSameLine.replace(Regex("[^\\d-]"), "")
-                for (j in 1..3) {
-                    if (i + j < lines.size) {
-                        val num = Regex("""[\d-]{6,}""").find(lines[i + j])?.value
-                        if (num != null) return num.replace(Regex("[^\\d-]"), "")
-                    }
-                }
-            }
-        }
-
-        return null
-    }
-
-    /** Attempts to extract a date of birth from OCR text. */
-    private fun extractDateOfBirth(text: String): String? {
-        val dobKeywords = listOf(
-            "nacimiento", "fecha de nacimiento", "date of birth",
-            "dob", "born", "f. nac"
-        )
-        val datePattern = Regex("""\b(\d{2}[/.\-]\d{2}[/.\-]\d{4}|\d{4}[/.\-]\d{2}[/.\-]\d{2})\b""")
-
-        val lines = text.split("\n")
-        for (i in lines.indices) {
-            if (dobKeywords.any { lines[i].lowercase().contains(it) }) {
-                // Same line
-                datePattern.find(lines[i])?.let { return it.value }
-                // Next 2 lines
-                for (j in 1..2) {
-                    if (i + j < lines.size) {
-                        datePattern.find(lines[i + j])?.let { return it.value }
-                    }
-                }
-            }
-        }
-        // Fallback: any date in the text
-        return datePattern.find(text)?.value
-    }
 
     // ─── pHash ────────────────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.eflglobal.visitorsapp.domain.model.VisitReasonKeys
 import com.eflglobal.visitorsapp.domain.usecase.person.CreatePersonUseCase
 import com.eflglobal.visitorsapp.domain.usecase.person.GetPersonByDocumentUseCase
@@ -48,6 +49,14 @@ class NewVisitViewModel(
     /** Document number detected by OCR — may be null. */
     private var documentNumber: String? = null
 
+    /** Source layer that produced the name/docNumber (MRZ, OCR_KEYED, HEURISTIC, NONE). */
+    private var extractionSource: DocumentDataExtractor.ExtractionSource =
+        DocumentDataExtractor.ExtractionSource.NONE
+
+    /** Confidence level of the extraction. */
+    private var extractionConfidence: DocumentDataExtractor.Confidence =
+        DocumentDataExtractor.Confidence.NONE
+
     // ── Public accessors ──────────────────────────────────────────────────────
 
     fun getPersonId(): String {
@@ -71,17 +80,25 @@ class NewVisitViewModel(
 
     /**
      * Called after front document is scanned.
-     * [name] is the full OCR name (may contain both first and last).
-     * Split heuristic: first word = firstName, remainder = lastName.
+     *
+     * [firstName] and [lastName] come from DocumentDataExtractor (MRZ → OCR keyed → heuristic).
+     * Both may be null when extraction failed — the form will show empty fields for manual entry.
+     * We never invent a placeholder name here.
      */
-    fun setDocumentFront(path: String, name: String? = null, docNumber: String? = null) {
-        documentFrontPath = path
-        documentNumber    = docNumber
-        if (!name.isNullOrBlank()) {
-            val parts = name.trim().split(" ", limit = 2)
-            detectedFirstName = parts.getOrNull(0)?.trim()
-            detectedLastName  = parts.getOrNull(1)?.trim()
-        }
+    fun setDocumentFront(
+        path: String,
+        firstName: String? = null,
+        lastName: String? = null,
+        docNumber: String? = null,
+        source: DocumentDataExtractor.ExtractionSource = DocumentDataExtractor.ExtractionSource.NONE,
+        confidence: DocumentDataExtractor.Confidence   = DocumentDataExtractor.Confidence.NONE
+    ) {
+        documentFrontPath    = path
+        documentNumber       = docNumber?.ifBlank { null }
+        detectedFirstName    = firstName?.ifBlank { null }
+        detectedLastName     = lastName?.ifBlank { null }
+        extractionSource     = source
+        extractionConfidence = confidence
     }
 
     fun setDocumentBack(path: String) { documentBackPath = path }
@@ -94,7 +111,9 @@ class NewVisitViewModel(
             .joinToString(" ")
             .ifBlank { null }
 
-    fun getDocumentNumber(): String? = documentNumber
+    fun getDocumentNumber(): String?                               = documentNumber
+    fun getExtractionSource(): DocumentDataExtractor.ExtractionSource = extractionSource
+    fun getExtractionConfidence(): DocumentDataExtractor.Confidence   = extractionConfidence
 
     // ── Business logic ────────────────────────────────────────────────────────
 
@@ -174,17 +193,19 @@ class NewVisitViewModel(
     }
 
     fun resetState() {
-        _uiState.value    = NewVisitUiState.Idle
-        documentType      = ""
-        visitorType       = VisitReasonKeys.VISITOR
-        visitReason       = VisitReasonKeys.VISITOR
-        visitReasonCustom = null
-        documentFrontPath = null
-        documentBackPath  = null
-        detectedFirstName = null
-        detectedLastName  = null
-        documentNumber    = null
-        personId          = null
+        _uiState.value       = NewVisitUiState.Idle
+        documentType         = ""
+        visitorType          = VisitReasonKeys.VISITOR
+        visitReason          = VisitReasonKeys.VISITOR
+        visitReasonCustom    = null
+        documentFrontPath    = null
+        documentBackPath     = null
+        detectedFirstName    = null
+        detectedLastName     = null
+        documentNumber       = null
+        extractionSource     = DocumentDataExtractor.ExtractionSource.NONE
+        extractionConfidence = DocumentDataExtractor.Confidence.NONE
+        personId             = null
     }
 }
 

@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.data.local.AppDatabase
 import com.eflglobal.visitorsapp.data.local.mapper.toDomain
@@ -67,9 +68,11 @@ fun PersonDataScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     // ── OCR pre-fill ──────────────────────────────────────────────────────────
-    val detectedFirstName = viewModel.getDetectedFirstName() ?: ""
-    val detectedLastName  = viewModel.getDetectedLastName()  ?: ""
-    val detectedDocNumber = viewModel.getDocumentNumber()    ?: ""
+    val detectedFirstName  = viewModel.getDetectedFirstName() ?: ""
+    val detectedLastName   = viewModel.getDetectedLastName()  ?: ""
+    val detectedDocNumber  = viewModel.getDocumentNumber()    ?: ""
+    val extractionSource   = viewModel.getExtractionSource()
+    val extractionConf     = viewModel.getExtractionConfidence()
 
     var firstName      by remember { mutableStateOf(detectedFirstName) }
     var lastName       by remember { mutableStateOf(detectedLastName) }
@@ -168,8 +171,18 @@ fun PersonDataScreen(
                         style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                         fontWeight = FontWeight.SemiBold,
                         color      = SlatePrimary,
-                        modifier   = Modifier.padding(bottom = 12.dp)
+                        modifier   = Modifier.padding(bottom = 8.dp)
                     )
+
+                    // ── Extraction status banner ──────────────────────────────
+                    ExtractionStatusBanner(
+                        source           = extractionSource,
+                        confidence       = extractionConf,
+                        hasName          = detectedFirstName.isNotEmpty() || detectedLastName.isNotEmpty(),
+                        selectedLanguage = selectedLanguage
+                    )
+
+                    Spacer(Modifier.height(8.dp))
 
                     // First name
                     FieldWithOcrHint(
@@ -214,13 +227,10 @@ fun PersonDataScreen(
                         textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     )
                     if (detectedDocNumber.isNotEmpty()) {
-                        Text(
-                            "✓ ${Strings.detectedFromDocument(selectedLanguage)}",
-                            style    = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color    = OrangePrimary,
-                            modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 4.dp)
-                        )
-                    } else Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(10.dp))
+                    } else {
+                        Spacer(Modifier.height(10.dp))
+                    }
 
                     // Company (optional)
                     OutlinedTextField(
@@ -417,7 +427,7 @@ fun PersonDataScreen(
                     // Photo preview card — fills the width of the right column
                     Card(
                         onClick   = { if (!photoTaken) isCapturing = true },
-                        modifier  = Modifier.fillMaxWidth().aspectRatio(1f),
+                        modifier  = Modifier.fillMaxWidth().aspectRatio(2f),
                         shape     = RoundedCornerShape(16.dp),
                         colors    = CardDefaults.cardColors(
                             containerColor = if (photoTaken) OrangePrimary.copy(alpha = 0.08f)
@@ -435,7 +445,7 @@ fun PersonDataScreen(
                                 Image(
                                     bitmap             = capturedBitmap!!.asImageBitmap(),
                                     contentDescription = null,
-                                    contentScale       = ContentScale.Crop,
+                                    contentScale       = ContentScale.FillWidth,
                                     modifier           = Modifier.fillMaxSize()
                                         .clip(RoundedCornerShape(16.dp))
                                 )
@@ -582,6 +592,81 @@ fun PersonDataScreen(
     }
 }
 
+// ── Extraction status banner ──────────────────────────────────────────────────
+@Composable
+private fun ExtractionStatusBanner(
+    source: DocumentDataExtractor.ExtractionSource,
+    confidence: DocumentDataExtractor.Confidence,
+    hasName: Boolean,
+    selectedLanguage: String
+) {
+    val (bgColor, icon, label) = when {
+        source == DocumentDataExtractor.ExtractionSource.MRZ -> Triple(
+            androidx.compose.ui.graphics.Color(0xFF1B5E20).copy(alpha = 0.12f),
+            "✦",
+            if (selectedLanguage == "es")
+                "✦ Datos detectados vía MRZ (alta confianza)"
+            else
+                "✦ Data detected via MRZ (high confidence)"
+        )
+        source == DocumentDataExtractor.ExtractionSource.OCR_KEYED && hasName -> Triple(
+            OrangePrimary.copy(alpha = 0.10f),
+            "◎",
+            if (selectedLanguage == "es")
+                "◎ Datos detectados vía OCR — verifique los campos"
+            else
+                "◎ Data detected via OCR — please verify the fields"
+        )
+        source == DocumentDataExtractor.ExtractionSource.OCR_HEURISTIC && hasName -> Triple(
+            androidx.compose.ui.graphics.Color(0xFFF57F17).copy(alpha = 0.10f),
+            "⚠",
+            if (selectedLanguage == "es")
+                "⚠ Datos aproximados — verifique y corrija si es necesario"
+            else
+                "⚠ Approximate data — please verify and correct if needed"
+        )
+        else -> Triple(
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            "✎",
+            if (selectedLanguage == "es")
+                "✎ No se detectaron datos — ingrese la información manualmente"
+            else
+                "✎ No data detected — please fill in the fields manually"
+        )
+    }
+
+    val textColor = when (source) {
+        DocumentDataExtractor.ExtractionSource.MRZ ->
+            androidx.compose.ui.graphics.Color(0xFF1B5E20)
+        DocumentDataExtractor.ExtractionSource.OCR_KEYED ->
+            OrangePrimary
+        DocumentDataExtractor.ExtractionSource.OCR_HEURISTIC ->
+            androidx.compose.ui.graphics.Color(0xFFE65100)
+        else ->
+            MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(bgColor, RoundedCornerShape(8.dp))
+            .border(
+                1.dp,
+                textColor.copy(alpha = 0.25f),
+                RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text  = label,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+            color = textColor,
+            fontWeight = FontWeight.Medium,
+            lineHeight = 15.sp
+        )
+    }
+}
+
 // ── Reusable field with OCR hint ──────────────────────────────────────────────
 @Composable
 private fun FieldWithOcrHint(
@@ -606,14 +691,6 @@ private fun FieldWithOcrHint(
         singleLine  = true,
         textStyle   = LocalTextStyle.current.copy(fontSize = 13.sp)
     )
-    if (ocr) {
-        Text(
-            "✓ ${Strings.detectedFromDocument(selectedLanguage)}",
-            style    = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-            color    = OrangePrimary,
-            modifier = Modifier.padding(start = 12.dp, top = 2.dp)
-        )
-    }
 }
 
 // ── Selfie capture modal — AUTO countdown, no manual button ──────────────────

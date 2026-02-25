@@ -202,11 +202,82 @@ private fun takePicture(
 }
 
 private fun proxyToBitmap(proxy: ImageProxy): Bitmap {
-    val buf   = proxy.planes[0].buffer
-    val bytes = ByteArray(buf.remaining()).also { buf.get(it) }
-    val bmp   = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-    val m     = Matrix().apply { postRotate(proxy.imageInfo.rotationDegrees.toFloat()) }
-    return Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+    // ImageCapture.OnImageCapturedCallback delivers the image in one of two formats:
+    //   • JPEG  → planes[0] contains a full JPEG byte array → BitmapFactory works fine.
+    //   • YUV_420_888 → three planes (Y, U, V) → must convert manually.
+    //
+    // We detect the format by checking the number of planes.
+    // A single-plane proxy is always JPEG; three-plane is YUV.
+    val rotationDegrees = proxy.imageInfo.rotationDegrees
+
+    val bmp = if (proxy.planes.size == 1) {
+        // ── JPEG path ─────────────────────────────────────────────────────────
+        val buf   = proxy.planes[0].buffer
+        val bytes = ByteArray(buf.remaining()).also { buf.get(it) }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: throw IllegalStateException("BitmapFactory returned null for JPEG proxy")
+    } else {
+        // ── YUV_420_888 path ──────────────────────────────────────────────────
+        yuvProxyToBitmap(proxy)
+    }
+
+    // Apply rotation so the bitmap is always upright
+    return if (rotationDegrees != 0) {
+        val m = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+        Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+            .also { if (it !== bmp) bmp.recycle() }
+    } else bmp
+}
+
+/**
+ * Converts a YUV_420_888 [ImageProxy] to an ARGB [Bitmap].
+ * Uses Android's YuvImage + JPEG compression as a reliable conversion path
+ * that works across all Android versions and device manufacturers.
+ */
+private fun yuvProxyToBitmap(proxy: ImageProxy): Bitmap {
+    val yPlane = proxy.planes[0]
+    val uPlane = proxy.planes[1]
+    val vPlane = proxy.planes[2]
+
+    val yBuf = yPlane.buffer
+    val uBuf = uPlane.buffer
+    val vBuf = vPlane.buffer
+
+    val ySize = yBuf.remaining()
+    val uSize = uBuf.remaining()
+    val vSize = vBuf.remaining()
+
+    // Build NV21 byte array (Y plane then interleaved V,U)
+    val nv21 = ByteArray(ySize + uSize + vSize)
+    yBuf.get(nv21, 0, ySize)
+
+    // U and V planes may be interleaved (NV12) or separate.
+    // We reconstruct NV21 (V before U) regardless.
+    val vBytes = ByteArray(vSize).also { vBuf.get(it) }
+    val uBytes = ByteArray(uSize).also { uBuf.get(it) }
+
+    var nv21Idx = ySize
+    for (i in vBytes.indices) {
+        nv21[nv21Idx++] = vBytes[i]
+        if (i < uBytes.size) nv21[nv21Idx++] = uBytes[i]
+    }
+
+    val yuvImage = android.graphics.YuvImage(
+        nv21,
+        android.graphics.ImageFormat.NV21,
+        proxy.width,
+        proxy.height,
+        null
+    )
+    val out = java.io.ByteArrayOutputStream()
+    yuvImage.compressToJpeg(
+        android.graphics.Rect(0, 0, proxy.width, proxy.height),
+        95,
+        out
+    )
+    val jpegBytes = out.toByteArray()
+    return android.graphics.BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+        ?: throw IllegalStateException("BitmapFactory returned null for YUV→JPEG conversion")
 }
 
 /**
