@@ -346,6 +346,96 @@ object OCRHelper {
     }
 
     /**
+     * Resultado de la verificación de duplicado por OCR.
+     */
+    data class DuplicateCheckResult(
+        val isDuplicate: Boolean,
+        /** Similarity score 0.0–1.0: higher means more similar text content */
+        val similarity: Float,
+        val reason: String
+    )
+
+    /**
+     * Compares two document images using ML Kit OCR text similarity to determine
+     * if they are the same side of a document.
+     *
+     * Strategy:
+     *  1. Extract full OCR text from both images.
+     *  2. Tokenize each text into a set of meaningful words (≥ 3 chars, letters/digits only).
+     *  3. Compute Jaccard similarity = |intersection| / |union|.
+     *  4. If similarity >= [threshold], the images are considered duplicates.
+     *
+     * A threshold of 0.55 works well in practice:
+     *  - Front vs front of the SAME card → similarity ~0.80–1.0  → DUPLICATE
+     *  - Front vs back of the SAME card  → similarity ~0.10–0.35 → NOT duplicate
+     *
+     * If either image yields very little OCR text (< 6 tokens), we fall back to
+     * [fallbackResult] so the caller can decide (default = not a duplicate, to
+     * avoid blocking the user when OCR has no data to compare).
+     */
+    suspend fun isSameSideByOCR(
+        referenceBitmap: Bitmap,
+        candidateBitmap: Bitmap,
+        threshold: Float = 0.55f,
+        fallbackResult: Boolean = false
+    ): DuplicateCheckResult {
+        return try {
+            val refText  = extractRawText(referenceBitmap)
+            val canText  = extractRawText(candidateBitmap)
+
+            println("🔤 OCR duplicate check — ref tokens: ${tokenize(refText).size}, cand tokens: ${tokenize(canText).size}")
+
+            val refTokens  = tokenize(refText)
+            val candTokens = tokenize(canText)
+
+            // Not enough text in either image → cannot reliably compare
+            if (refTokens.size < 6 || candTokens.size < 6) {
+                println("🔤 OCR duplicate → insufficient tokens, fallback=$fallbackResult")
+                return DuplicateCheckResult(
+                    isDuplicate = fallbackResult,
+                    similarity  = 0f,
+                    reason      = "insufficient_text"
+                )
+            }
+
+            val intersection = refTokens.intersect(candTokens).size.toFloat()
+            val union        = refTokens.union(candTokens).size.toFloat()
+            val similarity   = if (union == 0f) 0f else intersection / union
+
+            println("🔤 OCR duplicate → similarity=${"%.2f".format(similarity)} (threshold=$threshold) intersection=$intersection union=$union")
+
+            DuplicateCheckResult(
+                isDuplicate = similarity >= threshold,
+                similarity  = similarity,
+                reason      = if (similarity >= threshold) "same_side" else "different_side"
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            DuplicateCheckResult(isDuplicate = fallbackResult, similarity = 0f, reason = "ocr_error")
+        }
+    }
+
+    /** Runs ML Kit OCR on [bitmap] and returns the raw text string. */
+    private suspend fun extractRawText(bitmap: Bitmap): String = suspendCoroutine { cont ->
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        recognizer.process(InputImage.fromBitmap(bitmap, 0))
+            .addOnSuccessListener { cont.resume(it.text) }
+            .addOnFailureListener { cont.resume("") }
+    }
+
+    /**
+     * Converts OCR text into a normalized set of tokens.
+     * - Lowercase
+     * - Only alphanumeric tokens with at least 3 characters
+     * - Numbers kept as-is (important for document numbers / dates)
+     */
+    private fun tokenize(text: String): Set<String> =
+        text.lowercase()
+            .split(Regex("[^a-z0-9]+"))
+            .filter { it.length >= 3 }
+            .toSet()
+
+    /**
      * Valida si un documento tiene suficiente texto legible y está nítido.
      *
      * @param bitmap Imagen del documento
@@ -361,5 +451,184 @@ object OCRHelper {
             false
         }
     }
-}
 
+    /**
+     * Resultado de la validación de documento.
+     */
+    data class DocumentValidationResult(
+        val isDocument: Boolean,
+        val reason: String
+    )
+
+    /**
+     * Palabras clave EXCLUSIVAS del FRENTE de documentos de identidad.
+     * Se eliminaron palabras genéricas que pueden aparecer en laptops, carteles, etc.
+     */
+    private val DOCUMENT_KEYWORDS = setOf(
+        // Español — solo aparecen en documentos oficiales
+        "nombres", "apellidos", "apellido",
+        "nacimiento", "vencimiento", "emisión", "emision",
+        "identidad", "identificacion", "identificación",
+        "dui", "domicilio", "nacionalidad",
+        "ministerio", "república", "republica",
+        "salvadoreño", "salvadorena",
+        // Inglés / internacional — exclusivos de documentos
+        "surname", "forename", "nationality",
+        "expiry", "expiration", "date of birth",
+        "passport no", "passport number",
+        "identity card", "id card",
+        // Zona MRZ de pasaportes (siempre presente en pasaportes)
+        "<<<"
+    )
+
+    /**
+     * Palabras clave del REVERSO de documentos de identidad.
+     * El reverso no tiene nombre/apellido pero sí dirección, municipio, etc.
+     * También incluye patrones típicos de reversos de carnets (firma, huella, etc.)
+     */
+    private val BACK_SIDE_KEYWORDS = setOf(
+        // Dirección / domicilio
+        "domicilio", "dirección", "direccion", "address", "residencia",
+        // División político-administrativa
+        "municipio", "departamento", "canton", "cantón", "barrio", "colonia",
+        "ciudad", "distrito", "provincia", "estado", "region", "región",
+        // Campos típicos de reverso
+        "profesión", "profesion", "ocupacion", "ocupación", "profession",
+        "estatura", "height", "talla",
+        "firma", "signature", "huella",
+        "estado civil", "civil status", "marital",
+        "lugar de nacimiento", "birthplace", "lugar nacimiento",
+        "emisión", "emision", "issued", "expedido",
+        "vencimiento", "expiry", "expiration", "expires",
+        "código", "codigo", "code",
+        // Instituciones emisoras que a veces aparecen en el reverso
+        "ministerio", "registro", "civil", "republic", "republica", "república",
+        "government", "gobierno",
+        // Zona MRZ (algunos documentos la tienen al reverso)
+        "<<<"
+    )
+
+    /** Patrones de números de documento — evidencia muy fuerte de que es un carnet/pasaporte */
+    private val DOC_NUMBER_PATTERNS = listOf(
+        Regex("""\b\d{8}-\d\b"""),                  // DUI salvadoreño: 12345678-9
+        Regex("""\b\d{9}\b"""),                      // DUI sin guión
+        Regex("""\b[A-Z]{1,2}\d{6,8}\b"""),          // Pasaporte: PA123456
+        Regex("""\b\d{2}/\d{2}/\d{4}\b"""),          // Fecha: 01/01/1990
+        Regex("""\b\d{2}-\d{2}-\d{4}\b"""),          // Fecha: 01-01-1990
+        Regex("""[A-Z0-9<]{30,44}""")                // Línea MRZ completa
+    )
+
+    /**
+     * Determina si la imagen parece ser un documento de identidad válido.
+     *
+     * [isBackSide] = true cuando se escanea el reverso del documento.
+     * El reverso no tiene nombre/apellido pero sí dirección, municipio, etc.
+     * En ese modo se usan palabras clave del reverso y criterios más permisivos.
+     *
+     * Para el FRENTE (isBackSide = false):
+     *   Criterios 2 Y 3 son AMBOS obligatorios para evitar falsos positivos.
+     *
+     * Para el REVERSO (isBackSide = true):
+     *   Basta con tener texto suficiente + al menos 1 keyword del reverso,
+     *   O tener texto suficiente + un patrón de número de documento.
+     *   Si no se detecta ningún keyword ni número pero hay bastante texto
+     *   estructurado (≥4 líneas, ≥6 palabras), igual se acepta — algunos
+     *   reversos solo tienen código de barras y datos mínimos.
+     */
+    suspend fun isLikelyDocument(bitmap: Bitmap, isBackSide: Boolean = false): DocumentValidationResult {
+        return suspendCoroutine { continuation ->
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            val image = InputImage.fromBitmap(bitmap, 0)
+
+            recognizer.process(image)
+                .addOnSuccessListener { visionText ->
+                    val fullText   = visionText.text
+                    val blockCount = visionText.textBlocks.size
+                    val lineCount  = visionText.textBlocks.sumOf { it.lines.size }
+                    val wordCount  = fullText.trim().split(Regex("\\s+")).count { it.length >= 2 }
+                    val totalChars = fullText.trim().length
+                    val lowerText  = fullText.lowercase()
+
+                    println("📄 Doc check (backSide=$isBackSide) → blocks=$blockCount lines=$lineCount words=$wordCount chars=$totalChars")
+
+                    if (isBackSide) {
+                        // ═══════════════════════════════════════════════════════════
+                        // REVERSO — criterios más permisivos
+                        // El reverso del DUI/pasaporte no tiene nombre ni apellidos.
+                        // Solo necesitamos evidencia mínima de que es un documento.
+                        // ═══════════════════════════════════════════════════════════
+
+                        // Criterio A: texto mínimo (más laxo que el frente)
+                        val hasMinText = totalChars >= 10 && wordCount >= 2
+                        if (!hasMinText) {
+                            println("📄 BACK → REJECTED: no hay texto")
+                            continuation.resume(DocumentValidationResult(isDocument = false, reason = "no_text"))
+                            return@addOnSuccessListener
+                        }
+
+                        // Criterio B: palabras clave del reverso
+                        val backKeywordHits = BACK_SIDE_KEYWORDS.count { lowerText.contains(it) }
+                        println("📄 BACK → backKeywords=$backKeywordHits")
+
+                        // Criterio C: palabras clave de cualquier documento (frente también aplica)
+                        val frontKeywordHits = DOCUMENT_KEYWORDS.count { lowerText.contains(it) }
+                        println("📄 BACK → frontKeywords=$frontKeywordHits")
+
+                        // Criterio D: patrón de número de documento
+                        val hasDocNumber = DOC_NUMBER_PATTERNS.any { it.containsMatchIn(fullText) }
+                        println("📄 BACK → hasDocNumber=$hasDocNumber")
+
+                        // Aceptar reverso si:
+                        //  - Tiene al menos 1 keyword del reverso, O
+                        //  - Tiene al menos 1 keyword del frente, O
+                        //  - Tiene un patrón de número de documento, O
+                        //  - Tiene bastante texto estructurado (≥ 4 líneas y ≥ 5 palabras)
+                        //    → algunos reversos solo tienen código de barras 2D y texto mínimo
+                        val isDocument = backKeywordHits >= 1
+                            || frontKeywordHits >= 1
+                            || hasDocNumber
+                            || (lineCount >= 4 && wordCount >= 5)
+
+                        println("📄 BACK → isDocument=$isDocument")
+                        continuation.resume(DocumentValidationResult(
+                            isDocument = isDocument,
+                            reason = if (isDocument) "ok" else "no_text"
+                        ))
+
+                    } else {
+                        // ═══════════════════════════════════════════════════════════
+                        // FRENTE — criterios estrictos para evitar falsos positivos
+                        // ═══════════════════════════════════════════════════════════
+
+                        // Criterio 1: volumen mínimo de texto
+                        val hasEnoughText = totalChars >= 20 && wordCount >= 3 && lineCount >= 2
+                        if (!hasEnoughText) {
+                            println("📄 FRONT → REJECTED: not enough text")
+                            continuation.resume(DocumentValidationResult(isDocument = false, reason = "no_text"))
+                            return@addOnSuccessListener
+                        }
+
+                        // Criterio 2: palabras clave EXCLUSIVAS de documentos
+                        val keywordHits = DOCUMENT_KEYWORDS.count { lowerText.contains(it) }
+                        println("📄 FRONT → keyword hits: $keywordHits")
+
+                        // Criterio 3: patrón de número de documento
+                        val hasDocNumber = DOC_NUMBER_PATTERNS.any { it.containsMatchIn(fullText) }
+                        println("📄 FRONT → hasDocNumber: $hasDocNumber")
+
+                        // OBLIGATORIO: al menos 1 keyword + (2+ keywords O número detectado)
+                        val isDocument = keywordHits >= 1 && (keywordHits >= 2 || hasDocNumber)
+
+                        println("📄 FRONT → keywords=$keywordHits docNumber=$hasDocNumber → isDocument=$isDocument")
+                        continuation.resume(DocumentValidationResult(
+                            isDocument = isDocument,
+                            reason = if (isDocument) "ok" else "no_text"
+                        ))
+                    }
+                }
+                .addOnFailureListener {
+                    continuation.resume(DocumentValidationResult(isDocument = true, reason = "ocr_error"))
+                }
+        }
+    }
+}

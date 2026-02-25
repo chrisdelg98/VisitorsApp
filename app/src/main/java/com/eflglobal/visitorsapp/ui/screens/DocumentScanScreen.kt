@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp.ui.screens
 
 import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -16,12 +17,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraEnhance
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -29,10 +36,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.eflglobal.visitorsapp.core.ocr.OCRHelper
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
+import com.eflglobal.visitorsapp.core.validation.DocumentValidator
 import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
-import com.eflglobal.visitorsapp.ui.components.CameraPreviewComposable
+import com.eflglobal.visitorsapp.ui.components.DocumentCameraPreviewComposable
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
@@ -41,48 +48,40 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// DocumentScanScreen
+// ═══════════════════════════════════════════════════════════════════════════════
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentScanScreen(
     onContinue: () -> Unit,
     onBack: () -> Unit,
     selectedLanguage: String = "es",
-    viewModel: NewVisitViewModel = viewModel(
-        factory = ViewModelFactory(LocalContext.current)
-    )
+    viewModel: NewVisitViewModel = viewModel(factory = ViewModelFactory(LocalContext.current))
 ) {
-    val context = LocalContext.current
+    val context       = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     var selectedDocType by remember { mutableStateOf("DUI") }
 
-    val visitorTypes = if (selectedLanguage == "es") {
+    val visitorTypes = if (selectedLanguage == "es")
         listOf("Visitante", "Contratista", "Proveedor", "Haciendo una entrega")
-    } else {
+    else
         listOf("Visitor", "Contractor", "Supplier", "Making a delivery")
-    }
 
-    // Establecer valor predeterminado a la primera opción
     var selectedVisitorType by remember { mutableStateOf(visitorTypes.first()) }
-
-    // Actualizar el ViewModel cuando cambia el tipo de documento o visitante
-    LaunchedEffect(selectedDocType) {
-        viewModel.setDocumentType(selectedDocType)
-    }
-
-    LaunchedEffect(selectedVisitorType) {
-        viewModel.setVisitorType(selectedVisitorType)
-    }
     var expandedVisitorType by remember { mutableStateOf(false) }
-    var frontScanned by remember { mutableStateOf(false) }
-    var backScanned by remember { mutableStateOf(false) }
-    var showFrontCameraModal by remember { mutableStateOf(false) }
-    var showBackCameraModal by remember { mutableStateOf(false) }
 
-    // Estados para las imágenes capturadas (para preview)
-    var frontBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var backBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(selectedDocType)    { viewModel.setDocumentType(selectedDocType) }
+    LaunchedEffect(selectedVisitorType) { viewModel.setVisitorType(selectedVisitorType) }
 
+    var frontScanned        by remember { mutableStateOf(false) }
+    var backScanned         by remember { mutableStateOf(false) }
+    var showFrontCamera     by remember { mutableStateOf(false) }
+    var showBackCamera      by remember { mutableStateOf(false) }
+    var frontBitmap         by remember { mutableStateOf<Bitmap?>(null) }
+    var backBitmap          by remember { mutableStateOf<Bitmap?>(null) }
 
     Scaffold(
         topBar = {
@@ -95,12 +94,13 @@ fun DocumentScanScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = if (selectedLanguage == "es") "Atrás" else "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = if (selectedLanguage == "es") "Atrás" else "Back"
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
@@ -116,7 +116,7 @@ fun DocumentScanScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp)
             ) {
-                // Sección superior: Yo soy un
+                // ── Visitor type ──────────────────────────────────────────────
                 Text(
                     text = if (selectedLanguage == "es") "Yo soy un:" else "I am a:",
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
@@ -124,51 +124,44 @@ fun DocumentScanScreen(
                     color = SlatePrimary,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
-
-                // Dropdown de tipo de visitante
                 ExposedDropdownMenuBox(
                     expanded = expandedVisitorType,
                     onExpandedChange = { expandedVisitorType = !expandedVisitorType },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
                 ) {
                     OutlinedTextField(
                         value = selectedVisitorType,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text(if (selectedLanguage == "es") "Seleccione una opción" else "Select an option", fontSize = 12.sp) },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVisitorType)
+                        label = {
+                            Text(
+                                if (selectedLanguage == "es") "Seleccione una opción" else "Select an option",
+                                fontSize = 12.sp
+                            )
                         },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVisitorType) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = SlatePrimary,
-                            focusedLabelColor = SlatePrimary
+                            focusedLabelColor  = SlatePrimary
                         ),
-                        modifier = Modifier
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                            .fillMaxWidth(),
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
                     )
-
                     ExposedDropdownMenu(
                         expanded = expandedVisitorType,
                         onDismissRequest = { expandedVisitorType = false }
                     ) {
-                        visitorTypes.forEach { type ->
+                        visitorTypes.forEach { t ->
                             DropdownMenuItem(
-                                text = { Text(type, fontSize = 14.sp) },
-                                onClick = {
-                                    selectedVisitorType = type
-                                    expandedVisitorType = false
-                                }
+                                text = { Text(t, fontSize = 14.sp) },
+                                onClick = { selectedVisitorType = t; expandedVisitorType = false }
                             )
                         }
                     }
                 }
 
-                // Sección: Tipo de documento
+                // ── Document type ─────────────────────────────────────────────
                 Text(
                     text = if (selectedLanguage == "es") "¿Qué tipo de documento presenta?" else "What type of document do you present?",
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
@@ -176,40 +169,18 @@ fun DocumentScanScreen(
                     color = SlatePrimary,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
-
-                // Selector de tipo de documento
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    DocumentTypeChip(
-                        text = "DUI / ID",
-                        isSelected = selectedDocType == "DUI",
-                        onClick = { selectedDocType = "DUI" },
-                        modifier = Modifier.weight(1f)
-                    )
-                    DocumentTypeChip(
-                        text = if (selectedLanguage == "es") "Pasaporte" else "Passport",
-                        isSelected = selectedDocType == "PASSPORT",
-                        onClick = { selectedDocType = "PASSPORT" },
-                        modifier = Modifier.weight(1f)
-                    )
-                    DocumentTypeChip(
-                        text = if (selectedLanguage == "es") "Otro" else "Other",
-                        isSelected = selectedDocType == "OTHER",
-                        onClick = { selectedDocType = "OTHER" },
-                        modifier = Modifier.weight(1f)
-                    )
+                    DocumentTypeChip("DUI / ID",  selectedDocType == "DUI",      { selectedDocType = "DUI" },      Modifier.weight(1f))
+                    DocumentTypeChip(if (selectedLanguage == "es") "Pasaporte" else "Passport", selectedDocType == "PASSPORT", { selectedDocType = "PASSPORT" }, Modifier.weight(1f))
+                    DocumentTypeChip(if (selectedLanguage == "es") "Otro" else "Other",         selectedDocType == "OTHER",    { selectedDocType = "OTHER" },    Modifier.weight(1f))
                 }
 
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 16.dp))
 
-                // Sección inferior: Escaneo en dos columnas para tablet
+                // ── Scan section ──────────────────────────────────────────────
                 Text(
                     text = if (selectedLanguage == "es") "Escanear Documento" else "Scan Document",
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
@@ -217,172 +188,128 @@ fun DocumentScanScreen(
                     color = SlatePrimary,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
-
-                // Cards de escaneo en dos columnas
                 Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Card para frente
                     ScanDocumentCard(
-                        title = if (selectedLanguage == "es") "Frente del Documento" else "Front of Document",
-                        isScanned = frontScanned,
-                        onClick = { showFrontCameraModal = true },
-                        modifier = Modifier.weight(1f),
+                        title          = if (selectedLanguage == "es") "Frente del Documento" else "Front of Document",
+                        isScanned      = frontScanned,
+                        onClick        = { showFrontCamera = true },
+                        modifier       = Modifier.weight(1f),
                         selectedLanguage = selectedLanguage,
                         capturedBitmap = frontBitmap
                     )
-
-                    // Card para reverso
                     ScanDocumentCard(
-                        title = if (selectedLanguage == "es") "Reverso del Documento" else "Back of Document",
-                        isScanned = backScanned,
-                        onClick = { showBackCameraModal = true },
-                        modifier = Modifier.weight(1f),
+                        title          = if (selectedLanguage == "es") "Reverso del Documento" else "Back of Document",
+                        isScanned      = backScanned,
+                        onClick        = { showBackCamera = true },
+                        modifier       = Modifier.weight(1f),
                         selectedLanguage = selectedLanguage,
-                        enabled = frontScanned,
+                        enabled        = frontScanned,
                         capturedBitmap = backBitmap
                     )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Botón continuar
                 Button(
-                    onClick = onContinue,
-                    enabled = frontScanned && backScanned && selectedVisitorType.isNotEmpty(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangePrimary,
+                    onClick  = onContinue,
+                    enabled  = frontScanned && backScanned && selectedVisitorType.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors   = ButtonDefaults.buttonColors(
+                        containerColor         = OrangePrimary,
                         disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = if (selectedLanguage == "es") "Continuar" else "Continue",
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                    fontWeight = FontWeight.SemiBold
-                )
+                        text       = if (selectedLanguage == "es") "Continuar" else "Continue",
+                        style      = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 
-            // Modal de cámara REAL para frente del documento
-            if (showFrontCameraModal) {
-                RealDocumentCameraModal(
-                    title = if (selectedLanguage == "es") "Frente del Documento" else "Front of Document",
-                    instruction = if (selectedLanguage == "es")
-                        "Coloque el frente del documento dentro del marco.\nAsegúrese de que esté completamente visible y sin reflejos."
-                    else
-                        "Place the front of the document inside the frame.\nMake sure it is fully visible and glare-free.",
-                    onDismiss = { showFrontCameraModal = false },
-                    onCapture = { bitmap ->
+            // ── Front camera modal ─────────────────────────────────────────────
+            if (showFrontCamera) {
+                DocumentCameraModal(
+                    title            = if (selectedLanguage == "es") "Frente del Documento" else "Front of Document",
+                    isBackSide       = false,
+                    referenceBitmap  = null,
+                    selectedLanguage = selectedLanguage,
+                    onDismiss        = { showFrontCamera = false },
+                    onCapture        = { bitmap, ocrData ->
                         coroutineScope.launch {
                             try {
-                                // Guardar bitmap para preview
                                 frontBitmap = bitmap
-
-                                // Guardar imagen
                                 val personId = viewModel.getPersonId()
-                                val savedImagePath = ImageSaver.saveImage(
-                                    context = context,
-                                    bitmap = bitmap,
-                                    personId = personId,
+                                val path     = ImageSaver.saveImage(
+                                    context   = context,
+                                    bitmap    = bitmap,
+                                    personId  = personId,
                                     imageType = ImageSaver.ImageType.DOCUMENT_FRONT
                                 )
-
-                                // Procesar con ML Kit OCR mejorado
-                                val ocrResult = OCRHelper.processDocument(bitmap)
-
-                                // Log para debugging (remover en producción)
-                                println("OCR Result - Full Text: ${ocrResult.fullText}")
-                                println("OCR Result - Detected Name: ${ocrResult.detectedName}")
-                                println("OCR Result - Detected Doc Number: ${ocrResult.detectedDocumentNumber}")
-                                println("OCR Result - Confidence: ${ocrResult.confidence}")
-                                println("OCR Result - Sharpness: ${ocrResult.sharpness}")
-
-                                // Si el OCR detecta datos, usarlos; sino, generar valores genéricos
-                                val detectedName = ocrResult.detectedName?.takeIf { it.isNotBlank() }
+                                val name = ocrData?.detectedName?.takeIf { it.isNotBlank() }
                                     ?: if (selectedLanguage == "es") "Visitante Internacional" else "International Visitor"
-
-                                val detectedDocNumber = ocrResult.detectedDocumentNumber?.takeIf { it.isNotBlank() }
+                                val doc  = ocrData?.detectedDocNumber?.takeIf { it.isNotBlank() }
                                     ?: "DOC-${UUID.randomUUID().toString().take(8).uppercase()}"
-
-                                // Guardar en ViewModel
-                                viewModel.setDocumentFront(
-                                    path = savedImagePath,
-                                    name = detectedName,
-                                    docNumber = detectedDocNumber
-                                )
-
-                                frontScanned = true
-                                showFrontCameraModal = false
+                                viewModel.setDocumentFront(path = path, name = name, docNumber = doc)
+                                frontScanned   = true
+                                showFrontCamera = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                // Incluso si hay error, generar valores por defecto
-                                val genericName = if (selectedLanguage == "es") "Visitante" else "Visitor"
-                                val genericDoc = "DOC-${UUID.randomUUID().toString().take(8).uppercase()}"
-
                                 viewModel.setDocumentFront(
-                                    path = "",
-                                    name = genericName,
-                                    docNumber = genericDoc
+                                    path      = "",
+                                    name      = if (selectedLanguage == "es") "Visitante" else "Visitor",
+                                    docNumber = "DOC-${UUID.randomUUID().toString().take(8).uppercase()}"
                                 )
-
-                                frontScanned = true
-                                showFrontCameraModal = false
+                                frontScanned   = true
+                                showFrontCamera = false
                             }
                         }
-                    },
-                    selectedLanguage = selectedLanguage
+                    }
                 )
             }
 
-            // Modal de cámara REAL para reverso del documento
-            if (showBackCameraModal) {
-                RealDocumentCameraModal(
-                    title = if (selectedLanguage == "es") "Reverso del Documento" else "Back of Document",
-                    instruction = if (selectedLanguage == "es")
-                        "Coloque el reverso del documento dentro del marco.\nAsegúrese de que esté completamente visible y sin reflejos."
-                    else
-                        "Place the back of the document inside the frame.\nMake sure it is fully visible and glare-free.",
-                    onDismiss = { showBackCameraModal = false },
-                    onCapture = { bitmap ->
+            // ── Back camera modal ──────────────────────────────────────────────
+            if (showBackCamera) {
+                DocumentCameraModal(
+                    title            = if (selectedLanguage == "es") "Reverso del Documento" else "Back of Document",
+                    isBackSide       = true,
+                    referenceBitmap  = frontBitmap,
+                    selectedLanguage = selectedLanguage,
+                    onDismiss        = { showBackCamera = false },
+                    onCapture        = { bitmap, _ ->
                         coroutineScope.launch {
                             try {
-                                // Guardar bitmap para preview
                                 backBitmap = bitmap
-
-                                // Guardar imagen
                                 val personId = viewModel.getPersonId()
-                                val savedImagePath = ImageSaver.saveImage(
-                                    context = context,
-                                    bitmap = bitmap,
-                                    personId = personId,
+                                val path     = ImageSaver.saveImage(
+                                    context   = context,
+                                    bitmap    = bitmap,
+                                    personId  = personId,
                                     imageType = ImageSaver.ImageType.DOCUMENT_BACK
                                 )
-
-                                // Guardar en ViewModel
-                                viewModel.setDocumentBack(savedImagePath)
-
-                                backScanned = true
-                                showBackCameraModal = false
+                                viewModel.setDocumentBack(path)
+                                backScanned   = true
+                                showBackCamera = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                backScanned = true
-                                showBackCameraModal = false
+                                backScanned   = true
+                                showBackCamera = false
                             }
                         }
-                    },
-                    selectedLanguage = selectedLanguage
+                    }
                 )
             }
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DocumentTypeChip
+// ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun DocumentTypeChip(
@@ -393,33 +320,32 @@ private fun DocumentTypeChip(
 ) {
     FilterChip(
         selected = isSelected,
-        onClick = onClick,
-        label = {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
+        onClick  = onClick,
+        label    = {
+            Text(text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         },
         modifier = modifier.height(48.dp),
-        colors = FilterChipDefaults.filterChipColors(
+        colors   = FilterChipDefaults.filterChipColors(
             selectedContainerColor = SlatePrimary,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
-            containerColor = MaterialTheme.colorScheme.surface,
-            labelColor = MaterialTheme.colorScheme.onSurface
+            selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+            containerColor         = MaterialTheme.colorScheme.surface,
+            labelColor             = MaterialTheme.colorScheme.onSurface
         ),
-        shape = RoundedCornerShape(12.dp),
+        shape  = RoundedCornerShape(12.dp),
         border = FilterChipDefaults.filterChipBorder(
-            enabled = true,
-            selected = isSelected,
-            borderColor = if (isSelected) SlatePrimary else MaterialTheme.colorScheme.outline,
+            enabled             = true,
+            selected            = isSelected,
+            borderColor         = if (isSelected) SlatePrimary else MaterialTheme.colorScheme.outline,
             selectedBorderColor = SlatePrimary,
-            borderWidth = 2.dp,
+            borderWidth         = 2.dp,
             selectedBorderWidth = 2.dp
         )
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ScanDocumentCard
+// ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 private fun ScanDocumentCard(
@@ -432,41 +358,35 @@ private fun ScanDocumentCard(
     capturedBitmap: Bitmap? = null
 ) {
     Card(
-        onClick = onClick,
+        onClick  = onClick,
         modifier = modifier.fillMaxHeight(),
-        enabled = enabled,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isScanned)
-                OrangePrimary.copy(alpha = 0.05f)
-            else if (!enabled)
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            else
-                MaterialTheme.colorScheme.surface
+        enabled  = enabled,
+        colors   = CardDefaults.cardColors(
+            containerColor = when {
+                isScanned  -> OrangePrimary.copy(alpha = 0.05f)
+                !enabled   -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                else       -> MaterialTheme.colorScheme.surface
+            }
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape  = RoundedCornerShape(16.dp),
         border = if (isScanned)
             BorderStroke(2.dp, OrangePrimary)
         else
             BorderStroke(2.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             // Mostrar imagen de fondo si está escaneada
             if (isScanned && capturedBitmap != null) {
                 Image(
-                    bitmap = capturedBitmap.asImageBitmap(),
+                    bitmap       = capturedBitmap.asImageBitmap(),
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier     = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
 
                 // Overlay naranja semitransparente
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(OrangePrimary.copy(alpha = 0.25f))
+                    modifier = Modifier.fillMaxSize().background(OrangePrimary.copy(alpha = 0.25f))
                 )
             }
 
@@ -475,46 +395,36 @@ private fun ScanDocumentCard(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
+                    modifier = Modifier.fillMaxSize().padding(16.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = androidx.compose.ui.graphics.Color.White,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(
-                                OrangePrimary.copy(alpha = 0.9f),
-                                shape = CircleShape
-                            )
+                        tint     = Color.White,
+                        modifier = Modifier.size(56.dp)
+                            .background(OrangePrimary.copy(alpha = 0.9f), CircleShape)
                             .padding(12.dp)
                     )
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        text = title,
+                        text  = title,
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                         fontWeight = FontWeight.Bold,
-                        color = androidx.compose.ui.graphics.Color.White,
+                        color = Color.White,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
-                            .background(
-                                SlatePrimary.copy(alpha = 0.85f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
+                            .background(SlatePrimary.copy(alpha = 0.85f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     )
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = if (selectedLanguage == "es") "✓ Escaneado correctamente" else "✓ Scanned successfully",
+                        text  = if (selectedLanguage == "es") "✓ Escaneado correctamente" else "✓ Scanned successfully",
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                        color = androidx.compose.ui.graphics.Color.White,
+                        color = Color.White,
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
-                            .background(
-                                OrangePrimary.copy(alpha = 0.85f),
-                                shape = RoundedCornerShape(6.dp)
-                            )
+                            .background(OrangePrimary.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -526,21 +436,19 @@ private fun ScanDocumentCard(
                     Icon(
                         imageVector = Icons.Default.CameraEnhance,
                         contentDescription = null,
-                        tint = if (enabled)
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        else
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                        tint     = if (enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                   else         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
                         modifier = Modifier.size(56.dp)
                     )
                     Text(
-                        text = title,
+                        text  = title,
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                         fontWeight = FontWeight.SemiBold,
                         color = if (enabled) SlatePrimary else SlatePrimary.copy(alpha = 0.5f),
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = if (selectedLanguage == "es")
+                        text  = if (selectedLanguage == "es")
                             if (enabled) "Toque para escanear" else "Escanee el frente primero"
                         else
                             if (enabled) "Tap to scan" else "Scan front first",
@@ -554,308 +462,377 @@ private fun ScanDocumentCard(
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// DocumentCameraModal — State machine + validation pipeline
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Modal de cámara REAL con CameraX para capturar documentos.
- * Captura automáticamente cuando detecta que la imagen no está borrosa.
+ * Internal state of the camera modal.
+ *
+ *  Waiting → (enough consecutive sharp frames) → ReadyToCapture
+ *          → Capturing → Processing
+ *          → Success  (auto-closes after 1.2 s)
+ *          → Error    (shown inside frame, auto-resets after delay)
  */
+private sealed class ScanState {
+    /** Live preview active, waiting for stable sharp frame. */
+    object Waiting : ScanState()
+    /** Sharpness requirement met — capture command sent to CameraX. */
+    object ReadyToCapture : ScanState()
+    /** CameraX is taking the photo. */
+    object Capturing : ScanState()
+    /** Bitmap received, validation pipeline running. */
+    object Processing : ScanState()
+    /** Validation passed — display success and close. */
+    object Success : ScanState()
+    /** A validation step failed — show message, then auto-retry. */
+    data class Error(val message: String) : ScanState()
+}
+
+// ── Tuning constants ─────────────────────────────────────────────────────────
+
+/** YUV live-frame sharpness floor.  Below this: document not yet steady. */
+private const val LIVE_THRESHOLD = 20f
+
+/** Number of consecutive frames above [LIVE_THRESHOLD] required before capture. */
+private const val STREAK_REQUIRED = 6
+
+/** Camera warm-up period (ms) — discard the first few frames after opening. */
+private const val WARMUP_MS = 1800L
+
+/** How long to display an error message before auto-retrying (ms). */
+private const val ERROR_DISPLAY_MS = 3000L
+
 @Composable
-private fun RealDocumentCameraModal(
+private fun DocumentCameraModal(
     title: String,
-    instruction: String,
+    isBackSide: Boolean,
+    referenceBitmap: Bitmap?,
+    selectedLanguage: String,
     onDismiss: () -> Unit,
-    onCapture: (Bitmap) -> Unit,
-    selectedLanguage: String = "es"
+    /** [ocrData] is null when scanning the back side (OCR data comes from front). */
+    onCapture: (Bitmap, DocumentValidator.OcrData?) -> Unit
 ) {
-    var isProcessing by remember { mutableStateOf(false) }
-    var showError by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    var showSuccess by remember { mutableStateOf(false) }
+    // ── State machine ────────────────────────────────────────────────────────
+    var state          by remember { mutableStateOf<ScanState>(ScanState.Waiting) }
     var captureTrigger by remember { mutableStateOf(false) }
-    var alreadyCaptured by remember { mutableStateOf(false) }
-    var retryCount by remember { mutableStateOf(0) }  // máximo 1 reintento
 
-    val coroutineScope = rememberCoroutineScope()
+    // ── Live sharpness for UI feedback (main thread) ─────────────────────────
+    var liveSharpness  by remember { mutableStateOf(0f) }
+    var streakCount    by remember { mutableStateOf(0) }
 
-    // Captura automática después de 2 segundos
+    // ── Thread-safe accumulators (written from main thread via mainHandler) ───
+    val streakRef      = remember { java.util.concurrent.atomic.AtomicInteger(0) }
+    val triggerGuard   = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val cameraReady    = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+
+    val scope = rememberCoroutineScope()
+
+    // Camera warm-up: ignore the first WARMUP_MS of frames
     LaunchedEffect(Unit) {
-        delay(2000)
-        if (!alreadyCaptured) {
-            captureTrigger = true
+        delay(WARMUP_MS)
+        cameraReady.set(true)
+    }
+
+    // ── Reset helper ─────────────────────────────────────────────────────────
+    fun resetToWaiting() {
+        streakRef.set(0)
+        triggerGuard.set(false)
+        streakCount   = 0
+        liveSharpness = 0f
+        state         = ScanState.Waiting
+    }
+
+    // ── Sharpness progress for the indicator bar ──────────────────────────────
+    val sharpProgress by remember(liveSharpness, streakCount) {
+        derivedStateOf {
+            ((streakCount.toFloat() / STREAK_REQUIRED) * 0.6f +
+             (liveSharpness / (LIVE_THRESHOLD * 2f)).coerceIn(0f, 0.4f))
+                .coerceIn(0f, 1f)
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black)) {
+    // ── Full-screen modal container ───────────────────────────────────────────
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
 
-        // ── Cámara ──────────────────────────────────────────────────────────
+        // ── Live camera feed ──────────────────────────────────────────────────
         CameraPermissionHandler(
             onPermissionGranted = {},
-            onPermissionDenied = { onDismiss() }
+            onPermissionDenied  = { onDismiss() }
         ) {
-            CameraPreviewComposable(
-                onImageCaptured = { bitmap ->
-                    if (alreadyCaptured) return@CameraPreviewComposable
-                    alreadyCaptured = true
-                    isProcessing = true
+            DocumentCameraPreviewComposable(
+                modifier      = Modifier.fillMaxSize(),
+                lensFacing    = CameraSelector.LENS_FACING_BACK,
+                shouldCapture = captureTrigger,
+                onCaptureComplete = { captureTrigger = false },
 
-                    coroutineScope.launch {
-                        try {
-                            val sharpness = OCRHelper.calculateSharpness(bitmap)
-                            println("📸 Sharpness: $sharpness  |  retry: $retryCount")
+                // ── Image captured by CameraX ─────────────────────────────────
+                onImageCaptured = { rawBitmap ->
+                    if (state !is ScanState.ReadyToCapture && state !is ScanState.Capturing) return@DocumentCameraPreviewComposable
+                    state = ScanState.Processing
 
-                            // Solo rechazar si está EXTREMADAMENTE borrosa Y aún no hemos reintentado
-                            if (sharpness < 5f && retryCount < 1) {
-                                retryCount++
-                                isProcessing = false
-                                alreadyCaptured = false
-                                showError = true
-                                errorMessage = if (selectedLanguage == "es")
-                                    "Imagen borrosa, reintentando..."
-                                else
-                                    "Blurry image, retrying..."
+                    scope.launch {
+                        val result = DocumentValidator.validate(
+                            rawBitmap       = rawBitmap,
+                            isBackSide      = isBackSide,
+                            referenceBitmap = referenceBitmap,
+                            lang            = selectedLanguage
+                        )
+
+                        when (result) {
+                            is DocumentValidator.ValidationResult.Accepted -> {
+                                state = ScanState.Success
                                 delay(1200)
-                                showError = false
-                                delay(400)
-                                captureTrigger = true
-                                return@launch
+                                onCapture(result.croppedBitmap, result.ocrData)
                             }
-
-                            // Cualquier otro caso → aceptar la imagen y continuar
-                            isProcessing = false
-                            showSuccess = true
-                            delay(600)
-                            onCapture(bitmap)
-
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            // Si falla el OCR igual entregamos la imagen
-                            isProcessing = false
-                            onCapture(bitmap)
+                            is DocumentValidator.ValidationResult.Rejected -> {
+                                state = ScanState.Error(result.userMessage)
+                                delay(ERROR_DISPLAY_MS)
+                                if (state is ScanState.Error) resetToWaiting()
+                            }
                         }
                     }
                 },
+
                 onError = { onDismiss() },
-                lensFacing = CameraSelector.LENS_FACING_BACK,
-                modifier = Modifier.fillMaxSize(),
-                shouldCapture = captureTrigger,
-                onCaptureComplete = { captureTrigger = false }
+
+                // ── Live sharpness callback (main thread, called ~30 fps) ─────
+                onLiveSharpness = { s ->
+                    if (state !is ScanState.Waiting || !cameraReady.get()) return@DocumentCameraPreviewComposable
+                    liveSharpness = s
+
+                    if (s >= LIVE_THRESHOLD) {
+                        val streak = streakRef.incrementAndGet()
+                        streakCount = streak
+                        if (streak >= STREAK_REQUIRED && triggerGuard.compareAndSet(false, true)) {
+                            streakRef.set(0)
+                            streakCount   = 0
+                            state         = ScanState.ReadyToCapture
+                            captureTrigger = true
+                        }
+                    } else {
+                        if (streakRef.get() > 0) streakRef.set(0)
+                        streakCount = 0
+                    }
+                }
             )
         }
 
-        // ── Overlay ─────────────────────────────────────────────────────────
-        // Título arriba
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
-            fontWeight = FontWeight.Bold,
-            color = androidx.compose.ui.graphics.Color.White,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 32.dp)
-                .background(
-                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(8.dp)
-                )
-                .padding(horizontal = 20.dp, vertical = 10.dp)
-        )
+        // ── Vignette overlay (darkens outside the guide frame) ────────────────
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val fw = size.width  * 0.70f
+            val fh = fw / 1.6f
+            val fl = (size.width  - fw) / 2f
+            val ft = (size.height - fh) / 2f
+            val vig = Color.Black.copy(alpha = 0.55f)
+            drawRect(vig, Offset(0f, 0f),         Size(size.width, ft))
+            drawRect(vig, Offset(0f, ft + fh),    Size(size.width, size.height - ft - fh))
+            drawRect(vig, Offset(0f, ft),          Size(fl, fh))
+            drawRect(vig, Offset(fl + fw, ft),     Size(size.width - fl - fw, fh))
+        }
 
-        // Marco guía del documento (centrado)
+        // ── Top title bar ─────────────────────────────────────────────────────
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.82f)
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .background(Color.Black.copy(alpha = 0.72f))
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text       = title,
+                style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
+                fontWeight = FontWeight.Bold,
+                color      = Color.White
+            )
+        }
+
+        // ── Guide frame colour based on state ─────────────────────────────────
+        val frameColor = when (state) {
+            is ScanState.Error                                          -> Color(0xFFE53935)
+            is ScanState.Success                                        -> Color(0xFF43A047)
+            is ScanState.Processing, ScanState.ReadyToCapture,
+            ScanState.Capturing                                         -> OrangePrimary
+            else -> {
+                val p = sharpProgress
+                when {
+                    p >= 0.75f -> OrangePrimary
+                    p >= 0.40f -> Color(0xFFFF8C00)
+                    else       -> Color(0xFFE53935).copy(alpha = 0.85f)
+                }
+            }
+        }
+
+        // ── Document guide frame ──────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.70f)
                 .aspectRatio(1.6f)
                 .align(Alignment.Center)
-                .border(
-                    width = 3.dp,
-                    color = when {
-                        showError   -> androidx.compose.ui.graphics.Color.Red
-                        showSuccess -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
-                        else        -> OrangePrimary
-                    },
-                    shape = RoundedCornerShape(14.dp)
-                )
+                .border(3.dp, frameColor, RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(14.dp))
         ) {
+            // Corner accent marks drawn on top of the border
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val len = 50f
-                val sw  = 8f
-                val col = when {
-                    showError   -> androidx.compose.ui.graphics.Color.Red
-                    showSuccess -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
-                    else        -> OrangePrimary
+                val len = 50f; val sw = 9f; val c = frameColor
+                drawLine(c, Offset(0f, len),           Offset(0f, 0f),           sw)
+                drawLine(c, Offset(0f, 0f),            Offset(len, 0f),           sw)
+                drawLine(c, Offset(size.width-len,0f), Offset(size.width,0f),     sw)
+                drawLine(c, Offset(size.width,0f),     Offset(size.width,len),    sw)
+                drawLine(c, Offset(0f,size.height-len),Offset(0f,size.height),    sw)
+                drawLine(c, Offset(0f,size.height),    Offset(len,size.height),   sw)
+                drawLine(c, Offset(size.width-len,size.height), Offset(size.width,size.height), sw)
+                drawLine(c, Offset(size.width,size.height-len), Offset(size.width,size.height), sw)
+            }
+
+            // ── State overlay inside the frame ───────────────────────────────
+            when (val s = state) {
+
+                is ScanState.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize()
+                            .background(Color(0xFFB71C1C).copy(alpha = 0.88f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, null, tint = Color.White, modifier = Modifier.size(38.dp))
+                            Text(
+                                text  = s.message,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 19.sp
+                            )
+                        }
+                    }
                 }
-                // Esquina superior izquierda
-                drawLine(col, Offset(0f, len), Offset(0f, 0f), sw)
-                drawLine(col, Offset(0f, 0f), Offset(len, 0f), sw)
-                // Esquina superior derecha
-                drawLine(col, Offset(size.width - len, 0f), Offset(size.width, 0f), sw)
-                drawLine(col, Offset(size.width, 0f), Offset(size.width, len), sw)
-                // Esquina inferior izquierda
-                drawLine(col, Offset(0f, size.height - len), Offset(0f, size.height), sw)
-                drawLine(col, Offset(0f, size.height), Offset(len, size.height), sw)
-                // Esquina inferior derecha
-                drawLine(col, Offset(size.width - len, size.height), Offset(size.width, size.height), sw)
-                drawLine(col, Offset(size.width, size.height - len), Offset(size.width, size.height), sw)
+
+                is ScanState.Success -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize()
+                            .background(Color(0xFF1B5E20).copy(alpha = 0.90f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(44.dp))
+                            Text(
+                                text  = if (selectedLanguage == "es") "¡Documento aceptado!" else "Document accepted!",
+                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                is ScanState.Processing, ScanState.ReadyToCapture, ScanState.Capturing -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.55f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                color       = OrangePrimary,
+                                modifier    = Modifier.size(40.dp),
+                                strokeWidth = 4.dp
+                            )
+                            Text(
+                                text  = if (selectedLanguage == "es") "Verificando…" else "Verifying…",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                else -> { /* Waiting — transparent, live feed visible */ }
             }
         }
 
-        // ── Mensaje de estado CENTRADO en pantalla ───────────────────────────
-        when {
-            showError -> {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth(0.75f),
-                    colors = CardDefaults.cardColors(
-                        containerColor = androidx.compose.ui.graphics.Color.Red.copy(alpha = 0.92f)
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(28.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraEnhance,
-                            contentDescription = null,
-                            tint = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.size(52.dp)
-                        )
-                        Text(
-                            text = errorMessage,
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
-                            color = androidx.compose.ui.graphics.Color.White,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 28.sp
-                        )
-                    }
-                }
-            }
-            showSuccess -> {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth(0.75f),
-                    colors = CardDefaults.cardColors(
-                        containerColor = androidx.compose.ui.graphics.Color(0xFF2E7D32).copy(alpha = 0.95f)
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(28.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.size(52.dp)
-                        )
-                        Text(
-                            text = if (selectedLanguage == "es") "¡Documento capturado!" else "Document captured!",
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
-                            color = androidx.compose.ui.graphics.Color.White,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-            isProcessing -> {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth(0.75f),
-                    colors = CardDefaults.cardColors(
-                        containerColor = OrangePrimary.copy(alpha = 0.95f)
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    elevation = CardDefaults.cardElevation(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(28.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        CircularProgressIndicator(
-                            color = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.size(52.dp),
-                            strokeWidth = 5.dp
-                        )
-                        Text(
-                            text = if (selectedLanguage == "es") "Procesando..." else "Processing...",
-                            style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
-                            color = androidx.compose.ui.graphics.Color.White,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (selectedLanguage == "es") "Verificando calidad" else "Checking quality",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-            else -> {
-                // Instrucción mientras espera capturar
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth(0.85f)
-                        .padding(bottom = 72.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.75f)
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = instruction,
-                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                            color = androidx.compose.ui.graphics.Color.White,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 22.sp
-                        )
-                        Text(
-                            text = if (selectedLanguage == "es")
-                                "📷 Capturando automáticamente en un momento..."
-                            else
-                                "📷 Auto-capturing in a moment...",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                            color = OrangePrimary,
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-            }
-        }
-
-        // Botón cancelar (abajo, siempre visible mientras no procesa)
-        if (!isProcessing && !showSuccess) {
-            OutlinedButton(
-                onClick = onDismiss,
+        // ── Sharpness progress bar (Waiting only, just below the guide frame) ─
+        if (state is ScanState.Waiting) {
+            Column(
                 modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.70f)
+                    .padding(top = 144.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                LinearProgressIndicator(
+                    progress    = { sharpProgress },
+                    modifier    = Modifier.fillMaxWidth().height(4.dp),
+                    color       = when {
+                        sharpProgress >= 0.8f -> Color(0xFF43A047)
+                        sharpProgress >= 0.4f -> OrangePrimary
+                        else                  -> Color(0xFFE53935).copy(alpha = 0.8f)
+                    },
+                    trackColor  = Color.White.copy(alpha = 0.18f)
+                )
+                Text(
+                    text  = when {
+                        sharpProgress >= 0.8f -> if (selectedLanguage == "es") "Capturando…" else "Capturing…"
+                        sharpProgress >= 0.4f -> if (selectedLanguage == "es") "Enfocando…"  else "Focusing…"
+                        else                  -> if (selectedLanguage == "es") "Centre el documento en el marco" else "Center the document in the frame"
+                    },
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = Color.White.copy(alpha = 0.80f),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        // ── Bottom hint strip ─────────────────────────────────────────────────
+        if (state is ScanState.Waiting) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = androidx.compose.ui.graphics.Color.White
-                ),
-                border = BorderStroke(2.dp, androidx.compose.ui.graphics.Color.White),
-                shape = RoundedCornerShape(10.dp)
+                    .background(Color.Black.copy(alpha = 0.72f))
+                    .padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 18.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (selectedLanguage == "es") "Cancelar" else "Cancel",
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp)
+                    text  = if (selectedLanguage == "es")
+                        "Se capturará automáticamente cuando el documento esté enfocado"
+                    else
+                        "Will capture automatically once the document is in focus",
+                    style      = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color      = OrangePrimary,
+                    textAlign  = TextAlign.Center,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // ── Cancel button — just above the bottom strip ───────────────────────
+        if (state !is ScanState.Success) {
+            OutlinedButton(
+                onClick  = { state = ScanState.Waiting; onDismiss() },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 68.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.65f)),
+                shape  = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text  = if (selectedLanguage == "es") "Cancelar" else "Cancel",
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp)
                 )
             }
         }
