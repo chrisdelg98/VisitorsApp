@@ -20,10 +20,15 @@ class PersonRepositoryImpl(
 
     override suspend fun createPerson(person: Person): Result<Person> {
         return try {
-            // Verificar que no exista ya una persona con el mismo documento
-            val existing = personDao.getPersonByDocumentNumber(person.documentNumber)
-            if (existing != null) {
-                return Result.failure(Exception("Person with document ${person.documentNumber} already exists"))
+            // Only check for duplicates when a document number is present
+            val docNum = person.documentNumber
+            if (!docNum.isNullOrBlank()) {
+                val existing = personDao.getPersonByDocumentNumber(docNum)
+                if (existing != null) {
+                    return Result.failure(
+                        Exception("Person with document $docNum already exists")
+                    )
+                }
             }
 
             personDao.insertPerson(person.toEntity())
@@ -102,6 +107,7 @@ class PersonRepositoryImpl(
     }
 
     override suspend fun existsByDocumentNumber(documentNumber: String): Boolean {
+        if (documentNumber.isBlank()) return false
         return try {
             personDao.getPersonByDocumentNumber(documentNumber) != null
         } catch (e: Exception) {

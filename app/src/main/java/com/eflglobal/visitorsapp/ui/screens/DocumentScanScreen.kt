@@ -2,7 +2,6 @@ package com.eflglobal.visitorsapp.ui.screens
 
 import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -65,16 +64,33 @@ fun DocumentScanScreen(
 
     var selectedDocType by remember { mutableStateOf("DUI") }
 
-    val visitorTypes = if (selectedLanguage == "es")
-        listOf("Visitante", "Contratista", "Proveedor", "Haciendo una entrega")
+    // Visit reason — pairs of (reasonKey, displayLabel)
+    val visitorTypeOptions = if (selectedLanguage == "es")
+        listOf(
+            "VISITOR"         to "Visitante",
+            "CONTRACTOR"      to "Contratista",
+            "VENDOR"          to "Proveedor",
+            "DELIVERY"        to "Haciendo una entrega",
+            "DRIVER"          to "Conductor",
+            "TEMPORARY_STAFF" to "Personal Temporal",
+            "OTHER"           to "Otro"
+        )
     else
-        listOf("Visitor", "Contractor", "Supplier", "Making a delivery")
+        listOf(
+            "VISITOR"         to "Visitor",
+            "CONTRACTOR"      to "Contractor",
+            "VENDOR"          to "Vendor",
+            "DELIVERY"        to "Delivery",
+            "DRIVER"          to "Driver",
+            "TEMPORARY_STAFF" to "Temporary Staff",
+            "OTHER"           to "Other"
+        )
 
-    var selectedVisitorType by remember { mutableStateOf(visitorTypes.first()) }
-    var expandedVisitorType by remember { mutableStateOf(false) }
+    var selectedVisitorOption by remember { mutableStateOf(visitorTypeOptions.first()) }
+    var expandedVisitorType   by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedDocType)    { viewModel.setDocumentType(selectedDocType) }
-    LaunchedEffect(selectedVisitorType) { viewModel.setVisitorType(selectedVisitorType) }
+    LaunchedEffect(selectedDocType)       { viewModel.setDocumentType(selectedDocType) }
+    LaunchedEffect(selectedVisitorOption) { viewModel.setVisitorType(selectedVisitorOption.first) }
 
     var frontScanned        by remember { mutableStateOf(false) }
     var backScanned         by remember { mutableStateOf(false) }
@@ -116,6 +132,7 @@ fun DocumentScanScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp)
             ) {
+
                 // ── Visitor type ──────────────────────────────────────────────
                 Text(
                     text = if (selectedLanguage == "es") "Yo soy un:" else "I am a:",
@@ -125,37 +142,40 @@ fun DocumentScanScreen(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 ExposedDropdownMenuBox(
-                    expanded = expandedVisitorType,
+                    expanded         = expandedVisitorType,
                     onExpandedChange = { expandedVisitorType = !expandedVisitorType },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                    modifier         = Modifier.fillMaxWidth().padding(bottom = 24.dp)
                 ) {
                     OutlinedTextField(
-                        value = selectedVisitorType,
+                        value         = selectedVisitorOption.second,
                         onValueChange = {},
-                        readOnly = true,
-                        label = {
+                        readOnly      = true,
+                        label         = {
                             Text(
                                 if (selectedLanguage == "es") "Seleccione una opción" else "Select an option",
                                 fontSize = 12.sp
                             )
                         },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVisitorType) },
-                        colors = OutlinedTextFieldDefaults.colors(
+                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVisitorType) },
+                        colors        = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = SlatePrimary,
                             focusedLabelColor  = SlatePrimary
                         ),
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier  = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                        shape     = RoundedCornerShape(12.dp),
                         textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
                     )
                     ExposedDropdownMenu(
-                        expanded = expandedVisitorType,
+                        expanded         = expandedVisitorType,
                         onDismissRequest = { expandedVisitorType = false }
                     ) {
-                        visitorTypes.forEach { t ->
+                        visitorTypeOptions.forEach { option ->
                             DropdownMenuItem(
-                                text = { Text(t, fontSize = 14.sp) },
-                                onClick = { selectedVisitorType = t; expandedVisitorType = false }
+                                text    = { Text(option.second, fontSize = 14.sp) },
+                                onClick = {
+                                    selectedVisitorOption = option
+                                    expandedVisitorType   = false
+                                }
                             )
                         }
                     }
@@ -215,7 +235,7 @@ fun DocumentScanScreen(
 
                 Button(
                     onClick  = onContinue,
-                    enabled  = frontScanned && backScanned && selectedVisitorType.isNotEmpty(),
+                    enabled  = frontScanned && backScanned && selectedVisitorOption.first.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors   = ButtonDefaults.buttonColors(
                         containerColor         = OrangePrimary,

@@ -2,7 +2,7 @@ package com.eflglobal.visitorsapp.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.eflglobal.visitorsapp.domain.model.Person
+import com.eflglobal.visitorsapp.domain.model.VisitReasonKeys
 import com.eflglobal.visitorsapp.domain.usecase.person.CreatePersonUseCase
 import com.eflglobal.visitorsapp.domain.usecase.person.GetPersonByDocumentUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.CreateVisitUseCase
@@ -23,62 +23,98 @@ class NewVisitViewModel(
     private val _uiState = MutableStateFlow<NewVisitUiState>(NewVisitUiState.Idle)
     val uiState: StateFlow<NewVisitUiState> = _uiState.asStateFlow()
 
-    // Datos temporales del visitante durante el flujo
+    // ── Transient flow data ────────────────────────────────────────────────────
     private var personId: String? = null
     private var documentType: String = ""
-    private var visitorType: String = "Visitante"
+
+    /** "Yo soy un:" — who the visitor IS (VISITOR, CONTRACTOR, VENDOR, DELIVERY…) */
+    private var visitorType: String = VisitReasonKeys.VISITOR
+
+    /** "Motivo de visita" — WHY they are visiting (from PersonDataScreen) */
+    private var visitReason: String = VisitReasonKeys.VISITOR
+
+    /** Free-text description — only used when visitReason == "OTHER". */
+    private var visitReasonCustom: String? = null
+
     private var documentFrontPath: String? = null
     private var documentBackPath: String? = null
-    private var detectedName: String? = null
+
+    /** First name detected by OCR (from document front). */
+    private var detectedFirstName: String? = null
+
+    /** Last name detected by OCR (from document front). */
+    private var detectedLastName: String? = null
+
+    /** Document number detected by OCR — may be null. */
     private var documentNumber: String? = null
 
-    /**
-     * Obtiene o genera un personId único para esta visita.
-     */
+    // ── Public accessors ──────────────────────────────────────────────────────
+
     fun getPersonId(): String {
-        if (personId == null) {
-            personId = java.util.UUID.randomUUID().toString()
-        }
+        if (personId == null) personId = java.util.UUID.randomUUID().toString()
         return personId!!
     }
 
-    fun setDocumentType(type: String) {
-        documentType = type
+    fun setDocumentType(type: String) { documentType = type }
+
+    /** Sets "Yo soy un:" — who the visitor IS. Called from DocumentScanScreen. */
+    fun setVisitorType(type: String) { visitorType = type }
+
+    /**
+     * Sets the visit reason — WHY they are visiting.
+     * Called from PersonDataScreen.
+     */
+    fun setVisitReason(key: String, custom: String? = null) {
+        visitReason       = key
+        visitReasonCustom = if (key == VisitReasonKeys.OTHER) custom else null
     }
 
-    fun setVisitorType(type: String) {
-        visitorType = type
-    }
-
+    /**
+     * Called after front document is scanned.
+     * [name] is the full OCR name (may contain both first and last).
+     * Split heuristic: first word = firstName, remainder = lastName.
+     */
     fun setDocumentFront(path: String, name: String? = null, docNumber: String? = null) {
         documentFrontPath = path
-        detectedName = name
-        documentNumber = docNumber
+        documentNumber    = docNumber
+        if (!name.isNullOrBlank()) {
+            val parts = name.trim().split(" ", limit = 2)
+            detectedFirstName = parts.getOrNull(0)?.trim()
+            detectedLastName  = parts.getOrNull(1)?.trim()
+        }
     }
 
-    fun setDocumentBack(path: String) {
-        documentBackPath = path
-    }
+    fun setDocumentBack(path: String) { documentBackPath = path }
 
-    fun getDetectedName(): String? = detectedName
+    fun getDetectedFirstName(): String? = detectedFirstName
+    fun getDetectedLastName(): String?  = detectedLastName
+    /** Convenience — joined for backward-compat display. */
+    fun getDetectedName(): String? =
+        listOfNotNull(detectedFirstName, detectedLastName)
+            .joinToString(" ")
+            .ifBlank { null }
 
     fun getDocumentNumber(): String? = documentNumber
 
+    // ── Business logic ────────────────────────────────────────────────────────
+
     fun createPersonAndVisit(
-        fullName: String,
+        firstName: String,
+        lastName: String,
         email: String,
         phoneNumber: String,
         company: String?,
         visitingPersonName: String,
         profilePhotoPath: String?
     ) {
-        if (fullName.isBlank() || email.isBlank() || phoneNumber.isBlank() || visitingPersonName.isBlank()) {
+        if (firstName.isBlank() || email.isBlank() || phoneNumber.isBlank() || visitingPersonName.isBlank()) {
             _uiState.value = NewVisitUiState.Error("All required fields must be filled")
             return
         }
-
-        if (documentNumber.isNullOrBlank()) {
-            _uiState.value = NewVisitUiState.Error("Document number is required")
+        if (visitReason == VisitReasonKeys.OTHER && visitReasonCustom.isNullOrBlank()) {
+            _uiState.value = NewVisitUiState.Error(
+                "Please describe the reason for your visit"
+            )
             return
         }
 
@@ -86,80 +122,74 @@ class NewVisitViewModel(
 
         viewModelScope.launch {
             try {
-                // Verificar si ya existe la persona
-                val existingPerson = getPersonByDocumentUseCase(documentNumber!!)
+                // Look up existing person by document number (if available)
+                val existingPerson = documentNumber?.let { getPersonByDocumentUseCase(it) }
 
-                val personId = if (existingPerson != null) {
-                    // Persona ya existe, usar su ID
+                val resolvedPersonId = if (existingPerson != null) {
                     existingPerson.personId
                 } else {
-                    // Crear nueva persona
-                    val createResult = createPersonUseCase(
-                        fullName = fullName,
-                        documentNumber = documentNumber!!,
-                        documentType = documentType,
-                        email = email,
-                        phoneNumber = phoneNumber,
-                        company = company,
-                        profilePhotoPath = profilePhotoPath,
+                    createPersonUseCase(
+                        firstName         = firstName,
+                        lastName          = lastName,
+                        documentNumber    = documentNumber,
+                        documentType      = documentType,
+                        email             = email,
+                        phoneNumber       = phoneNumber,
+                        company           = company,
+                        profilePhotoPath  = profilePhotoPath,
                         documentFrontPath = documentFrontPath,
-                        documentBackPath = documentBackPath
-                    )
-
-                    createResult.fold(
+                        documentBackPath  = documentBackPath
+                    ).fold(
                         onSuccess = { it.personId },
                         onFailure = { error ->
-                            _uiState.value = NewVisitUiState.Error(
-                                error.message ?: "Failed to create person"
-                            )
+                            _uiState.value = NewVisitUiState.Error(error.message ?: "Failed to create person")
                             return@launch
                         }
                     )
                 }
 
-                // Crear visita
-                val visitResult = createVisitUseCase(
-                    personId = personId,
+                createVisitUseCase(
+                    personId           = resolvedPersonId,
                     visitingPersonName = visitingPersonName,
-                    visitorType = visitorType
-                )
-
-                visitResult.fold(
+                    visitorType        = visitorType,
+                    visitReason        = visitReason,
+                    visitReasonCustom  = visitReasonCustom
+                ).fold(
                     onSuccess = { visit ->
                         _uiState.value = NewVisitUiState.Success(
-                            qrCode = visit.qrCodeValue,
-                            personName = fullName,
+                            qrCode        = visit.qrCodeValue,
+                            personName    = "$firstName $lastName".trim(),
                             visitingPerson = visitingPersonName,
-                            company = company
+                            company       = company
                         )
                     },
                     onFailure = { error ->
-                        _uiState.value = NewVisitUiState.Error(
-                            error.message ?: "Failed to create visit"
-                        )
+                        _uiState.value = NewVisitUiState.Error(error.message ?: "Failed to create visit")
                     }
                 )
             } catch (e: Exception) {
-                _uiState.value = NewVisitUiState.Error(
-                    e.message ?: "An unexpected error occurred"
-                )
+                _uiState.value = NewVisitUiState.Error(e.message ?: "An unexpected error occurred")
             }
         }
     }
 
     fun resetState() {
-        _uiState.value = NewVisitUiState.Idle
-        documentType = ""
-        visitorType = "Visitante"
+        _uiState.value    = NewVisitUiState.Idle
+        documentType      = ""
+        visitorType       = VisitReasonKeys.VISITOR
+        visitReason       = VisitReasonKeys.VISITOR
+        visitReasonCustom = null
         documentFrontPath = null
-        documentBackPath = null
-        detectedName = null
-        documentNumber = null
+        documentBackPath  = null
+        detectedFirstName = null
+        detectedLastName  = null
+        documentNumber    = null
+        personId          = null
     }
 }
 
 sealed class NewVisitUiState {
-    object Idle : NewVisitUiState()
+    object Idle    : NewVisitUiState()
     object Loading : NewVisitUiState()
     data class Success(
         val qrCode: String,
@@ -169,4 +199,3 @@ sealed class NewVisitUiState {
     ) : NewVisitUiState()
     data class Error(val message: String) : NewVisitUiState()
 }
-

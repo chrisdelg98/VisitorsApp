@@ -2,7 +2,11 @@ package com.eflglobal.visitorsapp.ui.screens
 
 import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -20,6 +24,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -28,6 +35,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
+import com.eflglobal.visitorsapp.data.local.AppDatabase
+import com.eflglobal.visitorsapp.data.local.mapper.toDomain
+import com.eflglobal.visitorsapp.domain.model.VisitReason
+import com.eflglobal.visitorsapp.domain.model.VisitReasonKeys
 import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
 import com.eflglobal.visitorsapp.ui.components.CameraPreviewComposable
 import com.eflglobal.visitorsapp.ui.localization.Strings
@@ -36,8 +47,10 @@ import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState
 import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,69 +62,80 @@ fun PersonDataScreen(
         factory = ViewModelFactory(LocalContext.current)
     )
 ) {
-    val context = LocalContext.current
+    val context        = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Obtener nombre y documento detectados del ViewModel
-    val detectedName = viewModel.getDetectedName() ?: ""
-    val detectedDocNumber = viewModel.getDocumentNumber() ?: ""
+    // ── OCR pre-fill ──────────────────────────────────────────────────────────
+    val detectedFirstName = viewModel.getDetectedFirstName() ?: ""
+    val detectedLastName  = viewModel.getDetectedLastName()  ?: ""
+    val detectedDocNumber = viewModel.getDocumentNumber()    ?: ""
 
-    // Si hay datos detectados, usarlos como valores iniciales
-    var fullName by remember { mutableStateOf(detectedName) }
-    var company by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
+    var firstName      by remember { mutableStateOf(detectedFirstName) }
+    var lastName       by remember { mutableStateOf(detectedLastName) }
+    var company        by remember { mutableStateOf("") }
+    var email          by remember { mutableStateOf("") }
+    var phone          by remember { mutableStateOf("") }
     var visitingPerson by remember { mutableStateOf("") }
-    var photoTaken by remember { mutableStateOf(false) }
-    var isCapturing by remember { mutableStateOf(false) }
-    var countdown by remember { mutableStateOf(0) }
+
+    // ── Photo ─────────────────────────────────────────────────────────────────
+    var photoTaken       by remember { mutableStateOf(false) }
+    var isCapturing      by remember { mutableStateOf(false) }
     var profilePhotoPath by remember { mutableStateOf<String?>(null) }
+    var capturedBitmap   by remember { mutableStateOf<Bitmap?>(null) }
 
-    // Actualizar fullName cuando cambie detectedName
-    LaunchedEffect(detectedName) {
-        if (detectedName.isNotEmpty() && fullName.isEmpty()) {
-            fullName = detectedName
+    // ── Visit reason — loaded from DB on IO thread ────────────────────────────
+    val visitReasons = remember { mutableStateListOf<VisitReason>() }
+    LaunchedEffect(Unit) {
+        val reasons = withContext(Dispatchers.IO) {
+            AppDatabase.getInstance(context).visitReasonDao().getAllActiveReasons()
+        }.map { it.toDomain() }
+        visitReasons.clear()
+        visitReasons.addAll(reasons)
+    }
+
+    var selectedReason   by remember { mutableStateOf<VisitReason?>(null) }
+    var reasonExpanded   by remember { mutableStateOf(false) }
+    var customReasonText by remember { mutableStateOf("") }
+    val isOtherSelected  = selectedReason?.reasonKey == VisitReasonKeys.OTHER
+
+    LaunchedEffect(selectedReason, customReasonText) {
+        selectedReason?.let {
+            viewModel.setVisitReason(
+                key    = it.reasonKey,
+                custom = if (isOtherSelected) customReasonText else null
+            )
         }
     }
 
-    // Indicador si el nombre fue detectado automáticamente
-    val isNameAutoDetected = detectedName.isNotEmpty()
+    // OCR auto-fill on first load
+    LaunchedEffect(detectedFirstName) {
+        if (detectedFirstName.isNotEmpty() && firstName.isEmpty()) firstName = detectedFirstName
+    }
+    LaunchedEffect(detectedLastName) {
+        if (detectedLastName.isNotEmpty() && lastName.isEmpty()) lastName = detectedLastName
+    }
 
-
-    // Manejar navegación cuando se crea exitosamente la visita
     LaunchedEffect(uiState) {
-        if (uiState is NewVisitUiState.Success) {
-            onContinue()
-        }
+        if (uiState is NewVisitUiState.Success) onContinue()
     }
 
-    LaunchedEffect(isCapturing) {
-        if (isCapturing) {
-            countdown = 5
-            while (countdown > 0) {
-                delay(1000)
-                countdown--
-            }
-            if (countdown == 0) {
-                photoTaken = true
-                isCapturing = false
-            }
-        }
-    }
+    val canSubmit = firstName.isNotBlank()
+        && email.isNotBlank()
+        && phone.isNotBlank()
+        && visitingPerson.isNotBlank()
+        && photoTaken
+        && selectedReason != null
+        && (!isOtherSelected || customReasonText.isNotBlank())
+        && uiState !is NewVisitUiState.Loading
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        Strings.visitorInformation(selectedLanguage),
-                        fontSize = 18.sp
-                    )
-                },
+                title = { Text(Strings.visitorInformation(selectedLanguage), fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Strings.back(selectedLanguage))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -126,359 +150,428 @@ fun PersonDataScreen(
                 .padding(padding)
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            // Sección de datos personales
-            Text(
-                text = Strings.personalInformation(selectedLanguage),
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
-                fontWeight = FontWeight.SemiBold,
-                color = SlatePrimary,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            // Primera fila: Nombre y Apellido (mitad) + Número de Documento (mitad)
+            // ── TWO-COLUMN LAYOUT ─────────────────────────────────────────────
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.Top
             ) {
-                // Campo nombre y apellido (mitad del ancho)
+                // ════════════════════════════════════════════
+                // LEFT COLUMN — Personal Information
+                // ════════════════════════════════════════════
                 Column(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = fullName,
-                        onValueChange = { fullName = it },
-                        label = { Text(Strings.fullName(selectedLanguage), fontSize = 12.sp) },
-                        placeholder = { Text(Strings.enterFullName(selectedLanguage), fontSize = 12.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = if (isNameAutoDetected) OrangePrimary else SlatePrimary,
-                            focusedLabelColor = if (isNameAutoDetected) OrangePrimary else SlatePrimary
-                        ),
-                        singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+
+                    Text(
+                        text       = Strings.personalInformation(selectedLanguage),
+                        style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
+                        fontWeight = FontWeight.SemiBold,
+                        color      = SlatePrimary,
+                        modifier   = Modifier.padding(bottom = 12.dp)
                     )
 
-                    // Indicador si fue detectado automáticamente
-                    if (isNameAutoDetected) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "✓ ${Strings.detectedFromDocument(selectedLanguage)}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color = OrangePrimary,
-                            modifier = Modifier.padding(start = 12.dp)
-                        )
-                    }
-                }
+                    // First name
+                    FieldWithOcrHint(
+                        value         = firstName,
+                        onValueChange = { firstName = it },
+                        label         = if (selectedLanguage == "es") "Nombres" else "First Name",
+                        placeholder   = if (selectedLanguage == "es") "Ingrese nombres" else "Enter first name",
+                        ocr           = detectedFirstName.isNotEmpty(),
+                        selectedLanguage = selectedLanguage
+                    )
 
-                // Campo número de documento (solo lectura, detectado automáticamente)
-                Column(modifier = Modifier.weight(1f)) {
+                    Spacer(Modifier.height(10.dp))
+
+                    // Last name
+                    FieldWithOcrHint(
+                        value         = lastName,
+                        onValueChange = { lastName = it },
+                        label         = if (selectedLanguage == "es") "Apellidos" else "Last Name",
+                        placeholder   = if (selectedLanguage == "es") "Ingrese apellidos" else "Enter last name",
+                        ocr           = detectedLastName.isNotEmpty(),
+                        selectedLanguage = selectedLanguage
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // Document number — read-only optional
                     OutlinedTextField(
-                        value = detectedDocNumber,
+                        value         = detectedDocNumber,
                         onValueChange = {},
-                        readOnly = true,
-                        label = { Text(if (selectedLanguage == "es") "N° Documento" else "Document No.", fontSize = 12.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = OrangePrimary,
-                            focusedLabelColor = OrangePrimary,
-                            unfocusedBorderColor = OrangePrimary.copy(alpha = 0.5f),
-                            disabledBorderColor = OrangePrimary.copy(alpha = 0.3f),
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface
+                        readOnly      = true,
+                        enabled       = false,
+                        label         = { Text(if (selectedLanguage == "es") "N° Documento (opcional)" else "Doc. No. (optional)", fontSize = 11.sp) },
+                        placeholder   = { Text(if (selectedLanguage == "es") "No detectado" else "Not detected", fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            disabledBorderColor = if (detectedDocNumber.isNotEmpty()) OrangePrimary.copy(alpha = 0.4f)
+                                                  else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                            disabledTextColor   = MaterialTheme.colorScheme.onSurface,
+                            disabledLabelColor  = if (detectedDocNumber.isNotEmpty()) OrangePrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
-                        enabled = false,
-                        singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    )
+                    if (detectedDocNumber.isNotEmpty()) {
+                        Text(
+                            "✓ ${Strings.detectedFromDocument(selectedLanguage)}",
+                            style    = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                            color    = OrangePrimary,
+                            modifier = Modifier.padding(start = 12.dp, top = 2.dp, bottom = 4.dp)
+                        )
+                    } else Spacer(Modifier.height(10.dp))
+
+                    // Company (optional)
+                    OutlinedTextField(
+                        value         = company,
+                        onValueChange = { company = it },
+                        label         = { Text("${Strings.company(selectedLanguage)} (${Strings.optional(selectedLanguage)})", fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SlatePrimary,
+                            focusedLabelColor  = SlatePrimary
+                        ),
+                        singleLine  = true,
+                        textStyle   = LocalTextStyle.current.copy(fontSize = 13.sp)
                     )
 
-                    // Indicador que fue detectado automáticamente
-                    if (detectedDocNumber.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "✓ ${Strings.detectedFromDocument(selectedLanguage)}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color = OrangePrimary,
-                            modifier = Modifier.padding(start = 12.dp)
-                        )
-                    }
-                }
-            }
+                    Spacer(Modifier.height(10.dp))
 
-            // Segunda fila: Empresa (ancho completo)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Campo empresa (opcional)
-                OutlinedTextField(
-                    value = company,
-                    onValueChange = { company = it },
-                    label = { Text("${Strings.company(selectedLanguage)} (${Strings.optional(selectedLanguage)})", fontSize = 12.sp) },
-                    placeholder = { Text(Strings.company(selectedLanguage), fontSize = 12.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SlatePrimary,
-                        focusedLabelColor = SlatePrimary
-                    ),
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
-                )
-            }
+                    // Email
+                    OutlinedTextField(
+                        value           = email,
+                        onValueChange   = { email = it },
+                        label           = { Text(Strings.email(selectedLanguage), fontSize = 11.sp) },
+                        placeholder     = { Text(Strings.enterEmail(selectedLanguage), fontSize = 11.sp) },
+                        modifier        = Modifier.fillMaxWidth(),
+                        shape           = RoundedCornerShape(12.dp),
+                        colors          = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SlatePrimary,
+                            focusedLabelColor  = SlatePrimary
+                        ),
+                        singleLine      = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        textStyle       = LocalTextStyle.current.copy(fontSize = 13.sp)
+                    )
 
-            // Tercera fila: Email y Teléfono
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Campo correo electrónico
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text(Strings.email(selectedLanguage), fontSize = 12.sp) },
-                    placeholder = { Text(Strings.enterEmail(selectedLanguage), fontSize = 12.sp) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SlatePrimary,
-                        focusedLabelColor = SlatePrimary
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
-                )
+                    Spacer(Modifier.height(10.dp))
 
-                // Campo teléfono
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text(Strings.phone(selectedLanguage), fontSize = 12.sp) },
-                    placeholder = { Text(Strings.enterPhone(selectedLanguage), fontSize = 12.sp) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SlatePrimary,
-                        focusedLabelColor = SlatePrimary
-                    ),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
-                )
-            }
+                    // Phone
+                    OutlinedTextField(
+                        value           = phone,
+                        onValueChange   = { phone = it },
+                        label           = { Text(Strings.phone(selectedLanguage), fontSize = 11.sp) },
+                        placeholder     = { Text(Strings.enterPhone(selectedLanguage), fontSize = 11.sp) },
+                        modifier        = Modifier.fillMaxWidth(),
+                        shape           = RoundedCornerShape(12.dp),
+                        colors          = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SlatePrimary,
+                            focusedLabelColor  = SlatePrimary
+                        ),
+                        singleLine      = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        textStyle       = LocalTextStyle.current.copy(fontSize = 13.sp)
+                    )
 
-            // Campo a quién visita - ANCHO COMPLETO
-            OutlinedTextField(
-                value = visitingPerson,
-                onValueChange = { visitingPerson = it },
-                label = { Text(Strings.whoVisiting(selectedLanguage), fontSize = 12.sp) },
-                placeholder = { Text(Strings.enterWhoVisiting(selectedLanguage), fontSize = 12.sp) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SlatePrimary,
-                    focusedLabelColor = SlatePrimary
-                ),
-                singleLine = true,
-                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
-            )
+                    Spacer(Modifier.height(10.dp))
 
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(vertical = 16.dp)
-            )
+                    // Who are you visiting
+                    OutlinedTextField(
+                        value         = visitingPerson,
+                        onValueChange = { visitingPerson = it },
+                        label         = { Text(Strings.whoVisiting(selectedLanguage), fontSize = 11.sp) },
+                        placeholder   = { Text(Strings.enterWhoVisiting(selectedLanguage), fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SlatePrimary,
+                            focusedLabelColor  = SlatePrimary
+                        ),
+                        singleLine  = true,
+                        textStyle   = LocalTextStyle.current.copy(fontSize = 13.sp)
+                    )
+                } // end left column
 
-            // Sección de foto personal - Compacta
-            Text(
-                text = Strings.personalPhoto(selectedLanguage),
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
-                fontWeight = FontWeight.SemiBold,
-                color = SlatePrimary,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+                // ════════════════════════════════════════════
+                // RIGHT COLUMN — Visit Reason + Photo
+                // ════════════════════════════════════════════
+                Column(modifier = Modifier.weight(1f)) {
 
-            // Preview compacto y botón
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Preview de la foto
-                Card(
-                    modifier = Modifier.size(170.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (photoTaken)
-                            OrangePrimary.copy(alpha = 0.1f)
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    border = if (photoTaken)
-                        BorderStroke(2.dp, OrangePrimary)
-                    else
-                        BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (photoTaken) {
-                            // Simulación de foto con inicial
-                            if (fullName.isNotEmpty()) {
-                                Text(
-                                    text = fullName.first().uppercase(),
-                                    style = MaterialTheme.typography.displayMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = OrangePrimary
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = OrangePrimary,
-                                    modifier = Modifier.size(40.dp)
-                                )
-                            }
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Portrait,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                modifier = Modifier.size(40.dp)
+                    // ── Reason for Visit ──────────────────────────────────────
+                    Text(
+                        text       = if (selectedLanguage == "es") "Motivo de la Visita" else "Reason for Visit",
+                        style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
+                        fontWeight = FontWeight.SemiBold,
+                        color      = SlatePrimary,
+                        modifier   = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    if (visitReasons.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color       = OrangePrimary,
+                                strokeWidth = 3.dp,
+                                modifier    = Modifier.size(28.dp)
                             )
                         }
-                    }
-                }
+                    } else {
+                        ExposedDropdownMenuBox(
+                            expanded         = reasonExpanded,
+                            onExpandedChange = { reasonExpanded = !reasonExpanded },
+                            modifier         = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value         = selectedReason?.label(selectedLanguage)
+                                    ?: if (selectedLanguage == "es") "Seleccione el motivo" else "Select reason",
+                                onValueChange = {},
+                                readOnly      = true,
+                                label         = { Text(if (selectedLanguage == "es") "Motivo" else "Reason", fontSize = 11.sp) },
+                                trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = reasonExpanded) },
+                                modifier      = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                                shape         = RoundedCornerShape(12.dp),
+                                colors        = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor   = OrangePrimary,
+                                    focusedLabelColor    = OrangePrimary,
+                                    unfocusedBorderColor = if (selectedReason != null) OrangePrimary.copy(alpha = 0.6f)
+                                                           else MaterialTheme.colorScheme.outline
+                                ),
+                                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
+                            )
+                            ExposedDropdownMenu(
+                                expanded         = reasonExpanded,
+                                onDismissRequest = { reasonExpanded = false }
+                            ) {
+                                visitReasons.forEach { reason ->
+                                    DropdownMenuItem(
+                                        text    = {
+                                            Text(
+                                                reason.label(selectedLanguage),
+                                                fontSize   = 13.sp,
+                                                fontWeight = if (reason.reasonKey == VisitReasonKeys.OTHER)
+                                                    FontWeight.SemiBold else FontWeight.Normal
+                                            )
+                                        },
+                                        onClick = {
+                                            selectedReason = reason
+                                            reasonExpanded  = false
+                                            if (reason.reasonKey != VisitReasonKeys.OTHER) customReasonText = ""
+                                        }
+                                    )
+                                }
+                            }
+                        }
 
-                // Información y botón
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                        // "Other" free-text
+                        AnimatedVisibility(
+                            visible = isOtherSelected,
+                            enter   = expandVertically(),
+                            exit    = shrinkVertically()
+                        ) {
+                            Column(modifier = Modifier.padding(top = 8.dp)) {
+                                OutlinedTextField(
+                                    value         = customReasonText,
+                                    onValueChange = { customReasonText = it },
+                                    label         = {
+                                        Text(
+                                            if (selectedLanguage == "es") "Describa el motivo" else "Describe the reason",
+                                            fontSize = 11.sp
+                                        )
+                                    },
+                                    modifier  = Modifier.fillMaxWidth(),
+                                    shape     = RoundedCornerShape(12.dp),
+                                    colors    = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = OrangePrimary,
+                                        focusedLabelColor  = OrangePrimary
+                                    ),
+                                    maxLines  = 3,
+                                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
+                                )
+                                if (customReasonText.isBlank()) {
+                                    Text(
+                                        text     = if (selectedLanguage == "es") "* Requerido" else "* Required",
+                                        style    = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                        color    = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(start = 12.dp, top = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // ── Personal Photo ────────────────────────────────────────
                     Text(
-                        text = if (photoTaken) {
-                            "✓ ${Strings.photoTakenSuccessfully(selectedLanguage)}"
-                        } else {
-                            Strings.personalPhoto(selectedLanguage)
-                        },
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                        color = if (photoTaken) OrangePrimary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        fontWeight = if (photoTaken) FontWeight.SemiBold else FontWeight.Normal
+                        text       = Strings.personalPhoto(selectedLanguage),
+                        style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
+                        fontWeight = FontWeight.SemiBold,
+                        color      = SlatePrimary,
+                        modifier   = Modifier.padding(bottom = 12.dp)
                     )
 
-                    Button(
-                        onClick = { isCapturing = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = OrangePrimary
+                    // Photo preview card — fills the width of the right column
+                    Card(
+                        onClick   = { if (!photoTaken) isCapturing = true },
+                        modifier  = Modifier.fillMaxWidth().aspectRatio(1f),
+                        shape     = RoundedCornerShape(16.dp),
+                        colors    = CardDefaults.cardColors(
+                            containerColor = if (photoTaken) OrangePrimary.copy(alpha = 0.08f)
+                                             else MaterialTheme.colorScheme.surfaceVariant
                         ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.height(40.dp)
+                        border    = if (photoTaken) BorderStroke(2.dp, OrangePrimary)
+                                    else BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Portrait,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (photoTaken) {
-                                Strings.retakePhoto(selectedLanguage)
-                            } else {
-                                Strings.takePhoto(selectedLanguage)
-                            },
-                            fontSize = 12.sp
-                        )
+                        Box(
+                            modifier         = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (photoTaken && capturedBitmap != null) {
+                                // ── REAL photo preview ──────────────────────
+                                Image(
+                                    bitmap             = capturedBitmap!!.asImageBitmap(),
+                                    contentDescription = null,
+                                    contentScale       = ContentScale.Crop,
+                                    modifier           = Modifier.fillMaxSize()
+                                        .clip(RoundedCornerShape(16.dp))
+                                )
+                                // Orange tint overlay
+                                Box(
+                                    modifier = Modifier.fillMaxSize()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(OrangePrimary.copy(alpha = 0.12f))
+                                )
+                                // ✓ badge
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .size(28.dp)
+                                        .background(OrangePrimary, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint     = androidx.compose.ui.graphics.Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            } else if (!photoTaken) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Portrait,
+                                        contentDescription = null,
+                                        tint     = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                                        modifier = Modifier.size(56.dp)
+                                    )
+                                    Text(
+                                        text  = if (selectedLanguage == "es") "Toca para tomar foto" else "Tap to take photo",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
                     }
-                }
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(Modifier.height(8.dp))
 
-            // Botón continuar
+                    // Retake button (shown after photo taken)
+                    if (photoTaken) {
+                        OutlinedButton(
+                            onClick  = { isCapturing = true },
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            shape    = RoundedCornerShape(12.dp),
+                            border   = BorderStroke(1.dp, OrangePrimary),
+                            colors   = ButtonDefaults.outlinedButtonColors(contentColor = OrangePrimary)
+                        ) {
+                            Icon(Icons.Default.Portrait, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(Strings.retakePhoto(selectedLanguage), fontSize = 12.sp)
+                        }
+                    }
+                } // end right column
+            } // end Row
+
+            Spacer(Modifier.height(24.dp))
+
+            // ── Continue button ───────────────────────────────────────────────
             Button(
-                onClick = {
-
+                onClick  = {
                     viewModel.createPersonAndVisit(
-                        fullName = fullName,
-                        email = email,
-                        phoneNumber = phone,
-                        company = company.ifBlank { null },
+                        firstName          = firstName,
+                        lastName           = lastName,
+                        email              = email,
+                        phoneNumber        = phone,
+                        company            = company.ifBlank { null },
                         visitingPersonName = visitingPerson,
-                        profilePhotoPath = profilePhotoPath
+                        profilePhotoPath   = profilePhotoPath
                     )
                 },
-                enabled = fullName.isNotBlank() && email.isNotBlank() && phone.isNotBlank() && visitingPerson.isNotBlank() && photoTaken && uiState !is NewVisitUiState.Loading,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = OrangePrimary,
+                enabled  = canSubmit,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor         = OrangePrimary,
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (uiState is NewVisitUiState.Loading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
+                        modifier    = Modifier.size(24.dp),
+                        color       = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.5.dp
                     )
                 } else {
                     Text(
-                        text = Strings.continueBtn(selectedLanguage),
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                        Strings.continueBtn(selectedLanguage),
+                        style      = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
                         fontWeight = FontWeight.SemiBold
                     )
                 }
             }
 
-            // Mostrar error si existe
             if (uiState is NewVisitUiState.Error) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    text = (uiState as NewVisitUiState.Error).message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    text      = (uiState as NewVisitUiState.Error).message,
+                    style     = MaterialTheme.typography.bodySmall,
+                    color     = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier  = Modifier.fillMaxWidth()
                 )
             }
-        }
+        } // end outer Column
 
-        // Modal fullscreen para capturar foto REAL con CameraX
+        // ── Selfie capture modal ──────────────────────────────────────────────
         if (isCapturing) {
-            SelfieCaptureModalWithTimer(
+            SelfieCaptureModal(
                 selectedLanguage = selectedLanguage,
-                onDismiss = {
-                    isCapturing = false
-                    countdown = 0
-                },
-                onPhotoCaptured = { bitmap ->
+                onDismiss        = { isCapturing = false },
+                onPhotoCaptured  = { bitmap ->
                     coroutineScope.launch {
                         try {
-                            // Guardar la foto con ImageSaver
-                            val personId = viewModel.getPersonId()
-                            val savedPath = ImageSaver.saveImage(
-                                context = context,
-                                bitmap = bitmap,
-                                personId = personId,
-                                imageType = ImageSaver.ImageType.PROFILE
-                            )
-
-                            // Actualizar estados
+                            val savedPath = withContext(Dispatchers.IO) {
+                                ImageSaver.saveImage(
+                                    context   = context,
+                                    bitmap    = bitmap,
+                                    personId  = viewModel.getPersonId(),
+                                    imageType = ImageSaver.ImageType.PROFILE
+                                )
+                            }
+                            capturedBitmap   = bitmap
                             profilePhotoPath = savedPath
-                            photoTaken = true
-                            isCapturing = false
-                            countdown = 0
+                            photoTaken       = true
+                            isCapturing      = false
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -489,29 +582,58 @@ fun PersonDataScreen(
     }
 }
 
-/**
- * Modal para captura de selfie con timer de 5 segundos y cámara frontal REAL.
- */
+// ── Reusable field with OCR hint ──────────────────────────────────────────────
 @Composable
-private fun SelfieCaptureModalWithTimer(
+private fun FieldWithOcrHint(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    ocr: Boolean,
+    selectedLanguage: String
+) {
+    OutlinedTextField(
+        value         = value,
+        onValueChange = onValueChange,
+        label         = { Text(label, fontSize = 11.sp) },
+        placeholder   = { Text(placeholder, fontSize = 11.sp) },
+        modifier      = Modifier.fillMaxWidth(),
+        shape         = RoundedCornerShape(12.dp),
+        colors        = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = if (ocr) OrangePrimary else SlatePrimary,
+            focusedLabelColor  = if (ocr) OrangePrimary else SlatePrimary
+        ),
+        singleLine  = true,
+        textStyle   = LocalTextStyle.current.copy(fontSize = 13.sp)
+    )
+    if (ocr) {
+        Text(
+            "✓ ${Strings.detectedFromDocument(selectedLanguage)}",
+            style    = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+            color    = OrangePrimary,
+            modifier = Modifier.padding(start = 12.dp, top = 2.dp)
+        )
+    }
+}
+
+// ── Selfie capture modal — AUTO countdown, no manual button ──────────────────
+@Composable
+private fun SelfieCaptureModal(
     selectedLanguage: String,
     onDismiss: () -> Unit,
     onPhotoCaptured: (Bitmap) -> Unit
 ) {
-    var countdown by remember { mutableStateOf(0) }
+    var countdown     by remember { mutableStateOf(5) }   // starts immediately
     var shouldCapture by remember { mutableStateOf(false) }
-    var isProcessing by remember { mutableStateOf(false) }
+    var isProcessing  by remember { mutableStateOf(false) }
 
-    // Timer countdown
-    LaunchedEffect(countdown) {
-        if (countdown > 0) {
+    // Auto-countdown starts as soon as the modal opens
+    LaunchedEffect(Unit) {
+        while (countdown > 0) {
             delay(1000)
             countdown--
-            if (countdown == 0) {
-                // Capturar cuando llega a 0
-                shouldCapture = true
-            }
         }
+        shouldCapture = true
     }
 
     Box(
@@ -519,172 +641,114 @@ private fun SelfieCaptureModalWithTimer(
             .fillMaxSize()
             .background(androidx.compose.ui.graphics.Color.Black)
     ) {
-        // Vista previa de cámara frontal REAL
-        CameraPermissionHandler(
-            onPermissionGranted = {},
-            onPermissionDenied = { onDismiss() }
-        ) {
+        CameraPermissionHandler(onPermissionGranted = {}, onPermissionDenied = { onDismiss() }) {
             CameraPreviewComposable(
-                onImageCaptured = { bitmap ->
-                    isProcessing = true
-                    onPhotoCaptured(bitmap)
-                },
-                onError = {
-                    onDismiss()
-                },
-                lensFacing = CameraSelector.LENS_FACING_FRONT,
-                modifier = Modifier.fillMaxSize(),
-                shouldCapture = shouldCapture,
+                onImageCaptured   = { bitmap -> isProcessing = true; onPhotoCaptured(bitmap) },
+                onError           = { onDismiss() },
+                lensFacing        = CameraSelector.LENS_FACING_FRONT,
+                modifier          = Modifier.fillMaxSize(),
+                shouldCapture     = shouldCapture,
                 onCaptureComplete = { shouldCapture = false }
             )
         }
 
-        // Overlay con guías e instrucciones
-        Column(
+        // Top bar
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 32.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (selectedLanguage == "es") "Foto Personal" else "Personal Photo",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = androidx.compose.ui.graphics.Color.White,
+            Text(
+                text      = if (selectedLanguage == "es") "Foto Personal" else "Personal Photo",
+                style     = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color     = androidx.compose.ui.graphics.Color.White,
+                modifier  = Modifier
+                    .background(
+                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            )
+            if (!isProcessing) {
+                IconButton(
+                    onClick  = onDismiss,
                     modifier = Modifier
                         .background(
-                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
-                            shape = RoundedCornerShape(12.dp)
+                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                            CircleShape
                         )
-                        .padding(16.dp)
-                )
-
-                if (countdown == 0 && !isProcessing) {
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .background(
-                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
-                                shape = CircleShape
-                            )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = androidx.compose.ui.graphics.Color.White
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Marco de guía para rostro
-            Box(
-                modifier = Modifier
-                    .size(250.dp)
-                    .border(
-                        width = 4.dp,
-                        color = OrangePrimary,
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                // Countdown en el centro
-                if (countdown > 0) {
-                    Box(
-                        modifier = Modifier
-                            .size(150.dp)
-                            .background(
-                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f),
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = countdown.toString(),
-                            style = MaterialTheme.typography.displayLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = OrangePrimary,
-                            fontSize = 72.sp
-                        )
-                    }
-                } else if (isProcessing) {
-                    CircularProgressIndicator(
-                        color = OrangePrimary,
-                        modifier = Modifier.size(60.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Instrucciones
-            Text(
-                text = when {
-                    countdown > 0 -> if (selectedLanguage == "es")
-                        "¡Mira a la cámara!"
-                    else
-                        "Look at the camera!"
-                    isProcessing -> if (selectedLanguage == "es")
-                        "Procesando..."
-                    else
-                        "Processing..."
-                    else -> if (selectedLanguage == "es")
-                        "Posiciona tu rostro en el círculo"
-                    else
-                        "Position your face in the circle"
-                },
-                style = MaterialTheme.typography.titleMedium,
-                color = androidx.compose.ui.graphics.Color.White,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .background(
-                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Botón capturar
-            if (countdown == 0 && !isProcessing) {
-                Button(
-                    onClick = { countdown = 5 },
-                    modifier = Modifier
-                        .fillMaxWidth(0.7f)
-                        .height(60.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangePrimary
-                    ),
-                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Portrait,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = if (selectedLanguage == "es")
-                            "Tomar Foto (5s)"
-                        else
-                            "Take Photo (5s)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = androidx.compose.ui.graphics.Color.White
                     )
                 }
             }
         }
+
+        // Face guide + countdown
+        Column(
+            modifier            = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier         = Modifier
+                    .size(240.dp)
+                    .border(4.dp, OrangePrimary, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        color    = OrangePrimary,
+                        modifier = Modifier.size(56.dp)
+                    )
+                } else if (countdown > 0) {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .background(
+                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text      = countdown.toString(),
+                            style     = MaterialTheme.typography.displayLarge,
+                            fontWeight = FontWeight.Bold,
+                            color     = OrangePrimary,
+                            fontSize  = 64.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                text = when {
+                    isProcessing -> if (selectedLanguage == "es") "Procesando..." else "Processing..."
+                    countdown > 0 -> if (selectedLanguage == "es")
+                        "Posiciona tu rostro en el círculo"
+                    else
+                        "Position your face in the circle"
+                    else -> if (selectedLanguage == "es") "¡Sonríe!" else "Smile!"
+                },
+                style     = MaterialTheme.typography.titleMedium,
+                color     = androidx.compose.ui.graphics.Color.White,
+                textAlign = TextAlign.Center,
+                modifier  = Modifier
+                    .background(
+                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            )
+        }
     }
 }
-

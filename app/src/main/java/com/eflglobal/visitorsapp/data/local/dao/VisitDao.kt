@@ -4,6 +4,12 @@ import androidx.room.*
 import com.eflglobal.visitorsapp.data.local.entity.VisitEntity
 import kotlinx.coroutines.flow.Flow
 
+/** Simple projection for the reason-count aggregate query. */
+data class ReasonCount(
+    val visitReason: String,
+    val cnt: Int
+)
+
 @Dao
 interface VisitDao {
 
@@ -68,12 +74,40 @@ interface VisitDao {
         SELECT v.* FROM visits v
         INNER JOIN persons p ON v.personId = p.personId
         WHERE v.exitDate IS NULL 
-        AND (p.fullName LIKE '%' || :query || '%' OR v.visitingPersonName LIKE '%' || :query || '%')
+        AND (
+            p.firstName  LIKE '%' || :query || '%'
+            OR p.lastName   LIKE '%' || :query || '%'
+            OR v.visitingPersonName LIKE '%' || :query || '%'
+        )
         ORDER BY v.entryDate DESC
     """)
     suspend fun searchActiveVisits(query: String): List<VisitEntity>
 
+    // ===== QUERY - Por razón de visita =====
+    @Query("SELECT * FROM visits WHERE visitReason = :reason ORDER BY entryDate DESC")
+    suspend fun getVisitsByReason(reason: String): List<VisitEntity>
+
+    @Query("SELECT * FROM visits WHERE visitReason = :reason ORDER BY entryDate DESC")
+    fun getVisitsByReasonFlow(reason: String): Flow<List<VisitEntity>>
+
+    /** Returns all OTHER visits including their custom description. */
+    @Query("SELECT * FROM visits WHERE visitReason = 'OTHER' ORDER BY entryDate DESC")
+    suspend fun getOtherVisits(): List<VisitEntity>
+
+    /** Count visits grouped by reason (for statistics / dashboard). */
+    @Query("SELECT visitReason, COUNT(*) as cnt FROM visits GROUP BY visitReason")
+    suspend fun countVisitsByReason(): List<ReasonCount>
+
+    /** Active visits filtered by reason. */
+    @Query("""
+        SELECT * FROM visits 
+        WHERE exitDate IS NULL AND visitReason = :reason 
+        ORDER BY entryDate DESC
+    """)
+    suspend fun getActiveVisitsByReason(reason: String): List<VisitEntity>
+
     // ===== QUERY - Por Fecha =====
+
     @Query("""
         SELECT * FROM visits 
         WHERE entryDate >= :startDate AND entryDate <= :endDate

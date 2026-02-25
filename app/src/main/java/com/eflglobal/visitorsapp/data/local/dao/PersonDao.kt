@@ -41,18 +41,20 @@ interface PersonDao {
     // ===== QUERY - Búsqueda =====
     @Query("""
         SELECT * FROM persons 
-        WHERE fullName LIKE '%' || :query || '%' 
+        WHERE firstName  LIKE '%' || :query || '%' 
+        OR lastName      LIKE '%' || :query || '%' 
         OR documentNumber LIKE '%' || :query || '%'
-        OR company LIKE '%' || :query || '%'
-        ORDER BY fullName ASC
+        OR company        LIKE '%' || :query || '%'
+        ORDER BY lastName ASC, firstName ASC
     """)
     suspend fun searchPersons(query: String): List<PersonEntity>
 
     @Query("""
         SELECT * FROM persons 
-        WHERE fullName LIKE '%' || :query || '%' 
+        WHERE firstName  LIKE '%' || :query || '%' 
+        OR lastName      LIKE '%' || :query || '%' 
         OR documentNumber LIKE '%' || :query || '%'
-        ORDER BY fullName ASC
+        ORDER BY lastName ASC, firstName ASC
     """)
     fun searchPersonsFlow(query: String): Flow<List<PersonEntity>>
 
@@ -63,7 +65,7 @@ interface PersonDao {
     @Query("SELECT * FROM persons ORDER BY createdAt DESC")
     fun getAllPersonsFlow(): Flow<List<PersonEntity>>
 
-    @Query("SELECT * FROM persons ORDER BY fullName ASC LIMIT :limit")
+    @Query("SELECT * FROM persons ORDER BY lastName ASC, firstName ASC LIMIT :limit")
     suspend fun getRecentPersons(limit: Int = 50): List<PersonEntity>
 
     // ===== QUERY - Sincronización =====

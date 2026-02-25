@@ -11,8 +11,9 @@ class CreatePersonUseCase(
     private val personRepository: PersonRepository
 ) {
     suspend operator fun invoke(
-        fullName: String,
-        documentNumber: String,
+        firstName: String,
+        lastName: String,
+        documentNumber: String?,        // optional
         documentType: String,
         email: String,
         phoneNumber: String,
@@ -22,22 +23,22 @@ class CreatePersonUseCase(
         documentBackPath: String? = null
     ): Result<Person> {
         val person = Person(
-            personId = UUID.randomUUID().toString(),
-            fullName = fullName,
-            documentNumber = documentNumber,
-            documentType = documentType,
-            email = email,
-            phoneNumber = phoneNumber,
-            company = company,
-            profilePhotoPath = profilePhotoPath,
+            personId          = UUID.randomUUID().toString(),
+            firstName         = firstName,
+            lastName          = lastName,
+            documentNumber    = documentNumber?.takeIf { it.isNotBlank() },
+            documentType      = documentType,
+            email             = email,
+            phoneNumber       = phoneNumber,
+            company           = company,
+            profilePhotoPath  = profilePhotoPath,
             documentFrontPath = documentFrontPath,
-            documentBackPath = documentBackPath,
-            createdAt = System.currentTimeMillis(),
-            isSynced = false,
-            lastSyncAt = null
+            documentBackPath  = documentBackPath,
+            createdAt         = System.currentTimeMillis(),
+            isSynced          = false,
+            lastSyncAt        = null
         )
 
         return personRepository.createPerson(person)
     }
 }
-

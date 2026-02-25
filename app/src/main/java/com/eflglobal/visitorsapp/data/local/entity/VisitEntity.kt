@@ -25,35 +25,54 @@ import androidx.room.Index
         Index(value = ["personId"]),
         Index(value = ["stationId"]),
         Index(value = ["qrCodeValue"], unique = true),
-        Index(value = ["entryDate"])
+        Index(value = ["entryDate"]),
+        Index(value = ["visitorType"]),
+        Index(value = ["visitReason"])
     ]
 )
 data class VisitEntity(
     @PrimaryKey
-    val visitId: String, // UUID
+    val visitId: String,            // UUID
 
-    val personId: String, // FK a PersonEntity
+    val personId: String,           // FK → PersonEntity
 
-    val stationId: String?, // FK a StationEntity (nullable por si se borra la estación)
+    val stationId: String?,         // FK → StationEntity (nullable if station deleted)
 
-    // Información de la visita
-    val visitingPersonName: String, // A quién visita
+    /** Name of the host / person being visited. */
+    val visitingPersonName: String,
 
-    val visitorType: String, // Visitante, Contratista, Proveedor, Haciendo entrega
+    /**
+     * Who the visitor IS — category of person.
+     * One of: VISITOR, CONTRACTOR, VENDOR, DELIVERY, DRIVER, TEMPORARY_STAFF, OTHER
+     * Shown in DocumentScanScreen as "Yo soy un:" / "I am a:"
+     */
+    val visitorType: String,
 
-    // Fechas
-    val entryDate: Long, // Timestamp de entrada en milisegundos
-    val exitDate: Long?, // Timestamp de salida (nullable si aún no ha salido)
+    /**
+     * WHY they are visiting — purpose/reason of the visit.
+     * One of: VISITOR, DRIVER, CONTRACTOR, TEMPORARY_STAFF, DELIVERY, VENDOR, OTHER.
+     * Shown in PersonDataScreen as "Motivo de la visita" / "Reason for Visit"
+     */
+    val visitReason: String,
 
-    // QR Code único para esta visita
-    val qrCodeValue: String, // Valor único generado para el QR
+    /**
+     * Free-text description — only populated when [visitReason] == "OTHER".
+     * Null for all standard categories.
+     */
+    val visitReasonCustom: String?,
+
+    // Timestamps
+    val entryDate: Long,
+    val exitDate: Long?,
+
+    /** Unique QR code value for this visit. */
+    val qrCodeValue: String,
 
     // Metadata
-    val createdAt: Long, // Timestamp de creación del registro
+    val createdAt: Long,
 
-    // Sincronización
+    // Sync
     val isSynced: Boolean,
     val lastSyncAt: Long?
 )
-
 

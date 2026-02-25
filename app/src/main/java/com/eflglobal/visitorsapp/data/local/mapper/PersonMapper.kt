@@ -6,7 +6,8 @@ import com.eflglobal.visitorsapp.domain.model.Person
 fun PersonEntity.toDomain(): Person {
     return Person(
         personId = personId,
-        fullName = fullName,
+        firstName = firstName,
+        lastName = lastName,
         documentNumber = documentNumber,
         documentType = documentType,
         profilePhotoPath = profilePhotoPath,
@@ -24,7 +25,8 @@ fun PersonEntity.toDomain(): Person {
 fun Person.toEntity(): PersonEntity {
     return PersonEntity(
         personId = personId,
-        fullName = fullName,
+        firstName = firstName,
+        lastName = lastName,
         documentNumber = documentNumber,
         documentType = documentType,
         profilePhotoPath = profilePhotoPath,
@@ -38,4 +40,3 @@ fun Person.toEntity(): PersonEntity {
         lastSyncAt = lastSyncAt
     )
 }
-

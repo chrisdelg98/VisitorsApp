@@ -202,11 +202,10 @@ fun RecurrentSearchScreen(
                     ) {
                         items(persons) { person ->
                             PersonCard(
-                                personName = person.fullName,
+                                personName     = person.fullName,
                                 documentNumber = person.documentNumber,
-                                documentType = person.documentType,
+                                documentType   = person.documentType,
                                 onClick = {
-                                    // Guardar persona seleccionada en el ViewModel
                                     recurrentVisitViewModel.setSelectedPerson(person)
                                     onPersonSelected()
                                 }
@@ -237,7 +236,7 @@ fun RecurrentSearchScreen(
 @Composable
 fun PersonCard(
     personName: String,
-    documentNumber: String,
+    documentNumber: String?,
     documentType: String,
     onClick: () -> Unit
 ) {
@@ -309,7 +308,7 @@ fun PersonCard(
                     }
 
                     Text(
-                        text = documentNumber,
+                        text  = documentNumber ?: "—",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
