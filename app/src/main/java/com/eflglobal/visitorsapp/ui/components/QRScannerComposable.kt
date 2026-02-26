@@ -30,14 +30,15 @@ fun QRScannerComposable(
     lensFacing: Int = CameraSelector.LENS_FACING_FRONT,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
+    val context    = LocalContext.current
+    val appContext = context.applicationContext
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Forzar rotación landscape (90 grados) para mantener consistencia
     val targetRotation = Surface.ROTATION_90
 
     val previewView = remember {
-        PreviewView(context).apply {
+        PreviewView(appContext).apply {
             scaleType = PreviewView.ScaleType.FILL_CENTER
             implementationMode = PreviewView.ImplementationMode.PERFORMANCE
             layoutParams = android.view.ViewGroup.LayoutParams(
@@ -51,7 +52,7 @@ fun QRScannerComposable(
     var hasScanned by remember { mutableStateOf(false) }
 
     DisposableEffect(lensFacing) {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(appContext)
 
         cameraProviderFuture.addListener({
             try {
@@ -98,7 +99,7 @@ fun QRScannerComposable(
             } catch (e: Exception) {
                 onError(e)
             }
-        }, ContextCompat.getMainExecutor(context))
+        }, ContextCompat.getMainExecutor(appContext))
 
         onDispose {
             executor.shutdown()

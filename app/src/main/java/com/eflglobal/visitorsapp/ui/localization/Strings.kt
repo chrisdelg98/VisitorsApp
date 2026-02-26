@@ -1,143 +1,218 @@
 package com.eflglobal.visitorsapp.ui.localization
 
+import android.content.Context
+import com.eflglobal.visitorsapp.R
+
+/**
+ * Compatibility shim — DO NOT add new strings here.
+ * All Context-based overloads delegate to strings.xml resources.
+ * Legacy String-parameter overloads return a placeholder (caller uses stringResource instead).
+ */
+@Suppress("UNUSED_PARAMETER", "FunctionName")
 object Strings {
 
-    // Welcome Screen
-    fun welcome(lang: String) = if (lang == "es") "Bienvenido" else "Welcome"
-    fun selectLanguage(lang: String) = if (lang == "es") "Seleccionar Idioma" else "Select Language"
-    fun spanish(lang: String) = if (lang == "es") "Español" else "Spanish"
-    fun english(lang: String) = if (lang == "es") "Inglés" else "English"
-    fun newVisit(lang: String) = if (lang == "es") "Nueva Visita" else "New Visit"
-    fun newVisitDesc(lang: String) = if (lang == "es") "Registrar un nuevo visitante" else "Register a new visitor"
-    fun returningVisit(lang: String) = if (lang == "es") "Visita Recurrente" else "Returning Visit"
-    fun returningVisitDesc(lang: String) = if (lang == "es") "Visitante ya registrado" else "Already registered visitor"
-    fun endVisit(lang: String) = if (lang == "es") "Finalizar Visita" else "End Visit"
-    fun endVisitDesc(lang: String) = if (lang == "es") "Escanear código QR de salida" else "Scan QR code to check out"
+    // ── Context-based overloads (real resource lookup) ─────────────────────
+    fun welcome(ctx: Context)                    = ctx.getString(R.string.welcome)
+    fun selectLanguage(ctx: Context)             = ctx.getString(R.string.select_language)
+    fun newVisit(ctx: Context)                   = ctx.getString(R.string.new_visit)
+    fun newVisitDesc(ctx: Context)               = ctx.getString(R.string.new_visit_desc)
+    fun returningVisit(ctx: Context)             = ctx.getString(R.string.returning_visit)
+    fun returningVisitDesc(ctx: Context)         = ctx.getString(R.string.returning_visit_desc)
+    fun endVisit(ctx: Context)                   = ctx.getString(R.string.end_visit)
+    fun endVisitDesc(ctx: Context)               = ctx.getString(R.string.end_visit_desc)
+    fun scanDocument(ctx: Context)               = ctx.getString(R.string.scan_document)
+    fun iAmA(ctx: Context)                       = ctx.getString(R.string.i_am_a)
+    fun visitor(ctx: Context)                    = ctx.getString(R.string.visitor_type)
+    fun contractor(ctx: Context)                 = ctx.getString(R.string.contractor)
+    fun supplier(ctx: Context)                   = ctx.getString(R.string.vendor)
+    fun delivery(ctx: Context)                   = ctx.getString(R.string.delivery)
+    fun selectOption(ctx: Context)               = ctx.getString(R.string.select_option)
+    fun whatDocType(ctx: Context)                = ctx.getString(R.string.what_doc_type)
+    fun duiId(ctx: Context)                      = ctx.getString(R.string.identity_document_id)
+    fun passport(ctx: Context)                   = ctx.getString(R.string.passport)
+    fun other(ctx: Context)                      = ctx.getString(R.string.other)
+    fun frontOfDocument(ctx: Context)            = ctx.getString(R.string.front_of_document)
+    fun backOfDocument(ctx: Context)             = ctx.getString(R.string.back_of_document)
+    fun scannedSuccessfully(ctx: Context)        = ctx.getString(R.string.scanned_successfully)
+    fun tapToScan(ctx: Context)                  = ctx.getString(R.string.tap_to_scan)
+    fun scanFrontFirst(ctx: Context)             = ctx.getString(R.string.scan_front_first)
+    fun continueBtn(ctx: Context)                = ctx.getString(R.string.continue_btn)
+    fun back(ctx: Context)                       = ctx.getString(R.string.back)
+    fun cancel(ctx: Context)                     = ctx.getString(R.string.cancel)
+    fun visitorInformation(ctx: Context)         = ctx.getString(R.string.visitor_information)
+    fun personalInformation(ctx: Context)        = ctx.getString(R.string.personal_information)
+    fun fullName(ctx: Context)                   = ctx.getString(R.string.first_name)
+    fun company(ctx: Context)                    = ctx.getString(R.string.company)
+    fun optional(ctx: Context)                   = ctx.getString(R.string.optional)
+    fun email(ctx: Context)                      = ctx.getString(R.string.email)
+    fun enterEmail(ctx: Context)                 = ctx.getString(R.string.enter_email)
+    fun phone(ctx: Context)                      = ctx.getString(R.string.phone)
+    fun whoVisiting(ctx: Context)                = ctx.getString(R.string.who_visiting)
+    fun enterWhoVisiting(ctx: Context)           = ctx.getString(R.string.enter_who_visiting)
+    fun personalPhoto(ctx: Context)              = ctx.getString(R.string.personal_photo)
+    fun takePhoto(ctx: Context)                  = ctx.getString(R.string.take_photo)
+    fun retakePhoto(ctx: Context)                = ctx.getString(R.string.retake_photo)
+    fun photoTakenSuccessfully(ctx: Context)     = ctx.getString(R.string.photo_taken_successfully)
+    fun detectedFromDocument(ctx: Context)       = ctx.getString(R.string.detected_from_document)
+    fun getReady(ctx: Context)                   = ctx.getString(R.string.get_ready)
+    fun lookAtCamera(ctx: Context)               = ctx.getString(R.string.look_at_camera)
+    fun photoWillBeTaken(ctx: Context)           = ctx.getString(R.string.photo_will_be_taken)
+    fun positionFace(ctx: Context)               = ctx.getString(R.string.position_face)
+    fun confirmation(ctx: Context)               = ctx.getString(R.string.confirmation)
+    fun verifyInformation(ctx: Context)          = ctx.getString(R.string.verify_information)
+    fun confirmSubtitle(ctx: Context)            = ctx.getString(R.string.confirm_subtitle)
+    fun documentsVerified(ctx: Context)          = ctx.getString(R.string.documents_verified)
+    fun frontAndBackScanned(ctx: Context)        = ctx.getString(R.string.front_back_scanned)
+    fun confirmRegistration(ctx: Context)        = ctx.getString(R.string.confirm_registration)
+    fun editInformation(ctx: Context)            = ctx.getString(R.string.edit_information)
+    fun visitorData(ctx: Context)                = ctx.getString(R.string.visitor_data)
+    fun visiting(ctx: Context)                   = ctx.getString(R.string.visiting_label)
+    fun visitTo(ctx: Context)                    = ctx.getString(R.string.visiting_label)
+    fun type(ctx: Context)                       = ctx.getString(R.string.type_label)
+    fun documentType(ctx: Context)               = ctx.getString(R.string.document_type)
+    fun documentNumber(ctx: Context)             = ctx.getString(R.string.document_number)
+    fun fullNameLabel(ctx: Context)              = ctx.getString(R.string.full_name_label)
+    fun dateAndTime(ctx: Context)                = ctx.getString(R.string.date_and_time)
+    fun registrationSuccess(ctx: Context)        = ctx.getString(R.string.registration_success)
+    fun visitorRegisteredCorrectly(ctx: Context) = ctx.getString(R.string.visitor_registered_correctly)
+    fun edit(ctx: Context)                       = ctx.getString(R.string.edit)
+    fun confirm(ctx: Context)                    = ctx.getString(R.string.confirm)
+    fun success(ctx: Context)                    = ctx.getString(R.string.registration_success)
+    fun registrationComplete(ctx: Context)       = ctx.getString(R.string.confirmation)
+    fun visitRegistered(ctx: Context)            = ctx.getString(R.string.visit_registered)
+    fun printingQR(ctx: Context)                 = ctx.getString(R.string.printing_qr)
+    fun noPrinterFound(ctx: Context)             = ctx.getString(R.string.no_printer_found)
+    fun keepQRCode(ctx: Context)                 = ctx.getString(R.string.keep_qr_code)
+    fun finish(ctx: Context)                     = ctx.getString(R.string.finish)
+    fun endVisitTitle(ctx: Context)              = ctx.getString(R.string.end_visit_title)
+    fun scanQRCode(ctx: Context)                 = ctx.getString(R.string.scan_qr_code)
+    fun presentQR(ctx: Context)                  = ctx.getString(R.string.present_qr)
+    fun placeQR(ctx: Context)                    = ctx.getString(R.string.place_qr)
+    fun scanning(ctx: Context)                   = ctx.getString(R.string.scanning_qr)
+    fun validCode(ctx: Context)                  = ctx.getString(R.string.valid_code)
+    fun processingCheckout(ctx: Context)         = ctx.getString(R.string.processing_checkout)
+    fun startScanning(ctx: Context)              = ctx.getString(R.string.start_scanning)
+    fun useQRReceived(ctx: Context)              = ctx.getString(R.string.use_qr_hint)
+    fun checkoutRegistered(ctx: Context)         = ctx.getString(R.string.checkout_success)
+    fun checkoutSuccess(ctx: Context)            = ctx.getString(R.string.checkout_success)
+    fun checkoutTime(ctx: Context)               = ctx.getString(R.string.checkout_time)
+    fun thanksForVisit(ctx: Context)             = ctx.getString(R.string.thanks_for_visit)
+    fun accept(ctx: Context)                     = ctx.getString(R.string.accept)
+    fun recurringVisit(ctx: Context)             = ctx.getString(R.string.recurring_visit)
+    fun searchRegistered(ctx: Context)           = ctx.getString(R.string.search_registered)
+    fun searchByName(ctx: Context)               = ctx.getString(R.string.search_by_name)
+    fun noResults(ctx: Context)                  = ctx.getString(R.string.no_results)
+    fun tryDifferentSearch(ctx: Context)         = ctx.getString(R.string.try_different_search)
+    fun recentVisitors(ctx: Context)             = ctx.getString(R.string.recent_visitors)
+    fun lastVisit(ctx: Context)                  = ctx.getString(R.string.last_visit)
+    fun selectVisitor(ctx: Context)              = ctx.getString(R.string.select_visitor)
+    fun stationSetup(ctx: Context)               = ctx.getString(R.string.station_setup)
+    fun enterPIN(ctx: Context)                   = ctx.getString(R.string.enter_pin)
+    fun configureStation(ctx: Context)           = ctx.getString(R.string.configure_station)
+    fun invalidPIN(ctx: Context)                 = ctx.getString(R.string.invalid_pin)
+    fun setupInstructions(ctx: Context)          = ctx.getString(R.string.setup_instructions)
 
-    // Document Scan Screen
-    fun scanDocument(lang: String) = if (lang == "es") "Escanear Documento" else "Scan Document"
-    fun iAmA(lang: String) = if (lang == "es") "Yo soy un:" else "I am a:"
-    fun visitor(lang: String) = if (lang == "es") "Visitante" else "Visitor"
-    fun contractor(lang: String) = if (lang == "es") "Contratista" else "Contractor"
-    fun supplier(lang: String) = if (lang == "es") "Proveedor" else "Supplier"
-    fun delivery(lang: String) = if (lang == "es") "Haciendo una entrega" else "Making a delivery"
-    fun selectOption(lang: String) = if (lang == "es") "Seleccione una opción" else "Select an option"
-    fun whatDocType(lang: String) = if (lang == "es") "¿Qué tipo de documento presenta?" else "What type of document do you present?"
-    fun duiId(lang: String) = "DUI / ID"
-    fun passport(lang: String) = if (lang == "es") "Pasaporte" else "Passport"
-    fun other(lang: String) = if (lang == "es") "Otro" else "Other"
-    fun frontOfDocument(lang: String) = if (lang == "es") "Frente del Documento" else "Front of Document"
-    fun backOfDocument(lang: String) = if (lang == "es") "Reverso del Documento" else "Back of Document"
-    fun scannedSuccessfully(lang: String) = if (lang == "es") "✓ Escaneado correctamente" else "✓ Scanned successfully"
-    fun tapToScan(lang: String) = if (lang == "es") "Toque para escanear" else "Tap to scan"
-    fun scanFrontFirst(lang: String) = if (lang == "es") "Escanee el frente primero" else "Scan front first"
-    fun continueBtn(lang: String) = if (lang == "es") "Continuar" else "Continue"
-    fun back(lang: String) = if (lang == "es") "Atrás" else "Back"
-
-    // Document Camera Modal
-    fun liveCameraView(lang: String) = if (lang == "es") "Vista de cámara en vivo" else "Live camera view"
-    fun analyzingDocument(lang: String) = if (lang == "es") "Analizando documento..." else "Analyzing document..."
-    fun checkingClarity(lang: String) = if (lang == "es") "Verificando claridad y legibilidad" else "Checking clarity and readability"
-    fun placeDocumentFront(lang: String) = if (lang == "es")
-        "Coloque el frente del documento dentro del marco.\nAsegúrese de que esté completamente visible y sin reflejos."
-    else
-        "Place the front of the document inside the frame.\nMake sure it is fully visible and glare-free."
-    fun placeDocumentBack(lang: String) = if (lang == "es")
-        "Coloque el reverso del documento dentro del marco.\nAsegúrese de que esté completamente visible y sin reflejos."
-    else
-        "Place the back of the document inside the frame.\nMake sure it is fully visible and glare-free."
-    fun cancel(lang: String) = if (lang == "es") "Cancelar" else "Cancel"
-
-    // Visitor Information Screen
-    fun visitorInformation(lang: String) = if (lang == "es") "Información del Visitante" else "Visitor Information"
-    fun personalInformation(lang: String) = if (lang == "es") "Información Personal" else "Personal Information"
-    fun fullName(lang: String) = if (lang == "es") "Nombre y Apellido" else "Full Name"
-    fun enterFullName(lang: String) = if (lang == "es") "Ingrese nombre completo" else "Enter full name"
-    fun company(lang: String) = if (lang == "es") "Empresa" else "Company"
-    fun optional(lang: String) = if (lang == "es") "Opcional" else "Optional"
-    fun email(lang: String) = if (lang == "es") "Dirección de correo electrónico" else "Email Address"
-    fun enterEmail(lang: String) = if (lang == "es") "ejemplo@correo.com" else "example@email.com"
-    fun phone(lang: String) = if (lang == "es") "Número de teléfono" else "Phone Number"
-    fun enterPhone(lang: String) = if (lang == "es") "Ingrese número de teléfono" else "Enter phone number"
-    fun whoVisiting(lang: String) = if (lang == "es") "Nombre y Apellido de a quien visita" else "Full Name of Person Being Visited"
-    fun enterWhoVisiting(lang: String) = if (lang == "es") "Ingrese nombre de la persona" else "Enter person's name"
-    fun personalPhoto(lang: String) = if (lang == "es") "Fotografía Personal" else "Personal Photo"
-    fun takePhoto(lang: String) = if (lang == "es") "Tomar Foto" else "Take Photo"
-    fun retakePhoto(lang: String) = if (lang == "es") "Volver a Tomar" else "Retake Photo"
-    fun photoTakenSuccessfully(lang: String) = if (lang == "es") "Foto tomada correctamente" else "Photo taken successfully"
-    fun detectedFromDocument(lang: String) = if (lang == "es") "Detectado automáticamente del documento" else "Automatically detected from document"
-
-    // Photo Capture Modal
-    fun getReady(lang: String) = if (lang == "es") "¡Prepárese!" else "Get Ready!"
-    fun lookAtCamera(lang: String) = if (lang == "es") "Mire a la cámara y sonría" else "Look at the camera and smile"
-    fun photoWillBeTaken(lang: String) = if (lang == "es") "La foto se tomará automáticamente" else "Photo will be taken automatically"
-    fun positionFace(lang: String) = if (lang == "es") "Posicione su rostro en el óvalo" else "Position your face in the oval"
-
-    // Confirmation Screen
-    fun confirmation(lang: String) = if (lang == "es") "Confirmación" else "Confirmation"
-    fun verifyInformation(lang: String) = if (lang == "es") "Verificar Información" else "Verify Information"
-    fun confirmSubtitle(lang: String) = if (lang == "es") "Por favor, confirme que los datos son correctos antes de finalizar el registro" else "Please confirm that the information is correct before completing the registration"
-    fun documentsVerified(lang: String) = if (lang == "es") "Documentos Verificados" else "Documents Verified"
-    fun frontAndBackScanned(lang: String) = if (lang == "es") "Frente y reverso escaneados correctamente" else "Front and back scanned successfully"
-    fun confirmRegistration(lang: String) = if (lang == "es") "Confirmar Registro" else "Confirm Registration"
-    fun editInformation(lang: String) = if (lang == "es") "Editar Información" else "Edit Information"
-    fun visitorData(lang: String) = if (lang == "es") "Datos del Visitante" else "Visitor Data"
-    fun visiting(lang: String) = if (lang == "es") "Visitando a" else "Visiting"
-    fun visitTo(lang: String) = if (lang == "es") "Visita a" else "Visiting"
-    fun type(lang: String) = if (lang == "es") "Tipo" else "Type"
-    fun documentType(lang: String) = if (lang == "es") "Tipo de Documento" else "Document Type"
-    fun documentNumber(lang: String) = if (lang == "es") "Número de Documento" else "Document Number"
-    fun fullNameLabel(lang: String) = if (lang == "es") "Nombre Completo" else "Full Name"
-    fun dateAndTime(lang: String) = if (lang == "es") "Fecha y Hora" else "Date and Time"
-    fun registrationSuccess(lang: String) = if (lang == "es") "¡Registro Exitoso!" else "Registration Successful!"
-    fun visitorRegisteredCorrectly(lang: String) = if (lang == "es") "El visitante ha sido registrado correctamente." else "The visitor has been registered successfully."
-    fun edit(lang: String) = if (lang == "es") "Editar" else "Edit"
-    fun confirm(lang: String) = if (lang == "es") "Confirmar" else "Confirm"
-
-    // Success Screen
-    fun success(lang: String) = if (lang == "es") "¡Éxito!" else "Success!"
-    fun registrationComplete(lang: String) = if (lang == "es") "Registro Completado" else "Registration Complete"
-    fun visitRegistered(lang: String) = if (lang == "es") "Su visita ha sido registrada exitosamente" else "Your visit has been registered successfully"
-    fun printingQR(lang: String) = if (lang == "es") "Imprimiendo código QR..." else "Printing QR code..."
-    fun noPrinterFound(lang: String) = if (lang == "es") "No se encontró impresora. Registro finalizado correctamente." else "No printer found. Registration completed successfully."
-    fun keepQRCode(lang: String) = if (lang == "es") "Por favor, conserve este código QR para registrar su salida" else "Please keep this QR code to register your checkout"
-    fun finish(lang: String) = if (lang == "es") "Finalizar" else "Finish"
-
-    // Checkout QR Screen
-    fun endVisitTitle(lang: String) = if (lang == "es") "Finalizar Visita" else "End Visit"
-    fun scanQRCode(lang: String) = if (lang == "es") "Escanear Código QR" else "Scan QR Code"
-    fun presentQR(lang: String) = if (lang == "es") "Presente el código QR de su visita para registrar la salida" else "Present your visit QR code to register checkout"
-    fun placeQR(lang: String) = if (lang == "es") "Coloque el código QR\nen el área marcada" else "Place the QR code\nin the marked area"
-    fun scanning(lang: String) = if (lang == "es") "Escaneando código QR..." else "Scanning QR code..."
-    fun validCode(lang: String) = if (lang == "es") "¡Código Válido!" else "Valid Code!"
-    fun processingCheckout(lang: String) = if (lang == "es") "Procesando salida..." else "Processing checkout..."
-    fun startScanning(lang: String) = if (lang == "es") "Iniciar Escaneo" else "Start Scanning"
-    fun useQRReceived(lang: String) = if (lang == "es") "ℹ️ Utilice el código QR que recibió al momento del registro de entrada" else "ℹ️ Use the QR code you received at check-in"
-    fun checkoutRegistered(lang: String) = if (lang == "es") "¡Salida Registrada!" else "Checkout Registered!"
-    fun checkoutSuccess(lang: String) = if (lang == "es") "¡Salida Registrada!" else "Checkout Successful!"
-    fun checkoutTime(lang: String) = if (lang == "es") "Hora de salida" else "Checkout time"
-    fun thanksForVisit(lang: String) = if (lang == "es") "Gracias por su visita" else "Thank you for your visit"
-    fun accept(lang: String) = if (lang == "es") "Aceptar" else "Accept"
-
-    // Recurring Visit Screen
-    fun recurringVisit(lang: String) = if (lang == "es") "Visita Recurrente" else "Recurring Visit"
-    fun searchRegistered(lang: String) = if (lang == "es") "Buscar Visitante Registrado" else "Search Registered Visitor"
-    fun searchByName(lang: String) = if (lang == "es") "Buscar por nombre o documento..." else "Search by name or document..."
-    fun noResults(lang: String) = if (lang == "es") "No se encontraron resultados" else "No results found"
-    fun tryDifferentSearch(lang: String) = if (lang == "es") "Intente con un término de búsqueda diferente" else "Try a different search term"
-    fun recentVisitors(lang: String) = if (lang == "es") "Visitantes Recientes" else "Recent Visitors"
-    fun lastVisit(lang: String) = if (lang == "es") "Última visita" else "Last visit"
-    fun selectVisitor(lang: String) = if (lang == "es") "Seleccionar" else "Select"
-
-    // Station Setup Screen
-    fun stationSetup(lang: String) = if (lang == "es") "Configuración de Estación" else "Station Setup"
-    fun enterPIN(lang: String) = if (lang == "es") "Ingrese el PIN de 8 dígitos" else "Enter 8-digit PIN"
-    fun pinPlaceholder(lang: String) = "••••••••"
-    fun configureStation(lang: String) = if (lang == "es") "Configurar Estación" else "Configure Station"
-    fun invalidPIN(lang: String) = if (lang == "es") "PIN inválido. Por favor, intente nuevamente." else "Invalid PIN. Please try again."
-    fun setupInstructions(lang: String) = if (lang == "es")
-        "Esta es la configuración inicial de la estación. Ingrese el PIN proporcionado por su administrador."
-    else
-        "This is the initial station setup. Enter the PIN provided by your administrator."
+    // ── Legacy String-parameter overloads (lang is IGNORED — kept for compat) ─
+    fun welcome(lang: String)                    = ""
+    fun selectLanguage(lang: String)             = ""
+    fun newVisit(lang: String)                   = ""
+    fun newVisitDesc(lang: String)               = ""
+    fun returningVisit(lang: String)             = ""
+    fun returningVisitDesc(lang: String)         = ""
+    fun endVisit(lang: String)                   = ""
+    fun endVisitDesc(lang: String)               = ""
+    fun scanDocument(lang: String)               = ""
+    fun iAmA(lang: String)                       = ""
+    fun visitor(lang: String)                    = ""
+    fun contractor(lang: String)                 = ""
+    fun supplier(lang: String)                   = ""
+    fun delivery(lang: String)                   = ""
+    fun selectOption(lang: String)               = ""
+    fun whatDocType(lang: String)                = ""
+    fun duiId(lang: String)                      = ""
+    fun passport(lang: String)                   = ""
+    fun other(lang: String)                      = ""
+    fun frontOfDocument(lang: String)            = ""
+    fun backOfDocument(lang: String)             = ""
+    fun scannedSuccessfully(lang: String)        = ""
+    fun tapToScan(lang: String)                  = ""
+    fun scanFrontFirst(lang: String)             = ""
+    fun continueBtn(lang: String)                = ""
+    fun back(lang: String)                       = ""
+    fun cancel(lang: String)                     = ""
+    fun visitorInformation(lang: String)         = ""
+    fun personalInformation(lang: String)        = ""
+    fun fullName(lang: String)                   = ""
+    fun enterFullName(lang: String)              = ""
+    fun company(lang: String)                    = ""
+    fun optional(lang: String)                   = ""
+    fun email(lang: String)                      = ""
+    fun enterEmail(lang: String)                 = ""
+    fun phone(lang: String)                      = ""
+    fun enterPhone(lang: String)                 = ""
+    fun whoVisiting(lang: String)                = ""
+    fun enterWhoVisiting(lang: String)           = ""
+    fun personalPhoto(lang: String)              = ""
+    fun takePhoto(lang: String)                  = ""
+    fun retakePhoto(lang: String)                = ""
+    fun photoTakenSuccessfully(lang: String)     = ""
+    fun detectedFromDocument(lang: String)       = ""
+    fun getReady(lang: String)                   = ""
+    fun lookAtCamera(lang: String)               = ""
+    fun photoWillBeTaken(lang: String)           = ""
+    fun positionFace(lang: String)               = ""
+    fun confirmation(lang: String)               = ""
+    fun verifyInformation(lang: String)          = ""
+    fun confirmSubtitle(lang: String)            = ""
+    fun documentsVerified(lang: String)          = ""
+    fun frontAndBackScanned(lang: String)        = ""
+    fun confirmRegistration(lang: String)        = ""
+    fun editInformation(lang: String)            = ""
+    fun visitorData(lang: String)                = ""
+    fun visiting(lang: String)                   = ""
+    fun visitTo(lang: String)                    = ""
+    fun type(lang: String)                       = ""
+    fun documentType(lang: String)               = ""
+    fun documentNumber(lang: String)             = ""
+    fun fullNameLabel(lang: String)              = ""
+    fun dateAndTime(lang: String)                = ""
+    fun registrationSuccess(lang: String)        = ""
+    fun visitorRegisteredCorrectly(lang: String) = ""
+    fun edit(lang: String)                       = ""
+    fun confirm(lang: String)                    = ""
+    fun success(lang: String)                    = ""
+    fun registrationComplete(lang: String)       = ""
+    fun visitRegistered(lang: String)            = ""
+    fun printingQR(lang: String)                 = ""
+    fun noPrinterFound(lang: String)             = ""
+    fun keepQRCode(lang: String)                 = ""
+    fun finish(lang: String)                     = ""
+    fun endVisitTitle(lang: String)              = ""
+    fun scanQRCode(lang: String)                 = ""
+    fun presentQR(lang: String)                  = ""
+    fun placeQR(lang: String)                    = ""
+    fun scanning(lang: String)                   = ""
+    fun validCode(lang: String)                  = ""
+    fun processingCheckout(lang: String)         = ""
+    fun startScanning(lang: String)              = ""
+    fun useQRReceived(lang: String)              = ""
+    fun checkoutRegistered(lang: String)         = ""
+    fun checkoutSuccess(lang: String)            = ""
+    fun checkoutTime(lang: String)               = ""
+    fun thanksForVisit(lang: String)             = ""
+    fun accept(lang: String)                     = ""
+    fun recurringVisit(lang: String)             = ""
+    fun searchRegistered(lang: String)           = ""
+    fun searchByName(lang: String)               = ""
+    fun noResults(lang: String)                  = ""
+    fun tryDifferentSearch(lang: String)         = ""
+    fun recentVisitors(lang: String)             = ""
+    fun lastVisit(lang: String)                  = ""
+    fun selectVisitor(lang: String)              = ""
+    fun stationSetup(lang: String)               = ""
+    fun enterPIN(lang: String)                   = ""
+    fun pinPlaceholder(lang: String)             = "••••••••"
+    fun configureStation(lang: String)           = ""
+    fun invalidPIN(lang: String)                 = ""
+    fun setupInstructions(lang: String)          = ""
 }
-

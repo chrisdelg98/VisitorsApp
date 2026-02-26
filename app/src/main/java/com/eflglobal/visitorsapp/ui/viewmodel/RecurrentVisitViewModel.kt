@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.eflglobal.visitorsapp.domain.model.Person
 import com.eflglobal.visitorsapp.domain.model.VisitReasonKeys
 import com.eflglobal.visitorsapp.domain.usecase.visit.CreateVisitUseCase
@@ -22,25 +23,22 @@ class RecurrentVisitViewModel(
 
     private var selectedPerson: Person? = null
 
-    /** "Yo soy un:" — who the visitor IS. Default VISITOR */
+    var documentType: String = "DUI"; private set
+
     private var visitorType: String = VisitReasonKeys.VISITOR
-
-    /** "Motivo de visita" — WHY they are visiting. Default VISITOR */
     private var visitReason: String = VisitReasonKeys.VISITOR
-
-    /** Free-text description — only used when visitReason == OTHER */
     private var visitReasonCustom: String? = null
 
-    fun setSelectedPerson(person: Person) {
-        selectedPerson = person
-    }
+    // Document scan paths — mirrors NewVisitViewModel
+    var documentFrontPath: String? = null; private set
+    var documentBackPath:  String? = null; private set
 
-    /** Sets "Yo soy un:" type. Called when visitor selects their category. */
-    fun setVisitorType(type: String) { visitorType = type }
+    fun setSelectedPerson(person: Person) { selectedPerson = person }
+    fun setDocumentType(type: String)     { documentType = type }
+    fun setVisitorType(type: String)      { visitorType = type }
+    fun setDocumentFront(path: String)    { documentFrontPath = path }
+    fun setDocumentBack(path: String)     { documentBackPath  = path }
 
-    /**
-     * Sets visit reason — WHY they are visiting.
-     */
     fun setVisitReason(key: String, custom: String? = null) {
         visitReason       = key
         visitReasonCustom = if (key == VisitReasonKeys.OTHER) custom else null
@@ -51,16 +49,13 @@ class RecurrentVisitViewModel(
     fun createVisit(visitingPersonName: String) {
         val person = selectedPerson
         if (person == null) {
-            _uiState.value = RecurrentVisitUiState.Error("No person selected")
-            return
+            _uiState.value = RecurrentVisitUiState.Error("No person selected"); return
         }
         if (visitingPersonName.isBlank()) {
-            _uiState.value = RecurrentVisitUiState.Error("Visiting person name is required")
-            return
+            _uiState.value = RecurrentVisitUiState.Error("Visiting person name is required"); return
         }
         if (visitReason == VisitReasonKeys.OTHER && visitReasonCustom.isNullOrBlank()) {
-            _uiState.value = RecurrentVisitUiState.Error("Please describe the reason for the visit")
-            return
+            _uiState.value = RecurrentVisitUiState.Error("Please describe the reason for the visit"); return
         }
 
         _uiState.value = RecurrentVisitUiState.Loading
@@ -74,7 +69,6 @@ class RecurrentVisitViewModel(
                     visitReason        = visitReason,
                     visitReasonCustom  = visitReasonCustom
                 )
-
                 result.fold(
                     onSuccess = { visit ->
                         _uiState.value = RecurrentVisitUiState.Success(
@@ -85,15 +79,11 @@ class RecurrentVisitViewModel(
                         )
                     },
                     onFailure = { error ->
-                        _uiState.value = RecurrentVisitUiState.Error(
-                            error.message ?: "Failed to create visit"
-                        )
+                        _uiState.value = RecurrentVisitUiState.Error(error.message ?: "Failed to create visit")
                     }
                 )
             } catch (e: Exception) {
-                _uiState.value = RecurrentVisitUiState.Error(
-                    e.message ?: "An unexpected error occurred"
-                )
+                _uiState.value = RecurrentVisitUiState.Error(e.message ?: "An unexpected error occurred")
             }
         }
     }
@@ -101,10 +91,16 @@ class RecurrentVisitViewModel(
     fun resetState() {
         _uiState.value    = RecurrentVisitUiState.Idle
         selectedPerson    = null
+        documentType      = "DUI"
         visitorType       = VisitReasonKeys.VISITOR
         visitReason       = VisitReasonKeys.VISITOR
         visitReasonCustom = null
+        documentFrontPath = null
+        documentBackPath  = null
     }
+
+    /** Resets only UiState to Idle — preserves all captured data for editing. */
+    fun resetToEditing() { _uiState.value = RecurrentVisitUiState.Idle }
 }
 
 sealed class RecurrentVisitUiState {
@@ -118,4 +114,3 @@ sealed class RecurrentVisitUiState {
     ) : RecurrentVisitUiState()
     data class Error(val message: String) : RecurrentVisitUiState()
 }
-

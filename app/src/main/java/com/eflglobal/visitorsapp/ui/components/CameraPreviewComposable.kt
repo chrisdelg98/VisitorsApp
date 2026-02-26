@@ -30,11 +30,12 @@ fun CameraPreviewComposable(
     onCaptureComplete: () -> Unit = {}
 ) {
     val context        = LocalContext.current
+    val appContext     = context.applicationContext
     val lifecycleOwner = LocalLifecycleOwner.current
     val rotation       = Surface.ROTATION_90
 
     val previewView = remember {
-        PreviewView(context).apply {
+        PreviewView(appContext).apply {
             scaleType         = PreviewView.ScaleType.FILL_CENTER
             implementationMode = PreviewView.ImplementationMode.PERFORMANCE
             layoutParams = android.view.ViewGroup.LayoutParams(
@@ -59,7 +60,7 @@ fun CameraPreviewComposable(
     }
 
     DisposableEffect(lensFacing) {
-        val future = ProcessCameraProvider.getInstance(context)
+        val future = ProcessCameraProvider.getInstance(appContext)
         future.addListener({
             try {
                 val provider = future.get()
@@ -69,7 +70,7 @@ fun CameraPreviewComposable(
                 provider.unbindAll()
                 provider.bindToLifecycle(lifecycleOwner, selector, preview, imageCapture)
             } catch (e: Exception) { onError(e) }
-        }, ContextCompat.getMainExecutor(context))
+        }, ContextCompat.getMainExecutor(appContext))
         onDispose { executor.shutdown() }
     }
 
@@ -104,6 +105,7 @@ fun DocumentCameraPreviewComposable(
     onLiveSharpness: (Float) -> Unit = {}
 ) {
     val context        = LocalContext.current
+    val appContext     = context.applicationContext
     val lifecycleOwner = LocalLifecycleOwner.current
     val rotation       = Surface.ROTATION_90
 
@@ -114,7 +116,7 @@ fun DocumentCameraPreviewComposable(
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
 
     val previewView = remember {
-        PreviewView(context).apply {
+        PreviewView(appContext).apply {
             scaleType         = PreviewView.ScaleType.FILL_CENTER
             implementationMode = PreviewView.ImplementationMode.PERFORMANCE
             layoutParams = android.view.ViewGroup.LayoutParams(
@@ -158,7 +160,7 @@ fun DocumentCameraPreviewComposable(
     }
 
     DisposableEffect(lensFacing) {
-        val future = ProcessCameraProvider.getInstance(context)
+        val future = ProcessCameraProvider.getInstance(appContext)
         future.addListener({
             try {
                 val provider = future.get()
@@ -171,7 +173,7 @@ fun DocumentCameraPreviewComposable(
                     preview, imageCapture, imageAnalysis
                 )
             } catch (e: Exception) { onError(e) }
-        }, ContextCompat.getMainExecutor(context))
+        }, ContextCompat.getMainExecutor(appContext))
         onDispose {
             analysisExecutor.shutdown()
             captureExecutor.shutdown()

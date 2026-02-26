@@ -28,12 +28,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.data.local.AppDatabase
@@ -42,7 +44,6 @@ import com.eflglobal.visitorsapp.domain.model.VisitReason
 import com.eflglobal.visitorsapp.domain.model.VisitReasonKeys
 import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
 import com.eflglobal.visitorsapp.ui.components.CameraPreviewComposable
-import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
@@ -135,15 +136,13 @@ fun PersonDataScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(Strings.visitorInformation(selectedLanguage), fontSize = 18.sp) },
+                title = { Text(stringResource(R.string.visitor_information), fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
@@ -167,7 +166,7 @@ fun PersonDataScreen(
                 Column(modifier = Modifier.weight(1f)) {
 
                     Text(
-                        text       = Strings.personalInformation(selectedLanguage),
+                        text       = stringResource(R.string.personal_information),
                         style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                         fontWeight = FontWeight.SemiBold,
                         color      = SlatePrimary,
@@ -176,10 +175,8 @@ fun PersonDataScreen(
 
                     // ── Extraction status banner ──────────────────────────────
                     ExtractionStatusBanner(
-                        source           = extractionSource,
-                        confidence       = extractionConf,
-                        hasName          = detectedFirstName.isNotEmpty() || detectedLastName.isNotEmpty(),
-                        selectedLanguage = selectedLanguage
+                        source     = extractionSource,
+                        hasName    = detectedFirstName.isNotEmpty() || detectedLastName.isNotEmpty()
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -188,8 +185,8 @@ fun PersonDataScreen(
                     FieldWithOcrHint(
                         value         = firstName,
                         onValueChange = { firstName = it },
-                        label         = if (selectedLanguage == "es") "Nombres" else "First Name",
-                        placeholder   = if (selectedLanguage == "es") "Ingrese nombres" else "Enter first name",
+                        label         = stringResource(R.string.first_name),
+                        placeholder   = stringResource(R.string.enter_first_name),
                         ocr           = detectedFirstName.isNotEmpty(),
                         selectedLanguage = selectedLanguage
                     )
@@ -200,8 +197,8 @@ fun PersonDataScreen(
                     FieldWithOcrHint(
                         value         = lastName,
                         onValueChange = { lastName = it },
-                        label         = if (selectedLanguage == "es") "Apellidos" else "Last Name",
-                        placeholder   = if (selectedLanguage == "es") "Ingrese apellidos" else "Enter last name",
+                        label         = stringResource(R.string.last_name),
+                        placeholder   = stringResource(R.string.enter_last_name),
                         ocr           = detectedLastName.isNotEmpty(),
                         selectedLanguage = selectedLanguage
                     )
@@ -214,15 +211,16 @@ fun PersonDataScreen(
                         onValueChange = {},
                         readOnly      = true,
                         enabled       = false,
-                        label         = { Text(if (selectedLanguage == "es") "N° Documento (opcional)" else "Doc. No. (optional)", fontSize = 11.sp) },
-                        placeholder   = { Text(if (selectedLanguage == "es") "No detectado" else "Not detected", fontSize = 11.sp) },
+                        label         = { Text(stringResource(R.string.document_number) + " (" + stringResource(R.string.optional) + ")", fontSize = 11.sp) },
+                        placeholder   = { Text(stringResource(R.string.ocr_none), fontSize = 11.sp) },
                         modifier      = Modifier.fillMaxWidth(),
                         shape         = RoundedCornerShape(12.dp),
                         colors        = OutlinedTextFieldDefaults.colors(
                             disabledBorderColor = if (detectedDocNumber.isNotEmpty()) OrangePrimary.copy(alpha = 0.4f)
                                                   else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
                             disabledTextColor   = MaterialTheme.colorScheme.onSurface,
-                            disabledLabelColor  = if (detectedDocNumber.isNotEmpty()) OrangePrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            disabledLabelColor  = if (detectedDocNumber.isNotEmpty()) OrangePrimary
+                                                  else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     )
@@ -236,7 +234,7 @@ fun PersonDataScreen(
                     OutlinedTextField(
                         value         = company,
                         onValueChange = { company = it },
-                        label         = { Text("${Strings.company(selectedLanguage)} (${Strings.optional(selectedLanguage)})", fontSize = 11.sp) },
+                        label         = { Text(stringResource(R.string.company) + " (" + stringResource(R.string.optional) + ")", fontSize = 11.sp) },
                         modifier      = Modifier.fillMaxWidth(),
                         shape         = RoundedCornerShape(12.dp),
                         colors        = OutlinedTextFieldDefaults.colors(
@@ -253,8 +251,8 @@ fun PersonDataScreen(
                     OutlinedTextField(
                         value           = email,
                         onValueChange   = { email = it },
-                        label           = { Text(Strings.email(selectedLanguage), fontSize = 11.sp) },
-                        placeholder     = { Text(Strings.enterEmail(selectedLanguage), fontSize = 11.sp) },
+                        label           = { Text(stringResource(R.string.email), fontSize = 11.sp) },
+                        placeholder     = { Text(stringResource(R.string.enter_email), fontSize = 11.sp) },
                         modifier        = Modifier.fillMaxWidth(),
                         shape           = RoundedCornerShape(12.dp),
                         colors          = OutlinedTextFieldDefaults.colors(
@@ -272,8 +270,8 @@ fun PersonDataScreen(
                     OutlinedTextField(
                         value           = phone,
                         onValueChange   = { phone = it },
-                        label           = { Text(Strings.phone(selectedLanguage), fontSize = 11.sp) },
-                        placeholder     = { Text(Strings.enterPhone(selectedLanguage), fontSize = 11.sp) },
+                        label           = { Text(stringResource(R.string.phone), fontSize = 11.sp) },
+                        placeholder     = { Text(stringResource(R.string.enter_phone), fontSize = 11.sp) },
                         modifier        = Modifier.fillMaxWidth(),
                         shape           = RoundedCornerShape(12.dp),
                         colors          = OutlinedTextFieldDefaults.colors(
@@ -285,23 +283,6 @@ fun PersonDataScreen(
                         textStyle       = LocalTextStyle.current.copy(fontSize = 13.sp)
                     )
 
-                    Spacer(Modifier.height(10.dp))
-
-                    // Who are you visiting
-                    OutlinedTextField(
-                        value         = visitingPerson,
-                        onValueChange = { visitingPerson = it },
-                        label         = { Text(Strings.whoVisiting(selectedLanguage), fontSize = 11.sp) },
-                        placeholder   = { Text(Strings.enterWhoVisiting(selectedLanguage), fontSize = 11.sp) },
-                        modifier      = Modifier.fillMaxWidth(),
-                        shape         = RoundedCornerShape(12.dp),
-                        colors        = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SlatePrimary,
-                            focusedLabelColor  = SlatePrimary
-                        ),
-                        singleLine  = true,
-                        textStyle   = LocalTextStyle.current.copy(fontSize = 13.sp)
-                    )
                 } // end left column
 
                 // ════════════════════════════════════════════
@@ -309,9 +290,29 @@ fun PersonDataScreen(
                 // ════════════════════════════════════════════
                 Column(modifier = Modifier.weight(1f)) {
 
+                    // ── Who are you visiting ──────────────────────────────────
+                    OutlinedTextField(
+                        value         = visitingPerson,
+                        onValueChange = { visitingPerson = it },
+                        label         = { Text(stringResource(R.string.who_visiting), fontSize = 11.sp) },
+                        placeholder   = { Text(stringResource(R.string.enter_who_visiting), fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangePrimary,
+                            focusedLabelColor  = OrangePrimary,
+                            unfocusedBorderColor = if (visitingPerson.isNotBlank()) OrangePrimary.copy(alpha = 0.6f)
+                                                   else MaterialTheme.colorScheme.outline
+                        ),
+                        singleLine  = true,
+                        textStyle   = LocalTextStyle.current.copy(fontSize = 13.sp)
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
                     // ── Reason for Visit ──────────────────────────────────────
                     Text(
-                        text       = if (selectedLanguage == "es") "Motivo de la Visita" else "Reason for Visit",
+                        text       = stringResource(R.string.visit_reason),
                         style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                         fontWeight = FontWeight.SemiBold,
                         color      = SlatePrimary,
@@ -319,15 +320,8 @@ fun PersonDataScreen(
                     )
 
                     if (visitReasons.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                color       = OrangePrimary,
-                                strokeWidth = 3.dp,
-                                modifier    = Modifier.size(28.dp)
-                            )
+                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = OrangePrimary, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
                         }
                     } else {
                         ExposedDropdownMenuBox(
@@ -336,11 +330,10 @@ fun PersonDataScreen(
                             modifier         = Modifier.fillMaxWidth()
                         ) {
                             OutlinedTextField(
-                                value         = selectedReason?.label(selectedLanguage)
-                                    ?: if (selectedLanguage == "es") "Seleccione el motivo" else "Select reason",
+                                value         = selectedReason?.label(selectedLanguage) ?: stringResource(R.string.select_visit_reason),
                                 onValueChange = {},
                                 readOnly      = true,
-                                label         = { Text(if (selectedLanguage == "es") "Motivo" else "Reason", fontSize = 11.sp) },
+                                label         = { Text(stringResource(R.string.visit_reason), fontSize = 11.sp) },
                                 trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = reasonExpanded) },
                                 modifier      = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                                 shape         = RoundedCornerShape(12.dp),
@@ -352,23 +345,14 @@ fun PersonDataScreen(
                                 ),
                                 textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
                             )
-                            ExposedDropdownMenu(
-                                expanded         = reasonExpanded,
-                                onDismissRequest = { reasonExpanded = false }
-                            ) {
+                            ExposedDropdownMenu(expanded = reasonExpanded, onDismissRequest = { reasonExpanded = false }) {
                                 visitReasons.forEach { reason ->
                                     DropdownMenuItem(
-                                        text    = {
-                                            Text(
-                                                reason.label(selectedLanguage),
-                                                fontSize   = 13.sp,
-                                                fontWeight = if (reason.reasonKey == VisitReasonKeys.OTHER)
-                                                    FontWeight.SemiBold else FontWeight.Normal
-                                            )
-                                        },
+                                        text = { Text(reason.label(selectedLanguage), fontSize = 13.sp,
+                                            fontWeight = if (reason.reasonKey == VisitReasonKeys.OTHER) FontWeight.SemiBold else FontWeight.Normal) },
                                         onClick = {
                                             selectedReason = reason
-                                            reasonExpanded  = false
+                                            reasonExpanded = false
                                             if (reason.reasonKey != VisitReasonKeys.OTHER) customReasonText = ""
                                         }
                                     )
@@ -377,33 +361,21 @@ fun PersonDataScreen(
                         }
 
                         // "Other" free-text
-                        AnimatedVisibility(
-                            visible = isOtherSelected,
-                            enter   = expandVertically(),
-                            exit    = shrinkVertically()
-                        ) {
+                        AnimatedVisibility(visible = isOtherSelected, enter = expandVertically(), exit = shrinkVertically()) {
                             Column(modifier = Modifier.padding(top = 8.dp)) {
                                 OutlinedTextField(
                                     value         = customReasonText,
                                     onValueChange = { customReasonText = it },
-                                    label         = {
-                                        Text(
-                                            if (selectedLanguage == "es") "Describa el motivo" else "Describe the reason",
-                                            fontSize = 11.sp
-                                        )
-                                    },
-                                    modifier  = Modifier.fillMaxWidth(),
-                                    shape     = RoundedCornerShape(12.dp),
-                                    colors    = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = OrangePrimary,
-                                        focusedLabelColor  = OrangePrimary
-                                    ),
-                                    maxLines  = 3,
-                                    textStyle = LocalTextStyle.current.copy(fontSize = 13.sp)
+                                    label         = { Text(stringResource(R.string.other_specify), fontSize = 11.sp) },
+                                    modifier      = Modifier.fillMaxWidth(),
+                                    shape         = RoundedCornerShape(12.dp),
+                                    colors        = OutlinedTextFieldDefaults.colors(focusedBorderColor = OrangePrimary, focusedLabelColor = OrangePrimary),
+                                    maxLines      = 3,
+                                    textStyle     = LocalTextStyle.current.copy(fontSize = 13.sp)
                                 )
                                 if (customReasonText.isBlank()) {
                                     Text(
-                                        text     = if (selectedLanguage == "es") "* Requerido" else "* Required",
+                                        text     = "* " + stringResource(R.string.required_field),
                                         style    = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                                         color    = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.padding(start = 12.dp, top = 2.dp)
@@ -417,7 +389,7 @@ fun PersonDataScreen(
 
                     // ── Personal Photo ────────────────────────────────────────
                     Text(
-                        text       = Strings.personalPhoto(selectedLanguage),
+                        text       = stringResource(R.string.personal_photo),
                         style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                         fontWeight = FontWeight.SemiBold,
                         color      = SlatePrimary,
@@ -433,61 +405,33 @@ fun PersonDataScreen(
                             containerColor = if (photoTaken) OrangePrimary.copy(alpha = 0.08f)
                                              else MaterialTheme.colorScheme.surfaceVariant
                         ),
-                        border    = if (photoTaken) BorderStroke(2.dp, OrangePrimary)
-                                    else BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                        border = if (photoTaken) BorderStroke(2.dp, OrangePrimary)
+                                 else BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     ) {
-                        Box(
-                            modifier         = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             if (photoTaken && capturedBitmap != null) {
                                 // ── REAL photo preview ──────────────────────
                                 Image(
                                     bitmap             = capturedBitmap!!.asImageBitmap(),
                                     contentDescription = null,
                                     contentScale       = ContentScale.FillWidth,
-                                    modifier           = Modifier.fillMaxSize()
-                                        .clip(RoundedCornerShape(16.dp))
+                                    modifier           = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
                                 )
                                 // Orange tint overlay
-                                Box(
-                                    modifier = Modifier.fillMaxSize()
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(OrangePrimary.copy(alpha = 0.12f))
-                                )
+                                Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
+                                    .background(OrangePrimary.copy(alpha = 0.12f)))
                                 // ✓ badge
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(8.dp)
-                                        .size(28.dp)
-                                        .background(OrangePrimary, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint     = androidx.compose.ui.graphics.Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                Box(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(28.dp)
+                                    .background(OrangePrimary, CircleShape), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.CheckCircle, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
                                 }
                             } else if (!photoTaken) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Portrait,
-                                        contentDescription = null,
-                                        tint     = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                                        modifier = Modifier.size(56.dp)
-                                    )
-                                    Text(
-                                        text  = if (selectedLanguage == "es") "Toca para tomar foto" else "Tap to take photo",
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Default.Portrait, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f), modifier = Modifier.size(56.dp))
+                                    Text(stringResource(R.string.take_photo),
                                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                        textAlign = TextAlign.Center
-                                    )
+                                        textAlign = TextAlign.Center)
                                 }
                             }
                         }
@@ -506,7 +450,7 @@ fun PersonDataScreen(
                         ) {
                             Icon(Icons.Default.Portrait, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text(Strings.retakePhoto(selectedLanguage), fontSize = 12.sp)
+                            Text(stringResource(R.string.retake_photo), fontSize = 12.sp)
                         }
                     }
                 } // end right column
@@ -536,55 +480,35 @@ fun PersonDataScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (uiState is NewVisitUiState.Loading) {
-                    CircularProgressIndicator(
-                        modifier    = Modifier.size(24.dp),
-                        color       = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.5.dp
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.5.dp)
                 } else {
-                    Text(
-                        Strings.continueBtn(selectedLanguage),
-                        style      = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text(stringResource(R.string.continue_btn), style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp), fontWeight = FontWeight.SemiBold)
                 }
             }
 
             if (uiState is NewVisitUiState.Error) {
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text      = (uiState as NewVisitUiState.Error).message,
-                    style     = MaterialTheme.typography.bodySmall,
-                    color     = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
-                    modifier  = Modifier.fillMaxWidth()
-                )
+                Text(text = (uiState as NewVisitUiState.Error).message, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
         } // end outer Column
 
         // ── Selfie capture modal ──────────────────────────────────────────────
         if (isCapturing) {
             SelfieCaptureModal(
-                selectedLanguage = selectedLanguage,
-                onDismiss        = { isCapturing = false },
-                onPhotoCaptured  = { bitmap ->
+                onDismiss       = { isCapturing = false },
+                onPhotoCaptured = { bitmap ->
                     coroutineScope.launch {
                         try {
                             val savedPath = withContext(Dispatchers.IO) {
-                                ImageSaver.saveImage(
-                                    context   = context,
-                                    bitmap    = bitmap,
-                                    personId  = viewModel.getPersonId(),
-                                    imageType = ImageSaver.ImageType.PROFILE
-                                )
+                                ImageSaver.saveImage(context = context, bitmap = bitmap,
+                                    personId = viewModel.getPersonId(), imageType = ImageSaver.ImageType.PROFILE)
                             }
                             capturedBitmap   = bitmap
                             profilePhotoPath = savedPath
                             photoTaken       = true
                             isCapturing      = false
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
+                        } catch (e: Exception) { e.printStackTrace() }
                     }
                 }
             )
@@ -596,74 +520,36 @@ fun PersonDataScreen(
 @Composable
 private fun ExtractionStatusBanner(
     source: DocumentDataExtractor.ExtractionSource,
-    confidence: DocumentDataExtractor.Confidence,
-    hasName: Boolean,
-    selectedLanguage: String
+    hasName: Boolean
 ) {
-    val (bgColor, icon, label) = when {
+    val (bgColor, textColor, label) = when {
         source == DocumentDataExtractor.ExtractionSource.MRZ -> Triple(
             androidx.compose.ui.graphics.Color(0xFF1B5E20).copy(alpha = 0.12f),
-            "✦",
-            if (selectedLanguage == "es")
-                "✦ Datos detectados vía MRZ (alta confianza)"
-            else
-                "✦ Data detected via MRZ (high confidence)"
+            androidx.compose.ui.graphics.Color(0xFF1B5E20),
+            stringResource(R.string.ocr_auto_filled)
         )
         source == DocumentDataExtractor.ExtractionSource.OCR_KEYED && hasName -> Triple(
-            OrangePrimary.copy(alpha = 0.10f),
-            "◎",
-            if (selectedLanguage == "es")
-                "◎ Datos detectados vía OCR — verifique los campos"
-            else
-                "◎ Data detected via OCR — please verify the fields"
+            OrangePrimary.copy(alpha = 0.10f), OrangePrimary, stringResource(R.string.ocr_partial)
         )
         source == DocumentDataExtractor.ExtractionSource.OCR_HEURISTIC && hasName -> Triple(
             androidx.compose.ui.graphics.Color(0xFFF57F17).copy(alpha = 0.10f),
-            "⚠",
-            if (selectedLanguage == "es")
-                "⚠ Datos aproximados — verifique y corrija si es necesario"
-            else
-                "⚠ Approximate data — please verify and correct if needed"
+            androidx.compose.ui.graphics.Color(0xFFE65100),
+            stringResource(R.string.ocr_partial)
         )
         else -> Triple(
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-            "✎",
-            if (selectedLanguage == "es")
-                "✎ No se detectaron datos — ingrese la información manualmente"
-            else
-                "✎ No data detected — please fill in the fields manually"
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(R.string.ocr_none)
         )
     }
-
-    val textColor = when (source) {
-        DocumentDataExtractor.ExtractionSource.MRZ ->
-            androidx.compose.ui.graphics.Color(0xFF1B5E20)
-        DocumentDataExtractor.ExtractionSource.OCR_KEYED ->
-            OrangePrimary
-        DocumentDataExtractor.ExtractionSource.OCR_HEURISTIC ->
-            androidx.compose.ui.graphics.Color(0xFFE65100)
-        else ->
-            MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
             .background(bgColor, RoundedCornerShape(8.dp))
-            .border(
-                1.dp,
-                textColor.copy(alpha = 0.25f),
-                RoundedCornerShape(8.dp)
-            )
+            .border(1.dp, textColor.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(
-            text  = label,
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-            color = textColor,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 15.sp
-        )
+        Text(label, style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+            color = textColor, fontWeight = FontWeight.Medium, lineHeight = 15.sp)
     }
 }
 
@@ -696,7 +582,6 @@ private fun FieldWithOcrHint(
 // ── Selfie capture modal — AUTO countdown, no manual button ──────────────────
 @Composable
 private fun SelfieCaptureModal(
-    selectedLanguage: String,
     onDismiss: () -> Unit,
     onPhotoCaptured: (Bitmap) -> Unit
 ) {
@@ -738,11 +623,11 @@ private fun SelfieCaptureModal(
             verticalAlignment     = Alignment.CenterVertically
         ) {
             Text(
-                text      = if (selectedLanguage == "es") "Foto Personal" else "Personal Photo",
-                style     = MaterialTheme.typography.titleLarge,
+                text       = stringResource(R.string.personal_photo),
+                style      = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color     = androidx.compose.ui.graphics.Color.White,
-                modifier  = Modifier
+                color      = androidx.compose.ui.graphics.Color.White,
+                modifier   = Modifier
                     .background(
                         androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
                         RoundedCornerShape(10.dp)
@@ -750,19 +635,8 @@ private fun SelfieCaptureModal(
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             )
             if (!isProcessing) {
-                IconButton(
-                    onClick  = onDismiss,
-                    modifier = Modifier
-                        .background(
-                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
-                            CircleShape
-                        )
-                ) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = androidx.compose.ui.graphics.Color.White
-                    )
+                IconButton(onClick = onDismiss, modifier = Modifier.background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f), CircleShape)) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel), tint = androidx.compose.ui.graphics.Color.White)
                 }
             }
         }
@@ -780,10 +654,7 @@ private fun SelfieCaptureModal(
                 contentAlignment = Alignment.Center
             ) {
                 if (isProcessing) {
-                    CircularProgressIndicator(
-                        color    = OrangePrimary,
-                        modifier = Modifier.size(56.dp)
-                    )
+                    CircularProgressIndicator(color = OrangePrimary, modifier = Modifier.size(56.dp))
                 } else if (countdown > 0) {
                     Box(
                         modifier = Modifier
@@ -809,12 +680,9 @@ private fun SelfieCaptureModal(
 
             Text(
                 text = when {
-                    isProcessing -> if (selectedLanguage == "es") "Procesando..." else "Processing..."
-                    countdown > 0 -> if (selectedLanguage == "es")
-                        "Posiciona tu rostro en el círculo"
-                    else
-                        "Position your face in the circle"
-                    else -> if (selectedLanguage == "es") "¡Sonríe!" else "Smile!"
+                    isProcessing  -> stringResource(R.string.verifying)
+                    countdown > 0 -> stringResource(R.string.position_face)
+                    else          -> stringResource(R.string.look_at_camera)
                 },
                 style     = MaterialTheme.typography.titleMedium,
                 color     = androidx.compose.ui.graphics.Color.White,

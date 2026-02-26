@@ -35,6 +35,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.res.stringResource
+import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.core.validation.DocumentValidator
@@ -64,27 +66,15 @@ fun DocumentScanScreen(
 
     var selectedDocType by remember { mutableStateOf("DUI") }
 
-    // Visit reason — pairs of (reasonKey, displayLabel)
-    val visitorTypeOptions = if (selectedLanguage == "es")
-        listOf(
-            "VISITOR"         to "Visitante",
-            "CONTRACTOR"      to "Contratista",
-            "VENDOR"          to "Proveedor",
-            "DELIVERY"        to "Haciendo una entrega",
-            "DRIVER"          to "Conductor",
-            "TEMPORARY_STAFF" to "Personal Temporal",
-            "OTHER"           to "Otro"
-        )
-    else
-        listOf(
-            "VISITOR"         to "Visitor",
-            "CONTRACTOR"      to "Contractor",
-            "VENDOR"          to "Vendor",
-            "DELIVERY"        to "Delivery",
-            "DRIVER"          to "Driver",
-            "TEMPORARY_STAFF" to "Temporary Staff",
-            "OTHER"           to "Other"
-        )
+    val visitorTypeOptions = listOf(
+        "VISITOR"         to stringResource(R.string.visitor_type),
+        "CONTRACTOR"      to stringResource(R.string.contractor),
+        "VENDOR"          to stringResource(R.string.vendor),
+        "DELIVERY"        to stringResource(R.string.delivery),
+        "DRIVER"          to stringResource(R.string.driver),
+        "TEMPORARY_STAFF" to stringResource(R.string.temporary_staff),
+        "OTHER"           to stringResource(R.string.other)
+    )
 
     var selectedVisitorOption by remember { mutableStateOf(visitorTypeOptions.first()) }
     var expandedVisitorType   by remember { mutableStateOf(false) }
@@ -103,16 +93,13 @@ fun DocumentScanScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        if (selectedLanguage == "es") "Escanear Documento" else "Scan Document",
-                        fontSize = 18.sp
-                    )
+                    Text(stringResource(R.string.scan_document), fontSize = 18.sp)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = if (selectedLanguage == "es") "Atrás" else "Back"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -135,7 +122,7 @@ fun DocumentScanScreen(
 
                 // ── Visitor type ──────────────────────────────────────────────
                 Text(
-                    text = if (selectedLanguage == "es") "Yo soy un:" else "I am a:",
+                    text = stringResource(R.string.i_am_a),
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = SlatePrimary,
@@ -150,11 +137,8 @@ fun DocumentScanScreen(
                         value         = selectedVisitorOption.second,
                         onValueChange = {},
                         readOnly      = true,
-                        label         = {
-                            Text(
-                                if (selectedLanguage == "es") "Seleccione una opción" else "Select an option",
-                                fontSize = 12.sp
-                            )
+                        label = {
+                            Text(stringResource(R.string.select_option), fontSize = 12.sp)
                         },
                         trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVisitorType) },
                         colors        = OutlinedTextFieldDefaults.colors(
@@ -183,7 +167,7 @@ fun DocumentScanScreen(
 
                 // ── Document type ─────────────────────────────────────────────
                 Text(
-                    text = if (selectedLanguage == "es") "¿Qué tipo de documento presenta?" else "What type of document do you present?",
+                    text = stringResource(R.string.what_doc_type),
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = SlatePrimary,
@@ -194,20 +178,30 @@ fun DocumentScanScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     DocumentTypeChip(
-                        if (selectedLanguage == "es") "Documento de Identidad / ID" else "Identity Document / ID",
+                        stringResource(R.string.identity_document_id),
                         selectedDocType == "DUI",
                         { selectedDocType = "DUI" },
                         Modifier.weight(1f)
                     )
-                    DocumentTypeChip(if (selectedLanguage == "es") "Pasaporte" else "Passport", selectedDocType == "PASSPORT", { selectedDocType = "PASSPORT" }, Modifier.weight(1f))
-                    DocumentTypeChip(if (selectedLanguage == "es") "Otro" else "Other",         selectedDocType == "OTHER",    { selectedDocType = "OTHER" },    Modifier.weight(1f))
+                    DocumentTypeChip(
+                        stringResource(R.string.passport),
+                        selectedDocType == "PASSPORT",
+                        { selectedDocType = "PASSPORT" },
+                        Modifier.weight(1f)
+                    )
+                    DocumentTypeChip(
+                        stringResource(R.string.other),
+                        selectedDocType == "OTHER",
+                        { selectedDocType = "OTHER" },
+                        Modifier.weight(1f)
+                    )
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 16.dp))
 
                 // ── Scan section ──────────────────────────────────────────────
                 Text(
-                    text = if (selectedLanguage == "es") "Escanear Documento" else "Scan Document",
+                    text = stringResource(R.string.scan_document),
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = SlatePrimary,
@@ -218,19 +212,17 @@ fun DocumentScanScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     ScanDocumentCard(
-                        title          = if (selectedLanguage == "es") "Frente del Documento" else "Front of Document",
+                        title          = stringResource(R.string.front_of_document),
                         isScanned      = frontScanned,
                         onClick        = { showFrontCamera = true },
                         modifier       = Modifier.weight(1f),
-                        selectedLanguage = selectedLanguage,
                         capturedBitmap = frontBitmap
                     )
                     ScanDocumentCard(
-                        title          = if (selectedLanguage == "es") "Reverso del Documento" else "Back of Document",
+                        title          = stringResource(R.string.back_of_document),
                         isScanned      = backScanned,
                         onClick        = { showBackCamera = true },
                         modifier       = Modifier.weight(1f),
-                        selectedLanguage = selectedLanguage,
                         enabled        = frontScanned,
                         capturedBitmap = backBitmap
                     )
@@ -249,7 +241,7 @@ fun DocumentScanScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text       = if (selectedLanguage == "es") "Continuar" else "Continue",
+                        text       = stringResource(R.string.continue_btn),
                         style      = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
                         fontWeight = FontWeight.SemiBold
                     )
@@ -259,7 +251,7 @@ fun DocumentScanScreen(
             // ── Front camera modal ─────────────────────────────────────────────
             if (showFrontCamera) {
                 DocumentCameraModal(
-                    title            = if (selectedLanguage == "es") "Frente del Documento" else "Front of Document",
+                    title            = stringResource(R.string.front_of_document),
                     isBackSide       = false,
                     referenceBitmap  = null,
                     selectedLanguage = selectedLanguage,
@@ -301,7 +293,7 @@ fun DocumentScanScreen(
             // ── Back camera modal ──────────────────────────────────────────────
             if (showBackCamera) {
                 DocumentCameraModal(
-                    title            = if (selectedLanguage == "es") "Reverso del Documento" else "Back of Document",
+                    title            = stringResource(R.string.back_of_document),
                     isBackSide       = true,
                     referenceBitmap  = frontBitmap,
                     selectedLanguage = selectedLanguage,
@@ -338,7 +330,7 @@ fun DocumentScanScreen(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun DocumentTypeChip(
+internal fun DocumentTypeChip(
     text: String,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -374,12 +366,11 @@ private fun DocumentTypeChip(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-private fun ScanDocumentCard(
+internal fun ScanDocumentCard(
     title: String,
     isScanned: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selectedLanguage: String = "es",
     enabled: Boolean = true,
     capturedBitmap: Bitmap? = null
 ) {
@@ -444,7 +435,7 @@ private fun ScanDocumentCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text  = if (selectedLanguage == "es") "✓ Escaneado correctamente" else "✓ Scanned successfully",
+                        text  = stringResource(R.string.scanned_successfully),
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                         color = Color.White,
                         textAlign = TextAlign.Center,
@@ -474,10 +465,7 @@ private fun ScanDocumentCard(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text  = if (selectedLanguage == "es")
-                            if (enabled) "Toque para escanear" else "Escanee el frente primero"
-                        else
-                            if (enabled) "Tap to scan" else "Scan front first",
+                        text  = if (enabled) stringResource(R.string.tap_to_scan) else stringResource(R.string.scan_front_first),
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
@@ -530,7 +518,7 @@ private const val WARMUP_MS = 3500L
 private const val ERROR_DISPLAY_MS = 1800L
 
 @Composable
-private fun DocumentCameraModal(
+internal fun DocumentCameraModal(
     title: String,
     isBackSide: Boolean,
     referenceBitmap: Bitmap?,
@@ -741,8 +729,7 @@ private fun DocumentCameraModal(
 
                 is ScanState.Success -> {
                     Box(
-                        modifier = Modifier.fillMaxSize()
-                            .background(Color(0xFF1B5E20).copy(alpha = 0.90f)),
+                        modifier = Modifier.fillMaxSize().background(Color(0xFF1B5E20).copy(alpha = 0.90f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -751,9 +738,9 @@ private fun DocumentCameraModal(
                         ) {
                             Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(44.dp))
                             Text(
-                                text  = if (selectedLanguage == "es") "¡Documento aceptado!" else "Document accepted!",
-                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
-                                color = Color.White,
+                                text       = stringResource(R.string.document_accepted),
+                                style      = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                                color      = Color.White,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -776,9 +763,9 @@ private fun DocumentCameraModal(
                                 strokeWidth = 4.dp
                             )
                             Text(
-                                text  = if (selectedLanguage == "es") "Verificando…" else "Verifying…",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                                color = Color.White,
+                                text       = stringResource(R.string.verifying),
+                                style      = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                                color      = Color.White,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -811,9 +798,9 @@ private fun DocumentCameraModal(
                 )
                 Text(
                     text  = when {
-                        sharpProgress >= 0.8f -> if (selectedLanguage == "es") "Capturando…" else "Capturing…"
-                        sharpProgress >= 0.4f -> if (selectedLanguage == "es") "Enfocando…"  else "Focusing…"
-                        else                  -> if (selectedLanguage == "es") "Centre el documento en el marco" else "Center the document in the frame"
+                        sharpProgress >= 0.8f -> stringResource(R.string.capturing)
+                        sharpProgress >= 0.4f -> stringResource(R.string.focusing)
+                        else                  -> stringResource(R.string.center_document)
                     },
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                     color = Color.White.copy(alpha = 0.80f),
@@ -833,10 +820,7 @@ private fun DocumentCameraModal(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text  = if (selectedLanguage == "es")
-                        "Se capturará automáticamente cuando el documento esté enfocado"
-                    else
-                        "Will capture automatically once the document is in focus",
+                    text  = stringResource(R.string.capture_hint),
                     style      = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color      = OrangePrimary,
                     textAlign  = TextAlign.Center,
@@ -857,7 +841,7 @@ private fun DocumentCameraModal(
                 shape  = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text  = if (selectedLanguage == "es") "Cancelar" else "Cancel",
+                    text  = stringResource(R.string.cancel),
                     style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp)
                 )
             }

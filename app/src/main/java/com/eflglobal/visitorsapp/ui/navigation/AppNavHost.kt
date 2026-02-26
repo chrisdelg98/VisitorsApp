@@ -93,14 +93,10 @@ fun AppNavHost(
         }
         composable(Routes.RecurrentDocumentScan) {
             RecurrentDocumentScanScreen(
-                visitorName = "Juan Pérez", // TODO: Pasar datos reales desde búsqueda
-                documentNumber = "12345678-9",
-                company = "Tech Solutions Inc.",
-                email = "juan.perez@example.com",
-                phone = "+503 7890-1234",
-                onContinue = { navController.navigate(Routes.RecurrentVisitData) },
-                onBack = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage
+                onContinue       = { navController.navigate(Routes.RecurrentVisitData) },
+                onBack           = { navController.popBackStack() },
+                selectedLanguage = selectedLanguage,
+                viewModel        = recurrentVisitViewModel
             )
         }
         composable(Routes.RecurrentVisitData) {
@@ -151,21 +147,32 @@ fun AppNavHost(
                 else -> null
             }
 
+            val profilePhotoPath = when {
+                newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.profilePhotoPath
+                else -> null
+            }
+
             ConfirmScreen(
                 onConfirm = {
-                    // Resetear ViewModels antes de volver
                     newVisitViewModel.resetState()
                     recurrentVisitViewModel.resetState()
                     navController.navigate(Routes.Home) {
                         popUpTo(Routes.Home) { inclusive = false }
                     }
                 },
-                onEdit = { navController.popBackStack() },
+                onEdit = {
+                    // Reset Success state FIRST so PersonDataScreen doesn't
+                    // immediately navigate forward again when it recomposes
+                    newVisitViewModel.resetToEditing()
+                    recurrentVisitViewModel.resetToEditing()
+                    navController.popBackStack()
+                },
                 selectedLanguage = selectedLanguage,
-                qrCode = qrCode,
-                personName = personName,
-                visitingPerson = visitingPerson,
-                company = company
+                qrCode           = qrCode,
+                personName       = personName,
+                visitingPerson   = visitingPerson,
+                company          = company,
+                profilePhotoPath = profilePhotoPath
             )
         }
         composable(Routes.CheckoutQr) {

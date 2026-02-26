@@ -22,14 +22,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.ui.components.CameraPermissionHandler
 import com.eflglobal.visitorsapp.ui.components.QRScannerComposable
-import com.eflglobal.visitorsapp.ui.localization.Strings
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.EndVisitViewModel
@@ -79,15 +80,10 @@ fun CheckoutQrScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        Strings.endVisitTitle(selectedLanguage),
-                        fontSize = 18.sp
-                    )
-                },
+                title = { Text(stringResource(R.string.end_visit_title), fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Strings.back(selectedLanguage))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -119,7 +115,7 @@ fun CheckoutQrScreen(
                 ) {
                     // Título de sección
                     Text(
-                        text = if (selectedLanguage == "es") "Salida Manual" else "Manual Checkout",
+                        text = stringResource(R.string.manual_checkout),
                         style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                         fontWeight = FontWeight.Bold,
                         color = SlatePrimary
@@ -129,10 +125,7 @@ fun CheckoutQrScreen(
 
                     // Instrucciones
                     Text(
-                        text = if (selectedLanguage == "es")
-                            "Escanee el código QR del visitante o búsquelo manualmente por su nombre para completar la salida."
-                        else
-                            "Scan the visitor's QR code or search manually by name to complete checkout.",
+                        text = stringResource(R.string.manual_checkout_instructions),
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         lineHeight = 20.sp
@@ -143,10 +136,7 @@ fun CheckoutQrScreen(
                     // Campo de búsqueda
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = if (selectedLanguage == "es")
-                                "Buscar Visitante por Nombre"
-                            else
-                                "Search Visitor by Name",
+                            text = stringResource(R.string.search_visitor_by_name),
                             style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
                             fontWeight = FontWeight.SemiBold,
                             color = SlatePrimary,
@@ -155,17 +145,9 @@ fun CheckoutQrScreen(
 
                         OutlinedTextField(
                             value = searchQuery,
-                            onValueChange = {
-                                searchQuery = it
-                            },
+                            onValueChange = { searchQuery = it },
                             placeholder = {
-                                Text(
-                                    if (selectedLanguage == "es")
-                                        "Ingrese al menos 3 caracteres..."
-                                    else
-                                        "Enter at least 3 characters...",
-                                    fontSize = 12.sp
-                                )
+                                Text(stringResource(R.string.search_hint_3chars), fontSize = 12.sp)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -226,10 +208,7 @@ fun CheckoutQrScreen(
                                         modifier = Modifier.padding(16.dp)
                                     ) {
                                         Text(
-                                            text = if (selectedLanguage == "es")
-                                                "Visitas Activas Hoy"
-                                            else
-                                                "Active Visits Today",
+                                            text = stringResource(R.string.active_visits_today),
                                             style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
                                             fontWeight = FontWeight.Bold,
                                             color = OrangePrimary,
@@ -264,10 +243,7 @@ fun CheckoutQrScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = if (selectedLanguage == "es")
-                                                "No se encontraron visitas activas"
-                                            else
-                                                "No active visits found",
+                                            text = stringResource(R.string.no_active_visits),
                                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                             textAlign = TextAlign.Center
@@ -309,10 +285,7 @@ fun CheckoutQrScreen(
                                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 20.sp)
                             )
                             Text(
-                                text = if (selectedLanguage == "es")
-                                    "El escaneo QR se activará automáticamente con la cámara frontal"
-                                else
-                                    "QR scanning will activate automatically with front camera",
+                                text = stringResource(R.string.qr_scan_auto_hint),
                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                 lineHeight = 16.sp
@@ -390,10 +363,7 @@ fun CheckoutQrScreen(
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Text(
-                                            text = if (selectedLanguage == "es")
-                                                "Coloque el código QR en el área marcada"
-                                            else
-                                                "Place QR code in marked area",
+                                            text = stringResource(R.string.place_qr),
                                             style = MaterialTheme.typography.titleMedium,
                                             color = androidx.compose.ui.graphics.Color.White,
                                             modifier = Modifier
@@ -449,20 +419,14 @@ fun CheckoutQrScreen(
                                     }
 
                                     Text(
-                                        text = if (selectedLanguage == "es")
-                                            "Escanear Código QR"
-                                        else
-                                            "Scan QR Code",
+                                        text = stringResource(R.string.scan_qr_code),
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
                                         color = androidx.compose.ui.graphics.Color.White
                                     )
 
                                     Text(
-                                        text = if (selectedLanguage == "es")
-                                            "Presione el botón para activar la cámara y escanear el código QR del visitante"
-                                        else
-                                            "Press the button to activate camera and scan visitor's QR code",
+                                        text = stringResource(R.string.present_qr),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f),
                                         textAlign = TextAlign.Center
@@ -488,10 +452,7 @@ fun CheckoutQrScreen(
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(
-                                            text = if (selectedLanguage == "es")
-                                                "Activar Escáner"
-                                            else
-                                                "Activate Scanner",
+                                            text = stringResource(R.string.start_scanning),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -505,10 +466,7 @@ fun CheckoutQrScreen(
 
                     // Texto informativo
                     Text(
-                        text = if (selectedLanguage == "es")
-                            "Cámara frontal • Escaneo automático"
-                        else
-                            "Front camera • Automatic scanning",
+                        text = stringResource(R.string.front_camera_auto),
                         style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                         fontWeight = FontWeight.Medium
@@ -540,7 +498,7 @@ fun CheckoutQrScreen(
                     },
                     title = {
                         Text(
-                            text = Strings.checkoutSuccess(selectedLanguage),
+                            text = stringResource(R.string.checkout_success),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = SlatePrimary,
@@ -550,10 +508,7 @@ fun CheckoutQrScreen(
                     text = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = if (selectedLanguage == "es")
-                                    "Salida registrada correctamente para:"
-                                else
-                                    "Checkout successfully registered for:",
+                                text = stringResource(R.string.checkout_registered_for),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 textAlign = TextAlign.Center
@@ -580,7 +535,7 @@ fun CheckoutQrScreen(
                             ),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(Strings.accept(selectedLanguage))
+                            Text(stringResource(R.string.accept))
                         }
                     }
                 )
@@ -643,19 +598,13 @@ private fun RealVisitorSearchCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (selectedLanguage == "es")
-                        "Visitando a: ${visit.visitingPerson}"
-                    else
-                        "Visiting: ${visit.visitingPerson}",
+                    text = stringResource(R.string.visiting_colon, visit.visitingPerson),
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (selectedLanguage == "es")
-                        "Entrada: ${visit.entryTime}"
-                    else
-                        "Entry: ${visit.entryTime}",
+                    text = stringResource(R.string.entry_colon, visit.entryTime),
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )

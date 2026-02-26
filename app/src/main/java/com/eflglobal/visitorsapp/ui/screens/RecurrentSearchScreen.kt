@@ -16,11 +16,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.eflglobal.visitorsapp.ui.localization.Strings
+import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentSearchViewModel
@@ -58,13 +59,13 @@ fun RecurrentSearchScreen(
             TopAppBar(
                 title = {
                     Text(
-                        Strings.recurringVisit(selectedLanguage),
+                        stringResource(R.string.recurring_visit),
                         fontSize = 18.sp
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Strings.back(selectedLanguage))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -81,18 +82,15 @@ fun RecurrentSearchScreen(
                 .padding(24.dp)
         ) {
             Text(
-                text = Strings.searchRegistered(selectedLanguage),
+                text = stringResource(R.string.search_registered),
                 style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                 fontWeight = FontWeight.SemiBold,
                 color = SlatePrimary,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 8.dp)
             )
 
             Text(
-                text = if (selectedLanguage == "es")
-                    "Seleccione un visitante para crear un nuevo registro de visita"
-                else
-                    "Select a visitor to create a new visit record",
+                text = stringResource(R.string.select_visitor_hint),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                 modifier = Modifier.padding(bottom = 24.dp)
@@ -105,7 +103,7 @@ fun RecurrentSearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 24.dp),
-                placeholder = { Text(Strings.searchByName(selectedLanguage)) },
+                placeholder = { Text(stringResource(R.string.search_by_name)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
@@ -141,10 +139,7 @@ fun RecurrentSearchScreen(
                                 modifier = Modifier.size(80.dp)
                             )
                             Text(
-                                text = if (selectedLanguage == "es")
-                                    "Ingrese al menos 3 caracteres para buscar"
-                                else
-                                    "Enter at least 3 characters to search",
+                                text = stringResource(R.string.search_hint_3chars),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
@@ -181,12 +176,12 @@ fun RecurrentSearchScreen(
                                 modifier = Modifier.size(80.dp)
                             )
                             Text(
-                                text = Strings.noResults(selectedLanguage),
+                                text = stringResource(R.string.no_results),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
                             Text(
-                                text = Strings.tryDifferentSearch(selectedLanguage),
+                                text = stringResource(R.string.try_different_search),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                             )

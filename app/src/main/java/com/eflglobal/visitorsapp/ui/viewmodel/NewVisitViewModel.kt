@@ -179,7 +179,8 @@ class NewVisitViewModel(
                             qrCode        = visit.qrCodeValue,
                             personName    = "$firstName $lastName".trim(),
                             visitingPerson = visitingPersonName,
-                            company       = company
+                            company       = company,
+                            profilePhotoPath = profilePhotoPath
                         )
                     },
                     onFailure = { error ->
@@ -207,6 +208,15 @@ class NewVisitViewModel(
         extractionConfidence = DocumentDataExtractor.Confidence.NONE
         personId             = null
     }
+
+    /**
+     * Called when user taps "Edit" on ConfirmScreen.
+     * Resets ONLY the UiState back to Idle so PersonDataScreen doesn't
+     * immediately re-navigate forward — all scanned/entered data is preserved.
+     */
+    fun resetToEditing() {
+        _uiState.value = NewVisitUiState.Idle
+    }
 }
 
 sealed class NewVisitUiState {
@@ -216,7 +226,8 @@ sealed class NewVisitUiState {
         val qrCode: String,
         val personName: String,
         val visitingPerson: String,
-        val company: String?
+        val company: String?,
+        val profilePhotoPath: String? = null
     ) : NewVisitUiState()
     data class Error(val message: String) : NewVisitUiState()
 }
