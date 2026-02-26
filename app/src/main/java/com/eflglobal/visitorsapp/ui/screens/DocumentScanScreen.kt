@@ -193,7 +193,12 @@ fun DocumentScanScreen(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    DocumentTypeChip("DUI / ID",  selectedDocType == "DUI",      { selectedDocType = "DUI" },      Modifier.weight(1f))
+                    DocumentTypeChip(
+                        if (selectedLanguage == "es") "Documento de Identidad / ID" else "Identity Document / ID",
+                        selectedDocType == "DUI",
+                        { selectedDocType = "DUI" },
+                        Modifier.weight(1f)
+                    )
                     DocumentTypeChip(if (selectedLanguage == "es") "Pasaporte" else "Passport", selectedDocType == "PASSPORT", { selectedDocType = "PASSPORT" }, Modifier.weight(1f))
                     DocumentTypeChip(if (selectedLanguage == "es") "Otro" else "Other",         selectedDocType == "OTHER",    { selectedDocType = "OTHER" },    Modifier.weight(1f))
                 }
@@ -518,11 +523,11 @@ private const val LIVE_THRESHOLD = 20f
 /** Number of consecutive frames above [LIVE_THRESHOLD] required before capture. */
 private const val STREAK_REQUIRED = 6
 
-/** Camera warm-up period (ms) — discard the first few frames after opening. */
-private const val WARMUP_MS = 1800L
+/** Camera warm-up period (ms) — gives the user time to position the document before scanning begins. */
+private const val WARMUP_MS = 3500L
 
 /** How long to display an error message before auto-retrying (ms). */
-private const val ERROR_DISPLAY_MS = 3000L
+private const val ERROR_DISPLAY_MS = 1800L
 
 @Composable
 private fun DocumentCameraModal(

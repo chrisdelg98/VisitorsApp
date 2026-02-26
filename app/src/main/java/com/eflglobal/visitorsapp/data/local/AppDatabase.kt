@@ -5,10 +5,12 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.eflglobal.visitorsapp.data.local.dao.OcrMetricDao
 import com.eflglobal.visitorsapp.data.local.dao.PersonDao
 import com.eflglobal.visitorsapp.data.local.dao.StationDao
 import com.eflglobal.visitorsapp.data.local.dao.VisitDao
 import com.eflglobal.visitorsapp.data.local.dao.VisitReasonDao
+import com.eflglobal.visitorsapp.data.local.entity.OcrMetricEntity
 import com.eflglobal.visitorsapp.data.local.entity.PersonEntity
 import com.eflglobal.visitorsapp.data.local.entity.StationEntity
 import com.eflglobal.visitorsapp.data.local.entity.VisitEntity
@@ -22,9 +24,10 @@ import kotlinx.coroutines.launch
         PersonEntity::class,
         VisitEntity::class,
         StationEntity::class,
-        VisitReasonEntity::class
+        VisitReasonEntity::class,
+        OcrMetricEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -33,6 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun visitDao(): VisitDao
     abstract fun stationDao(): StationDao
     abstract fun visitReasonDao(): VisitReasonDao
+    abstract fun ocrMetricDao(): OcrMetricDao
 
     companion object {
         private const val DATABASE_NAME = "visitors_app_database"

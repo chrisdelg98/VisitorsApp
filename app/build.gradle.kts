@@ -82,6 +82,9 @@ dependencies {
     // ML Kit Text Recognition
     implementation("com.google.mlkit:text-recognition:16.0.0")
 
+    // ML Kit Entity Extraction (on-device — person names, dates, etc.)
+    implementation("com.google.mlkit:entity-extraction:16.0.0-beta5")
+
     // ZXing for QR Code generation and scanning
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")

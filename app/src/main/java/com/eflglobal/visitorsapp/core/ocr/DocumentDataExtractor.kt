@@ -218,59 +218,63 @@ object DocumentDataExtractor {
             .map { it.trim() }
             .filter { it.isNotBlank() }
 
-        /** True if [line] is a label-only line (contains any label token). */
+        /** True when [line] contains ANY known label token. */
         fun isLabelLine(line: String): Boolean {
             val lower = normaliseLine(line)
             return ALL_LABEL_TOKENS.any { lower.contains(it) }
         }
 
-        /**
-         * True if [line] contains a token from [labelSet] — meaning it is
-         * a label line for that specific field type.
-         */
-        fun containsFieldLabel(line: String, labelSet: Set<String>): Boolean {
+        /** True when [line] contains a label token from [labelSet]. */
+        fun matchesLabelSet(line: String, labelSet: Set<String>): Boolean {
             val lower = normaliseLine(line)
             return labelSet.any { lower.contains(it) }
         }
 
         /**
-         * Finds the value for a field identified by [labelSet].
+         * Given a label set, scans lines top-to-bottom.
+         * When a label-line is found, skip subsequent label-lines (bilingual
+         * continuations) and return the FIRST non-label line that looks like a name.
          *
-         * Algorithm:
-         *  1. Walk lines top-to-bottom.
-         *  2. When a line contains a label token from [labelSet], record its index.
-         *  3. Scan the NEXT 1-4 lines:
-         *     - Skip any line that is itself a label line (bilingual continuations,
-         *       e.g. "Unique Id Number" after "Nümero Unico de Identidad /").
-         *     - The first non-label line that passes [isNameValue] is the value.
+         * Example (DUI El Salvador):
+         *   Line N  : "Apellidos / Surname"       ← label  → found!
+         *   Line N+1: "AREVALO DELGADO"            ← non-label name value  → return
+         *
+         *   Line M  : "Nombres / Given Names"      ← label  → found!
+         *   Line M+1: "CHRISTIAN ALEXANDER"        ← non-label name value  → return
          */
-        fun findValue(labelSet: Set<String>): String? {
+        fun findNameAfterLabel(labelSet: Set<String>): String? {
             for (i in lines.indices) {
-                if (!containsFieldLabel(lines[i], labelSet)) continue
-                log("  label='${labelSet.first()}' found at line $i: '${lines[i]}'")
+                val line = lines[i]
+                if (!matchesLabelSet(line, labelSet)) continue
+                log("  [KEYED] label='${labelSet.first()}' at line $i: '$line'")
 
-                for (j in 1..4) {
-                    val next = lines.getOrNull(i + j) ?: break
-                    if (isLabelLine(next)) {
-                        log("    skip line ${i+j} (also a label): '$next'")
+                var consecutiveSkips = 0
+                for (j in 1..5) {
+                    val candidate = lines.getOrNull(i + j) ?: break
+                    if (isLabelLine(candidate)) {
+                        consecutiveSkips++
+                        log("  [KEYED] skip label-continuation line ${i+j}: '$candidate'")
+                        if (consecutiveSkips >= 3) break
                         continue
                     }
-                    if (isNameValue(next)) {
-                        log("  label='${labelSet.first()}' (line $i) → next-line value='$next'")
-                        return cleanName(next)
+                    consecutiveSkips = 0
+                    if (isNameValue(candidate)) {
+                        log("  [KEYED] ✅ value for '${labelSet.first()}' found at line ${i+j}: '$candidate'")
+                        return cleanName(candidate)
                     }
-                    // Non-label but not a name value — stop scanning
-                    // (e.g. a date or numeric line — the value isn't here)
-                    log("    stop at line ${i+j} (not a name value): '$next'")
+                    // Not a label, not a name-value → stop (e.g. date, number, noise)
+                    log("  [KEYED] stop — line ${i+j} is not a name value: '$candidate'")
                     break
                 }
             }
             return null
         }
 
-        val firstName = findValue(FIRST_NAME_LABELS)
-        val lastName  = findValue(LAST_NAME_LABELS)
+        val firstName = findNameAfterLabel(FIRST_NAME_LABELS)
+        val lastName  = findNameAfterLabel(LAST_NAME_LABELS)
         val docNumber = extractDocumentNumber(fullText)
+
+        log("[KEYED] result → first='$firstName' last='$lastName' doc='$docNumber'")
 
         return if (firstName != null || lastName != null || docNumber != null)
             Triple(firstName, lastName, docNumber)
@@ -371,24 +375,54 @@ object DocumentDataExtractor {
         )
 
         for (i in lines.indices) {
-            val matchedPattern = idLabelPatterns.firstOrNull { it.containsMatchIn(lines[i]) }
-                ?: continue
+            if (idLabelPatterns.none { it.containsMatchIn(lines[i]) }) continue
 
             log("  P0: label found at line $i '${lines[i]}'")
 
-            // Check lines i, i+1 … i+4 for the number
-            // j=0 checks the label line itself (might have the number inline after ":")
-            for (j in 0..4) {
+            // Check lines i, i+1 … i+6 for the number.
+            // j=0: check the label line itself (inline value after ":")
+            // j>0: skip any continuation label lines (bilingual or multi-line labels)
+            //       skip any lines that have no digits at all
+            //       stop only when we find a non-label, digit-bearing line that
+            //       doesn't parse — that means the number isn't here
+            var nonDigitSkips = 0
+            for (j in 0..6) {
                 val candidate = lines.getOrNull(i + j) ?: break
-                // Skip other label lines (bilingual continuations)
+
+                // Skip ID-label continuations (bilingual second line)
                 if (j > 0 && idLabelPatterns.any { it.containsMatchIn(candidate) }) {
-                    log("    P0 skip label-continuation at ${i+j}: '$candidate'")
+                    log("    P0 skip id-label-continuation at ${i+j}: '$candidate'")
                     continue
                 }
+
+                // Skip any other label-only line (e.g. "Fecha de expedicion / Date of issuance")
+                // but only if it has no digits — we don't want to skip a line like "05650411-7"
+                val hasDigits = candidate.any { it.isDigit() }
+                if (j > 0 && !hasDigits) {
+                    nonDigitSkips++
+                    log("    P0 skip no-digit line at ${i+j}: '$candidate'")
+                    if (nonDigitSkips >= 3) break
+                    continue
+                }
+                nonDigitSkips = 0
+
                 val num = extractRawDocNumber(candidate, skipLongLines = j == 0)
                 if (num != null) {
                     log("  P0 ✅ '$num' at line ${i+j}: '$candidate'")
                     return num
+                }
+
+                // Has digits but didn't parse → if it's a pure label line skip it,
+                // otherwise stop (the number won't appear further away)
+                if (j > 0) {
+                    val normLower = normaliseLine(candidate)
+                    val isAnotherLabel = ALL_LABEL_TOKENS.any { normLower.contains(it) }
+                    if (isAnotherLabel) {
+                        log("    P0 skip label at ${i+j}: '$candidate'")
+                        continue
+                    }
+                    log("    P0 stop — digit line did not parse at ${i+j}: '$candidate'")
+                    break
                 }
             }
         }
@@ -547,7 +581,7 @@ object DocumentDataExtractor {
                 }
                 else -> false
             }
-        } catch (e: Exception) { false }
+        } catch (_: Exception) { false }
     }
 
     private fun none(fullText: String) = ExtractionResult(

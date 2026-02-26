@@ -2,9 +2,14 @@ package com.eflglobal.visitorsapp.core.validation
 
 import android.graphics.Bitmap
 import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
+import com.eflglobal.visitorsapp.core.ocr.DocumentProcessingPipeline
+import com.eflglobal.visitorsapp.data.local.dao.OcrMetricDao
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.abs
@@ -100,7 +105,9 @@ object DocumentValidator {
         val extractionSource: DocumentDataExtractor.ExtractionSource =
             DocumentDataExtractor.ExtractionSource.NONE,
         val extractionConfidence: DocumentDataExtractor.Confidence =
-            DocumentDataExtractor.Confidence.NONE
+            DocumentDataExtractor.Confidence.NONE,
+        /** Full pipeline result — available for per-field confidence access and metrics. */
+        val pipelineResult: DocumentProcessingPipeline.PipelineResult? = null
     )
 
     // ─── Public API ───────────────────────────────────────────────────────────
@@ -332,61 +339,66 @@ object DocumentValidator {
     // ─── STEP 4: OCR ─────────────────────────────────────────────────────────
 
     /**
-     * Runs ML Kit OCR + DocumentDataExtractor (MRZ → Keyed OCR → Heuristic)
-     * on [bitmap] and returns structured [OcrData].
+     * Runs ML Kit OCR → DocumentProcessingPipeline (Classifier → MRZ → Scoring → Metrics)
+     * and returns structured [OcrData].
      *
-     * Enhancement: if the first OCR pass yields < 20 chars, a second pass is run
-     * on a slightly up-scaled version of the bitmap to improve recognition of
-     * small text (e.g. when the document is far from the camera).
+     * @param ocrMetricDao  Optional — when provided, each scan is logged for analytics.
      */
-    suspend fun runOcr(bitmap: Bitmap): OcrData = suspendCoroutine { cont ->
+    suspend fun runOcr(bitmap: Bitmap, ocrMetricDao: OcrMetricDao? = null): OcrData =
+        suspendCoroutine { cont ->
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
-        // Scale up if image is small — ML Kit works best at 1080p+ resolution
+        // Scale up if image is small — ML Kit works best at 1080p+
         val processedBitmap = if (bitmap.width < 800 || bitmap.height < 500) {
             val scale = maxOf(800f / bitmap.width, 500f / bitmap.height)
-            val scaledW = (bitmap.width  * scale).toInt().coerceAtLeast(1)
-            val scaledH = (bitmap.height * scale).toInt().coerceAtLeast(1)
-            Bitmap.createScaledBitmap(bitmap, scaledW, scaledH, true)
+            Bitmap.createScaledBitmap(
+                bitmap,
+                (bitmap.width  * scale).toInt().coerceAtLeast(1),
+                (bitmap.height * scale).toInt().coerceAtLeast(1),
+                true
+            )
         } else bitmap
 
-        // Rotation is already applied in proxyToBitmap — pass 0 to ML Kit
         recognizer.process(InputImage.fromBitmap(processedBitmap, 0))
             .addOnSuccessListener { visionText ->
                 val fullText = visionText.text
-                val lines    = visionText.textBlocks.sumOf { it.lines.size }
-                val words    = fullText.trim().split(Regex("\\s+")).count { it.length >= 2 }
-                val chars    = fullText.trim().length
+                val lineCount = visionText.textBlocks.sumOf { it.lines.size }
+                val wordCount = fullText.trim().split(Regex("\\s+")).count { it.length >= 2 }
+                val charCount = fullText.trim().length
 
-                log("STEP 4 OCR — ${processedBitmap.width}×${processedBitmap.height} → chars=$chars lines=$lines")
-                log("STEP 4 OCR full text: ${fullText.take(300)}")
+                log("STEP 4 OCR — ${processedBitmap.width}×${processedBitmap.height} → chars=$charCount lines=$lineCount")
+                log("STEP 4 OCR full text: ${fullText.take(400)}")
 
                 if (processedBitmap !== bitmap) processedBitmap.recycle()
 
-                // Run the three-layer extractor
-                val extraction = DocumentDataExtractor.extractFromText(fullText, visionText)
+                // Pipeline is suspend — launch an IO coroutine and resume the continuation when done
+                CoroutineScope(Dispatchers.IO).launch {
+                    val result = DocumentProcessingPipeline.process(
+                        fullText     = fullText,
+                        visionText   = visionText,
+                        ocrMetricDao = ocrMetricDao
+                    )
 
-                val detectedName = when {
-                    extraction.firstName != null && extraction.lastName != null ->
-                        "${extraction.firstName} ${extraction.lastName}"
-                    extraction.firstName != null -> extraction.firstName
-                    extraction.lastName  != null -> extraction.lastName
-                    else -> null
+                    val detectedName = listOfNotNull(
+                        result.autoFirstName,
+                        result.autoLastName
+                    ).joinToString(" ").ifBlank { null }
+
+                    cont.resume(OcrData(
+                        fullText             = fullText,
+                        detectedName         = detectedName,
+                        firstName            = result.firstName.value,
+                        lastName             = result.lastName.value,
+                        detectedDocNumber    = result.documentNumber.value,
+                        detectedDob          = null,
+                        lineCount            = lineCount,
+                        wordCount            = wordCount,
+                        charCount            = charCount,
+                        extractionSource     = mapFieldSource(result.firstName.source),
+                        extractionConfidence = mapConfidence(result.firstName.confidence),
+                        pipelineResult       = result
+                    ))
                 }
-
-                cont.resume(OcrData(
-                    fullText             = fullText,
-                    detectedName         = detectedName,
-                    firstName            = extraction.firstName,
-                    lastName             = extraction.lastName,
-                    detectedDocNumber    = extraction.documentNumber,
-                    detectedDob          = extraction.dateOfBirth,
-                    lineCount            = lines,
-                    wordCount            = words,
-                    charCount            = chars,
-                    extractionSource     = extraction.source,
-                    extractionConfidence = extraction.confidence
-                ))
             }
             .addOnFailureListener { e ->
                 log("STEP 4 OCR FAILED: ${e.message}")
@@ -402,9 +414,29 @@ object DocumentValidator {
                     wordCount            = 0,
                     charCount            = 0,
                     extractionSource     = DocumentDataExtractor.ExtractionSource.NONE,
-                    extractionConfidence = DocumentDataExtractor.Confidence.NONE
+                    extractionConfidence = DocumentDataExtractor.Confidence.NONE,
+                    pipelineResult       = null
                 ))
             }
+    }
+
+    /** Map new FieldSource → legacy ExtractionSource for backward-compat display. */
+    private fun mapFieldSource(
+        source: com.eflglobal.visitorsapp.domain.model.FieldSource
+    ): DocumentDataExtractor.ExtractionSource = when (source) {
+        com.eflglobal.visitorsapp.domain.model.FieldSource.MRZ        -> DocumentDataExtractor.ExtractionSource.MRZ
+        com.eflglobal.visitorsapp.domain.model.FieldSource.LABEL_OCR  -> DocumentDataExtractor.ExtractionSource.OCR_KEYED
+        com.eflglobal.visitorsapp.domain.model.FieldSource.ENTITY,
+        com.eflglobal.visitorsapp.domain.model.FieldSource.HEURISTIC  -> DocumentDataExtractor.ExtractionSource.OCR_HEURISTIC
+        com.eflglobal.visitorsapp.domain.model.FieldSource.NONE       -> DocumentDataExtractor.ExtractionSource.NONE
+    }
+
+    /** Map numeric confidence → legacy Confidence enum. */
+    private fun mapConfidence(conf: Float): DocumentDataExtractor.Confidence = when {
+        conf >= 0.80f -> DocumentDataExtractor.Confidence.HIGH
+        conf >= 0.60f -> DocumentDataExtractor.Confidence.MEDIUM
+        conf >= 0.30f -> DocumentDataExtractor.Confidence.LOW
+        else          -> DocumentDataExtractor.Confidence.NONE
     }
 
     // ─── STEP 5: Document-type validation ────────────────────────────────────

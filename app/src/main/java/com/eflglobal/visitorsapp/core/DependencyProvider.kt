@@ -1,8 +1,8 @@
 package com.eflglobal.visitorsapp.core
 
 import android.content.Context
-import androidx.room.Room
 import com.eflglobal.visitorsapp.data.local.AppDatabase
+import com.eflglobal.visitorsapp.data.local.dao.OcrMetricDao
 import com.eflglobal.visitorsapp.data.repository.ImageStorageRepositoryImpl
 import com.eflglobal.visitorsapp.data.repository.PersonRepositoryImpl
 import com.eflglobal.visitorsapp.data.repository.StationRepositoryImpl
@@ -20,50 +20,19 @@ import com.eflglobal.visitorsapp.domain.repository.VisitRepository
  */
 object DependencyProvider {
 
-    @Volatile
-    private var database: AppDatabase? = null
+    // All DB access goes through AppDatabase.getInstance() — single source of truth
+    @Volatile private var imageStorageRepository: ImageStorageRepository? = null
+    @Volatile private var personRepository: PersonRepository? = null
+    @Volatile private var stationRepository: StationRepository? = null
+    @Volatile private var visitRepository: VisitRepository? = null
 
-    @Volatile
-    private var imageStorageRepository: ImageStorageRepository? = null
+    /** Unified database accessor — always uses AppDatabase.getInstance(). */
+    fun provideDatabase(context: Context): AppDatabase =
+        AppDatabase.getInstance(context)
 
-    @Volatile
-    private var personRepository: PersonRepository? = null
-
-    @Volatile
-    private var stationRepository: StationRepository? = null
-
-    @Volatile
-    private var visitRepository: VisitRepository? = null
-
-    /**
-     * Inicializa el proveedor de dependencias.
-     * Debe llamarse una sola vez al inicio de la aplicación.
-     */
-    fun initialize(context: Context) {
-        if (database == null) {
-            synchronized(this) {
-                if (database == null) {
-                    database = Room.databaseBuilder(
-                        context.applicationContext,
-                        AppDatabase::class.java,
-                        "visitors_database"
-                    )
-                        .fallbackToDestructiveMigration()
-                        .build()
-                }
-            }
-        }
-    }
-
-    /**
-     * Proporciona la instancia de la base de datos.
-     */
-    fun provideDatabase(context: Context): AppDatabase {
-        if (database == null) {
-            initialize(context)
-        }
-        return database!!
-    }
+    /** OcrMetricDao — used by MetricsLogger and DocumentValidator.runOcr(). */
+    fun provideOcrMetricDao(context: Context): OcrMetricDao =
+        AppDatabase.getInstance(context).ocrMetricDao()
 
     /**
      * Proporciona el repositorio de almacenamiento de imágenes.
@@ -125,11 +94,10 @@ object DependencyProvider {
     }
 
     /**
-     * Limpia todas las instancias (útil para testing).
+     * Limpia las instancias de repositorio (útil para testing).
+     * La base de datos se gestiona a través de AppDatabase.getInstance().
      */
     fun clear() {
-        database?.close()
-        database = null
         imageStorageRepository = null
         personRepository = null
         stationRepository = null

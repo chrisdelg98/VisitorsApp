@@ -111,12 +111,12 @@ fun PersonDataScreen(
         }
     }
 
-    // OCR auto-fill on first load
-    LaunchedEffect(detectedFirstName) {
-        if (detectedFirstName.isNotEmpty() && firstName.isEmpty()) firstName = detectedFirstName
-    }
-    LaunchedEffect(detectedLastName) {
-        if (detectedLastName.isNotEmpty() && lastName.isEmpty()) lastName = detectedLastName
+    // Always fill OCR-detected names when the screen first appears.
+    // LaunchedEffect(Unit) runs exactly once after the initial composition,
+    // guaranteeing that the ViewModel already holds the scanned data.
+    LaunchedEffect(Unit) {
+        viewModel.getDetectedFirstName()?.takeIf { it.isNotBlank() }?.let { firstName = it }
+        viewModel.getDetectedLastName()?.takeIf  { it.isNotBlank() }?.let { lastName  = it }
     }
 
     LaunchedEffect(uiState) {
