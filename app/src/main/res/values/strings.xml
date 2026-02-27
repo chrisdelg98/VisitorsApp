@@ -109,6 +109,7 @@
     <string name="visit_qr_code">Código QR de Visita</string>
     <string name="printing_qr">Imprimiendo código QR...</string>
     <string name="no_printer_found">No se encontró impresora. Registro finalizado correctamente.</string>
+<!--    <string name="finish">Finalizar</string>-->
 
     <!-- ── CheckoutQrScreen ───────────────────────────── -->
     <string name="end_visit_title">Finalizar Visita</string>

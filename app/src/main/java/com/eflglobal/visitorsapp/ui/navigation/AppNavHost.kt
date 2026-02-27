@@ -88,7 +88,9 @@ fun AppNavHost(
             RecurrentSearchScreen(
                 onPersonSelected = { navController.navigate(Routes.RecurrentDocumentScan) },
                 onBack = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage
+                selectedLanguage = selectedLanguage,
+                searchViewModel = recurrentSearchViewModel,
+                recurrentVisitViewModel = recurrentVisitViewModel
             )
         }
         composable(Routes.RecurrentDocumentScan) {
@@ -103,7 +105,6 @@ fun AppNavHost(
             val person = recurrentVisitViewModel.getSelectedPerson()
             RecurrentVisitDataScreen(
                 visitorName = person?.fullName ?: "",
-                documentNumber = person?.documentNumber ?: "",
                 onContinue = { navController.navigate(Routes.Confirm) },
                 onBack = { navController.popBackStack() },
                 selectedLanguage = selectedLanguage,
@@ -149,6 +150,7 @@ fun AppNavHost(
 
             val profilePhotoPath = when {
                 newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.profilePhotoPath
+                recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.profilePhotoPath
                 else -> null
             }
 

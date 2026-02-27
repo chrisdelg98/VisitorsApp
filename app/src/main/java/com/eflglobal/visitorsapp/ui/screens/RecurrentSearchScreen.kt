@@ -15,19 +15,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentSearchViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentSearchUiState
 import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitViewModel
-import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,12 +32,8 @@ fun RecurrentSearchScreen(
     onPersonSelected: () -> Unit,
     onBack: () -> Unit,
     selectedLanguage: String = "es",
-    searchViewModel: RecurrentSearchViewModel = viewModel(
-        factory = ViewModelFactory(LocalContext.current)
-    ),
-    recurrentVisitViewModel: RecurrentVisitViewModel = viewModel(
-        factory = ViewModelFactory(LocalContext.current)
-    )
+    searchViewModel: RecurrentSearchViewModel,
+    recurrentVisitViewModel: RecurrentVisitViewModel
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val uiState by searchViewModel.uiState.collectAsState()

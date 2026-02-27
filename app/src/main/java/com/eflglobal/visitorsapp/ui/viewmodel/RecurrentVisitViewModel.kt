@@ -33,11 +33,45 @@ class RecurrentVisitViewModel(
     var documentFrontPath: String? = null; private set
     var documentBackPath:  String? = null; private set
 
+    // Profile photo taken on this visit (may differ from person.profilePhotoPath)
+    var profilePhotoPath: String? = null; private set
+
+    // ── Draft editable fields — survive popBackStack() for "Edit" flow ────────
+    var draftFirstName:    String? = null; private set
+    var draftLastName:     String? = null; private set
+    var draftDoc:          String? = null; private set
+    var draftCompany:      String? = null; private set
+    var draftEmail:        String? = null; private set
+    var draftPhone:        String? = null; private set
+    var draftVisitingPerson: String? = null; private set
+    var draftVisitReasonKey: String? = null; private set
+    var draftVisitReasonCustom: String? = null; private set
+    /** True once the user has submitted once — screen should restore drafts. */
+    var hasDraft: Boolean = false; private set
+
+    fun saveDraft(
+        firstName: String, lastName: String, doc: String, company: String,
+        email: String, phone: String, visitingPerson: String,
+        visitReasonKey: String?, visitReasonCustom: String?
+    ) {
+        draftFirstName       = firstName
+        draftLastName        = lastName
+        draftDoc             = doc
+        draftCompany         = company
+        draftEmail           = email
+        draftPhone           = phone
+        draftVisitingPerson  = visitingPerson
+        draftVisitReasonKey  = visitReasonKey
+        draftVisitReasonCustom = visitReasonCustom
+        hasDraft             = true
+    }
+
     fun setSelectedPerson(person: Person) { selectedPerson = person }
     fun setDocumentType(type: String)     { documentType = type }
     fun setVisitorType(type: String)      { visitorType = type }
     fun setDocumentFront(path: String)    { documentFrontPath = path }
     fun setDocumentBack(path: String)     { documentBackPath  = path }
+    fun setProfilePhoto(path: String)     { profilePhotoPath  = path }
 
     fun setVisitReason(key: String, custom: String? = null) {
         visitReason       = key
@@ -46,7 +80,11 @@ class RecurrentVisitViewModel(
 
     fun getSelectedPerson(): Person? = selectedPerson
 
-    fun createVisit(visitingPersonName: String) {
+    fun createVisit(
+        visitingPersonName: String,
+        editedFirstName: String? = null,
+        editedLastName: String? = null
+    ) {
         val person = selectedPerson
         if (person == null) {
             _uiState.value = RecurrentVisitUiState.Error("No person selected"); return
@@ -57,6 +95,12 @@ class RecurrentVisitViewModel(
         if (visitReason == VisitReasonKeys.OTHER && visitReasonCustom.isNullOrBlank()) {
             _uiState.value = RecurrentVisitUiState.Error("Please describe the reason for the visit"); return
         }
+
+        val displayName = buildString {
+            append((editedFirstName?.trim()?.ifBlank { null } ?: person.firstName).trim())
+            val ln = (editedLastName?.trim()?.ifBlank { null } ?: person.lastName).trim()
+            if (ln.isNotBlank()) { append(" "); append(ln) }
+        }.trim().ifBlank { person.fullName }
 
         _uiState.value = RecurrentVisitUiState.Loading
 
@@ -72,10 +116,11 @@ class RecurrentVisitViewModel(
                 result.fold(
                     onSuccess = { visit ->
                         _uiState.value = RecurrentVisitUiState.Success(
-                            qrCode         = visit.qrCodeValue,
-                            personName     = person.fullName,
-                            visitingPerson = visitingPersonName,
-                            company        = person.company
+                            qrCode           = visit.qrCodeValue,
+                            personName       = displayName,
+                            visitingPerson   = visitingPersonName,
+                            company          = person.company,
+                            profilePhotoPath = profilePhotoPath ?: person.profilePhotoPath
                         )
                     },
                     onFailure = { error ->
@@ -89,14 +134,25 @@ class RecurrentVisitViewModel(
     }
 
     fun resetState() {
-        _uiState.value    = RecurrentVisitUiState.Idle
-        selectedPerson    = null
-        documentType      = "DUI"
-        visitorType       = VisitReasonKeys.VISITOR
-        visitReason       = VisitReasonKeys.VISITOR
-        visitReasonCustom = null
-        documentFrontPath = null
-        documentBackPath  = null
+        _uiState.value       = RecurrentVisitUiState.Idle
+        selectedPerson       = null
+        documentType         = "DUI"
+        visitorType          = VisitReasonKeys.VISITOR
+        visitReason          = VisitReasonKeys.VISITOR
+        visitReasonCustom    = null
+        documentFrontPath    = null
+        documentBackPath     = null
+        profilePhotoPath     = null
+        draftFirstName       = null
+        draftLastName        = null
+        draftDoc             = null
+        draftCompany         = null
+        draftEmail           = null
+        draftPhone           = null
+        draftVisitingPerson  = null
+        draftVisitReasonKey  = null
+        draftVisitReasonCustom = null
+        hasDraft             = false
     }
 
     /** Resets only UiState to Idle — preserves all captured data for editing. */
@@ -110,7 +166,8 @@ sealed class RecurrentVisitUiState {
         val qrCode: String,
         val personName: String,
         val visitingPerson: String,
-        val company: String?
+        val company: String?,
+        val profilePhotoPath: String? = null
     ) : RecurrentVisitUiState()
     data class Error(val message: String) : RecurrentVisitUiState()
 }

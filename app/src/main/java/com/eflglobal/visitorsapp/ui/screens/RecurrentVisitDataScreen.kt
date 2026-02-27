@@ -54,7 +54,6 @@ import kotlinx.coroutines.withContext
 @Composable
 fun RecurrentVisitDataScreen(
     visitorName: String = "",
-    documentNumber: String = "",
     onContinue: () -> Unit,
     onBack: () -> Unit,
     viewModel: RecurrentVisitViewModel? = null,
@@ -63,23 +62,36 @@ fun RecurrentVisitDataScreen(
     val context        = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // ── Pre-fill from ViewModel ───────────────────────────────────────────────
+    // ── Pre-fill: draft (edit flow) takes priority, then person DB data ───────
     val person = viewModel?.getSelectedPerson()
+    val hasDraft = viewModel?.hasDraft == true
 
-    val displayFirstName = person?.firstName  ?: visitorName.substringBefore(" ")
-    val displayLastName  = person?.lastName   ?: visitorName.substringAfter(" ", "")
-    val displayDoc       = person?.documentNumber
-    val displayCompany   = person?.company
-    val displayEmail     = person?.email      ?: ""
-    val displayPhone     = person?.phoneNumber ?: ""
+    var editFirstName by remember { mutableStateOf(
+        viewModel?.draftFirstName ?: person?.firstName ?: visitorName.substringBefore(" ")
+    ) }
+    var editLastName  by remember { mutableStateOf(
+        viewModel?.draftLastName  ?: person?.lastName  ?: visitorName.substringAfter(" ", "")
+    ) }
+    var editDoc       by remember { mutableStateOf(
+        viewModel?.draftDoc       ?: person?.documentNumber ?: ""
+    ) }
+    var editCompany   by remember { mutableStateOf(
+        viewModel?.draftCompany   ?: person?.company   ?: ""
+    ) }
+    var editEmail     by remember { mutableStateOf(
+        viewModel?.draftEmail     ?: person?.email     ?: ""
+    ) }
+    var editPhone     by remember { mutableStateOf(
+        viewModel?.draftPhone     ?: person?.phoneNumber ?: ""
+    ) }
 
-    // Load stored profile photo from disk
+    // Load profile photo: new photo taken this session wins, then stored path
+    val effectivePhotoPath = viewModel?.profilePhotoPath ?: person?.profilePhotoPath
     var storedProfileBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(person?.profilePhotoPath) {
-        val path = person?.profilePhotoPath
-        if (!path.isNullOrBlank()) {
+    LaunchedEffect(effectivePhotoPath) {
+        if (!effectivePhotoPath.isNullOrBlank()) {
             withContext(Dispatchers.IO) {
-                runCatching { BitmapFactory.decodeFile(path) }.getOrNull()
+                runCatching { BitmapFactory.decodeFile(effectivePhotoPath) }.getOrNull()
             }?.let { storedProfileBitmap = it }
         }
     }
@@ -103,11 +115,21 @@ fun RecurrentVisitDataScreen(
     }
     var selectedReason   by remember { mutableStateOf<VisitReason?>(null) }
     var reasonExpanded   by remember { mutableStateOf(false) }
-    var customReasonText by remember { mutableStateOf("") }
+    var customReasonText by remember { mutableStateOf(viewModel?.draftVisitReasonCustom ?: "") }
     val isOtherSelected  = selectedReason?.reasonKey == VisitReasonKeys.OTHER
 
+    // Restore selectedReason from draft once the list is populated
+    LaunchedEffect(visitReasons.size) {
+        if (visitReasons.isNotEmpty() && selectedReason == null) {
+            val draftKey = viewModel?.draftVisitReasonKey
+            if (!draftKey.isNullOrBlank()) {
+                selectedReason = visitReasons.firstOrNull { it.reasonKey == draftKey }
+            }
+        }
+    }
+
     // ── Who visiting ─────────────────────────────────────────────────────────
-    var visitingPerson by remember { mutableStateOf("") }
+    var visitingPerson by remember { mutableStateOf(viewModel?.draftVisitingPerson ?: "") }
 
     // ── UiState → navigate on success ────────────────────────────────────────
     val uiState by (viewModel?.uiState ?: return).collectAsState()
@@ -179,49 +201,103 @@ fun RecurrentVisitDataScreen(
 
                     Spacer(Modifier.height(12.dp))
 
-                    // First name — read-only
-                    ReadOnlyField(
-                        label = stringResource(R.string.first_name),
-                        value = displayFirstName
+                    // First name — editable
+                    OutlinedTextField(
+                        value         = editFirstName,
+                        onValueChange = { editFirstName = it },
+                        label         = { Text(stringResource(R.string.first_name), fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = OrangePrimary,
+                            focusedLabelColor    = OrangePrimary,
+                            unfocusedBorderColor = if (editFirstName.isNotBlank()) OrangePrimary.copy(alpha = 0.6f)
+                                                   else MaterialTheme.colorScheme.outline
+                        ),
+                        singleLine = true,
+                        textStyle  = LocalTextStyle.current.copy(fontSize = 13.sp)
                     )
                     Spacer(Modifier.height(10.dp))
 
-                    // Last name — read-only
-                    ReadOnlyField(
-                        label = stringResource(R.string.last_name),
-                        value = displayLastName
+                    // Last name — editable
+                    OutlinedTextField(
+                        value         = editLastName,
+                        onValueChange = { editLastName = it },
+                        label         = { Text(stringResource(R.string.last_name), fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = OrangePrimary,
+                            focusedLabelColor    = OrangePrimary,
+                            unfocusedBorderColor = if (editLastName.isNotBlank()) OrangePrimary.copy(alpha = 0.6f)
+                                                   else MaterialTheme.colorScheme.outline
+                        ),
+                        singleLine = true,
+                        textStyle  = LocalTextStyle.current.copy(fontSize = 13.sp)
                     )
                     Spacer(Modifier.height(10.dp))
 
-                    // Document number — optional
-                    if (!displayDoc.isNullOrBlank()) {
-                        ReadOnlyField(
-                            label = stringResource(R.string.document_number) + " (" + stringResource(R.string.optional) + ")",
-                            value = displayDoc
-                        )
-                        Spacer(Modifier.height(10.dp))
-                    }
-
-                    // Company — optional
-                    if (!displayCompany.isNullOrBlank()) {
-                        ReadOnlyField(
-                            label = stringResource(R.string.company) + " (" + stringResource(R.string.optional) + ")",
-                            value = displayCompany
-                        )
-                        Spacer(Modifier.height(10.dp))
-                    }
-
-                    // Email
-                    ReadOnlyField(
-                        label = stringResource(R.string.email),
-                        value = displayEmail
+                    // Document number — optional, editable
+                    OutlinedTextField(
+                        value         = editDoc,
+                        onValueChange = { editDoc = it },
+                        label         = { Text(stringResource(R.string.document_number) + " (" + stringResource(R.string.optional) + ")", fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = OrangePrimary,
+                            focusedLabelColor    = OrangePrimary
+                        ),
+                        singleLine = true,
+                        textStyle  = LocalTextStyle.current.copy(fontSize = 13.sp)
                     )
                     Spacer(Modifier.height(10.dp))
 
-                    // Phone
-                    ReadOnlyField(
-                        label = stringResource(R.string.phone),
-                        value = displayPhone
+                    // Company — optional, editable
+                    OutlinedTextField(
+                        value         = editCompany,
+                        onValueChange = { editCompany = it },
+                        label         = { Text(stringResource(R.string.company) + " (" + stringResource(R.string.optional) + ")", fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = OrangePrimary,
+                            focusedLabelColor    = OrangePrimary
+                        ),
+                        singleLine = true,
+                        textStyle  = LocalTextStyle.current.copy(fontSize = 13.sp)
+                    )
+                    Spacer(Modifier.height(10.dp))
+
+                    // Email — editable
+                    OutlinedTextField(
+                        value         = editEmail,
+                        onValueChange = { editEmail = it },
+                        label         = { Text(stringResource(R.string.email), fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = OrangePrimary,
+                            focusedLabelColor    = OrangePrimary
+                        ),
+                        singleLine = true,
+                        textStyle  = LocalTextStyle.current.copy(fontSize = 13.sp)
+                    )
+                    Spacer(Modifier.height(10.dp))
+
+                    // Phone — editable
+                    OutlinedTextField(
+                        value         = editPhone,
+                        onValueChange = { editPhone = it },
+                        label         = { Text(stringResource(R.string.phone), fontSize = 11.sp) },
+                        modifier      = Modifier.fillMaxWidth(),
+                        shape         = RoundedCornerShape(12.dp),
+                        colors        = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = OrangePrimary,
+                            focusedLabelColor    = OrangePrimary
+                        ),
+                        singleLine = true,
+                        textStyle  = LocalTextStyle.current.copy(fontSize = 13.sp)
                     )
                 }
 
@@ -411,7 +487,27 @@ fun RecurrentVisitDataScreen(
             // ── Continue button ───────────────────────────────────────────────
             Button(
                 onClick  = {
-                    viewModel?.createVisit(visitingPersonName = visitingPerson)
+                    // Persist all edits to ViewModel before navigating forward
+                    viewModel?.saveDraft(
+                        firstName         = editFirstName,
+                        lastName          = editLastName,
+                        doc               = editDoc,
+                        company           = editCompany,
+                        email             = editEmail,
+                        phone             = editPhone,
+                        visitingPerson    = visitingPerson,
+                        visitReasonKey    = selectedReason?.reasonKey,
+                        visitReasonCustom = if (isOtherSelected) customReasonText else null
+                    )
+                    viewModel?.setVisitReason(
+                        selectedReason?.reasonKey ?: VisitReasonKeys.VISITOR,
+                        if (isOtherSelected) customReasonText else null
+                    )
+                    viewModel?.createVisit(
+                        visitingPersonName = visitingPerson,
+                        editedFirstName    = editFirstName,
+                        editedLastName     = editLastName
+                    )
                 },
                 enabled  = canSubmit,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -447,7 +543,7 @@ fun RecurrentVisitDataScreen(
                 onPhotoCaptured = { bitmap ->
                     coroutineScope.launch {
                         try {
-                            withContext(Dispatchers.IO) {
+                            val savedPath = withContext(Dispatchers.IO) {
                                 ImageSaver.saveImage(
                                     context   = context,
                                     bitmap    = bitmap,
@@ -455,6 +551,8 @@ fun RecurrentVisitDataScreen(
                                     imageType = ImageSaver.ImageType.PROFILE
                                 )
                             }
+                            // Notify ViewModel so the path is included in Success state
+                            viewModel?.setProfilePhoto(savedPath)
                             capturedBitmap = bitmap
                             photoTaken     = true
                             isCapturing    = false
@@ -472,25 +570,6 @@ fun RecurrentVisitDataScreen(
     } // end Scaffold
 }
 
-// ── Read-only styled field ────────────────────────────────────────────────────
-@Composable
-private fun ReadOnlyField(label: String, value: String) {
-    OutlinedTextField(
-        value         = value,
-        onValueChange = {},
-        readOnly      = true,
-        enabled       = false,
-        label         = { Text(label, fontSize = 11.sp) },
-        modifier      = Modifier.fillMaxWidth(),
-        shape         = RoundedCornerShape(12.dp),
-        colors        = OutlinedTextFieldDefaults.colors(
-            disabledBorderColor = OrangePrimary.copy(alpha = 0.4f),
-            disabledTextColor   = MaterialTheme.colorScheme.onSurface,
-            disabledLabelColor  = OrangePrimary.copy(alpha = 0.7f)
-        ),
-        textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-    )
-}
 
 // ── Selfie capture modal — AUTO countdown ────────────────────────────────────
 @Composable

@@ -1,10 +1,6 @@
 package com.eflglobal.visitorsapp.ui.screens
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Paint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -58,6 +54,14 @@ fun ConfirmScreen(
 
     var showSuccessDialog by remember { mutableStateOf(false) }
     var qrSaved by remember { mutableStateOf(false) }
+
+    // Pre-resolve dialog strings here where LocalContext has the correct locale.
+    // AlertDialog creates a new window that breaks the CompositionLocalProvider
+    // locale chain, so we must capture the strings before entering the dialog.
+    val strRegistrationSuccess       = stringResource(R.string.registration_success)
+    val strVisitorRegisteredCorrectly = stringResource(R.string.visitor_registered_correctly)
+    val strNoPrinterFound            = stringResource(R.string.no_printer_found)
+    val strFinish                    = stringResource(R.string.finish)
 
     val qrBitmap: Bitmap? = remember(qrCode) {
         qrCode?.let {
@@ -220,26 +224,10 @@ fun ConfirmScreen(
                             modifier = Modifier.padding(32.dp).verticalScroll(rememberScrollState()),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // ── Visitor photo (primary) ───────────────────────
+                            // ── Visitor photo (primary) — full color ─────────
                             if (profileBitmap != null) {
-                                val grayscaleBitmap = remember(profileBitmap) {
-                                    val size  = minOf(profileBitmap.width, profileBitmap.height)
-                                    val xOff  = (profileBitmap.width  - size) / 2
-                                    val yOff  = (profileBitmap.height - size) / 2
-                                    val cropped = android.graphics.Bitmap.createBitmap(profileBitmap, xOff, yOff, size, size)
-                                    val result  = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-                                    val canvas  = android.graphics.Canvas(result)
-                                    val paint   = android.graphics.Paint().apply {
-                                        colorFilter = android.graphics.ColorMatrixColorFilter(
-                                            android.graphics.ColorMatrix().also { it.setSaturation(0f) }
-                                        )
-                                    }
-                                    canvas.drawBitmap(cropped, 0f, 0f, paint)
-                                    if (cropped !== profileBitmap) cropped.recycle()
-                                    result
-                                }
                                 androidx.compose.foundation.Image(
-                                    bitmap             = grayscaleBitmap.asImageBitmap(),
+                                    bitmap             = profileBitmap.asImageBitmap(),
                                     contentDescription = null,
                                     contentScale       = androidx.compose.ui.layout.ContentScale.Crop,
                                     modifier           = Modifier
@@ -318,19 +306,19 @@ fun ConfirmScreen(
                         }
                     },
                     title = {
-                        Text(stringResource(R.string.registration_success),
+                        Text(strRegistrationSuccess,
                             style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                     },
                     text = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.visitor_registered_correctly),
+                            Text(strVisitorRegisteredCorrectly,
                                 style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
 
                             Spacer(Modifier.height(16.dp))
 
-                            Text(stringResource(R.string.no_printer_found),
+                            Text(strNoPrinterFound,
                                 style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                         }
@@ -342,7 +330,7 @@ fun ConfirmScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = OrangePrimary),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(stringResource(R.string.finish),
+                            Text(strFinish,
                                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         }
                     },

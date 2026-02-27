@@ -72,6 +72,19 @@ fun VisitorBadgeButton(
         profileBitmap?.let { toSquareGrayscale(it) }
     }
 
+    // Read ALL badge strings HERE — LocalContext is guaranteed to be the
+    // localized context provided by VisitorsAppRoot. These plain String values
+    // are then forwarded into VisitorBadgeCard so no stringResource() call
+    // inside the card can ever resolve from the wrong locale.
+    val strBadgeTitle     = stringResource(R.string.visitor_badge_title)
+    val strViewBadge      = stringResource(R.string.view_visitor_badge)
+    val strCompany        = stringResource(R.string.company_colon)
+    val strVisiting       = stringResource(R.string.visiting_colon2)
+    val strValid          = stringResource(R.string.valid_colon)
+    val strPrinted        = stringResource(R.string.printed_colon)
+    val strAccessControl  = stringResource(R.string.access_control)
+    val strBadgeNote      = stringResource(R.string.badge_note)
+
     // Botón elegante para mostrar el carnet
     OutlinedButton(
         onClick = { showBadge = true },
@@ -82,22 +95,31 @@ fun VisitorBadgeButton(
     ) {
         Icon(Icons.Default.Badge, null, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
-        Text(stringResource(R.string.view_visitor_badge), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Text(strViewBadge, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 
-    // Modal del carnet
+    // Modal del carnet — uses Dialog for correct sizing/layout.
+    // All translated strings are pre-resolved above (where LocalContext is
+    // correct) and passed as plain Strings, so locale is always respected.
     if (showBadge) {
         Dialog(onDismissRequest = { showBadge = false }) {
             VisitorBadgeCard(
-                visitorName     = visitorName,
-                company         = company,
-                visitingPerson  = visitingPerson,
-                visitDate       = visitDate,
-                printedDate     = printedDate,
-                qrBitmap        = qrBitmap,
-                grayscaleBitmap = grayscaleBitmap,
-                onDismiss       = { showBadge = false },
-                onPrint         = { showBadge = false }
+                visitorName      = visitorName,
+                company          = company,
+                visitingPerson   = visitingPerson,
+                visitDate        = visitDate,
+                printedDate      = printedDate,
+                qrBitmap         = qrBitmap,
+                grayscaleBitmap  = grayscaleBitmap,
+                strBadgeTitle    = strBadgeTitle,
+                strCompany       = strCompany,
+                strVisiting      = strVisiting,
+                strValid         = strValid,
+                strPrinted       = strPrinted,
+                strAccessControl = strAccessControl,
+                strBadgeNote     = strBadgeNote,
+                onDismiss        = { showBadge = false },
+                onPrint          = { showBadge = false }
             )
         }
     }
@@ -116,6 +138,13 @@ private fun VisitorBadgeCard(
     printedDate: Long,
     qrBitmap: Bitmap?,
     grayscaleBitmap: Bitmap?,
+    strBadgeTitle: String,
+    strCompany: String,
+    strVisiting: String,
+    strValid: String,
+    strPrinted: String,
+    strAccessControl: String,
+    strBadgeNote: String,
     onDismiss: () -> Unit,
     onPrint: () -> Unit
 ) {
@@ -137,7 +166,7 @@ private fun VisitorBadgeCard(
                 verticalAlignment     = Alignment.CenterVertically
             ) {
                 Text(
-                    text       = stringResource(R.string.visitor_badge_title),
+                    text       = strBadgeTitle,
                     style      = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color      = Color(0xFF273647)
@@ -228,13 +257,13 @@ private fun VisitorBadgeCard(
 
                                 if (!company.isNullOrBlank()) {
                                     BadgeField(
-                                        label = stringResource(R.string.company_colon),
+                                        label = strCompany,
                                         value = company
                                     )
                                 }
 
                                 BadgeField(
-                                    label = stringResource(R.string.visiting_colon2),
+                                    label = strVisiting,
                                     value = visitingPerson
                                 )
 
@@ -248,7 +277,7 @@ private fun VisitorBadgeCard(
                                         .padding(vertical = 3.dp, horizontal = 8.dp)
                                 ) {
                                     Text(
-                                        text       = stringResource(R.string.valid_colon) + " ${dateFormat.format(Date(visitDate))}",
+                                        text       = strValid + " ${dateFormat.format(Date(visitDate))}",
                                         color      = Color.White,
                                         fontSize   = 8.sp,
                                         fontWeight = FontWeight.Bold
@@ -258,7 +287,7 @@ private fun VisitorBadgeCard(
                                 Spacer(Modifier.height(4.dp))
 
                                 Text(
-                                    text     = stringResource(R.string.printed_colon) + " ${dateFormat.format(Date(printedDate))} ${timeFormat.format(Date(printedDate))}",
+                                    text     = strPrinted + " ${dateFormat.format(Date(printedDate))} ${timeFormat.format(Date(printedDate))}",
                                     fontSize = 7.sp,
                                     color    = Color.Gray
                                 )
@@ -276,7 +305,7 @@ private fun VisitorBadgeCard(
                             verticalAlignment     = Alignment.CenterVertically
                         ) {
                             Text("EFL GLOBAL", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
-                            Text(stringResource(R.string.access_control), fontSize = 7.sp, color = Color.Gray)
+                            Text(strAccessControl, fontSize = 7.sp, color = Color.Gray)
                         }
                     }
 
@@ -306,7 +335,7 @@ private fun VisitorBadgeCard(
 
             // ── Footer note ──────────────────────────────────────────────────
             Text(
-                text      = stringResource(R.string.badge_note),
+                text      = strBadgeNote,
                 fontSize  = 10.sp,
                 color     = Color.Gray,
                 textAlign = TextAlign.Center,

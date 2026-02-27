@@ -109,6 +109,7 @@
     <string name="visit_qr_code">Visit QR Code</string>
     <string name="printing_qr">Printing QR code...</string>
     <string name="no_printer_found">No printer found. Registration completed successfully.</string>
+<!--    <string name="finish">Finish</string>-->
 
     <!-- ── CheckoutQrScreen ───────────────────────────── -->
     <string name="end_visit_title">End Visit</string>
