@@ -32,6 +32,7 @@
 
     <!-- ── DocumentScanScreen ─────────────────────────── -->
     <string name="scan_document">Scanner le document</string>
+    <string name="scan_document_hint">Les documents sont numérisés avec la caméra arrière de l\'appareil</string>
     <string name="i_am_a">Je suis un(e) :</string>
     <string name="visitor_type">Visiteur</string>
     <string name="contractor">Entrepreneur</string>

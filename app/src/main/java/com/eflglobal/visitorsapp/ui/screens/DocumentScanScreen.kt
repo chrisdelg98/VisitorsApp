@@ -205,6 +205,12 @@ fun DocumentScanScreen(
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = SlatePrimary,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Text(
+                    text = stringResource(R.string.scan_document_hint),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 Row(
