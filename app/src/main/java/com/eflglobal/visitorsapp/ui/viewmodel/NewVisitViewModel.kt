@@ -176,11 +176,12 @@ class NewVisitViewModel(
                 ).fold(
                     onSuccess = { visit ->
                         _uiState.value = NewVisitUiState.Success(
-                            qrCode        = visit.qrCodeValue,
-                            personName    = "$firstName $lastName".trim(),
-                            visitingPerson = visitingPersonName,
-                            company       = company,
-                            profilePhotoPath = profilePhotoPath
+                            qrCode           = visit.qrCodeValue,
+                            personName       = "$firstName $lastName".trim(),
+                            visitingPerson   = visitingPersonName,
+                            company          = company,
+                            profilePhotoPath = profilePhotoPath,
+                            visitorType      = visitorType
                         )
                     },
                     onFailure = { error ->
@@ -227,7 +228,8 @@ sealed class NewVisitUiState {
         val personName: String,
         val visitingPerson: String,
         val company: String?,
-        val profilePhotoPath: String? = null
+        val profilePhotoPath: String? = null,
+        val visitorType: String = "VISITOR"
     ) : NewVisitUiState()
     data class Error(val message: String) : NewVisitUiState()
 }

@@ -49,7 +49,9 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
 
             modelClass.isAssignableFrom(RecurrentVisitViewModel::class.java) -> {
                 RecurrentVisitViewModel(
-                    createVisitUseCase = CreateVisitUseCase(visitRepository, stationRepository)
+                    createVisitUseCase = CreateVisitUseCase(visitRepository, stationRepository),
+                    personRepository   = personRepository,
+                    visitRepository    = visitRepository
                 ) as T
             }
 

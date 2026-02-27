@@ -47,7 +47,8 @@ fun ConfirmScreen(
     personName: String? = null,
     visitingPerson: String? = null,
     company: String? = null,
-    profilePhotoPath: String? = null
+    profilePhotoPath: String? = null,
+    visitorType: String = "VISITOR"
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -201,6 +202,7 @@ fun ConfirmScreen(
                                 qrBitmap         = qrBitmap,
                                 profileBitmap    = profileBitmap,
                                 selectedLanguage = selectedLanguage,
+                                visitorType      = visitorType,
                                 modifier         = Modifier.fillMaxWidth()
                             )
                         }

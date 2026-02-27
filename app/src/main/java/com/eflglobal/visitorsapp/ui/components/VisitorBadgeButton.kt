@@ -2,7 +2,6 @@ package com.eflglobal.visitorsapp.ui.components
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import androidx.compose.foundation.BorderStroke
@@ -22,11 +21,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -36,17 +38,16 @@ import java.util.*
 
 /** Convert any Bitmap to a SQUARE, grayscale crop centered on the image. */
 private fun toSquareGrayscale(src: Bitmap): Bitmap {
-    // 1 — Square crop from centre
     val size = minOf(src.width, src.height)
     val xOff = (src.width  - size) / 2
     val yOff = (src.height - size) / 2
     val cropped = Bitmap.createBitmap(src, xOff, yOff, size, size)
-
-    // 2 — Grayscale via ColorMatrix
-    val result = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(result)
-    val paint  = Paint().apply {
-        colorFilter = ColorMatrixColorFilter(ColorMatrix().also { it.setSaturation(0f) })
+    val result  = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas  = Canvas(result)
+    val paint   = Paint().apply {
+        colorFilter = ColorMatrixColorFilter(
+            android.graphics.ColorMatrix().also { it.setSaturation(0f) }
+        )
     }
     canvas.drawBitmap(cropped, 0f, 0f, paint)
     if (cropped !== src) cropped.recycle()
@@ -62,32 +63,39 @@ fun VisitorBadgeButton(
     printedDate: Long,
     qrBitmap: Bitmap?,
     profileBitmap: Bitmap? = null,
+    visitorType: String = "VISITOR",
     selectedLanguage: String = "es",
     modifier: Modifier = Modifier
 ) {
     var showBadge by remember { mutableStateOf(false) }
 
-    // Pre-process photo once
     val grayscaleBitmap: Bitmap? = remember(profileBitmap) {
         profileBitmap?.let { toSquareGrayscale(it) }
     }
 
-    // Read ALL badge strings HERE — LocalContext is guaranteed to be the
-    // localized context provided by VisitorsAppRoot. These plain String values
-    // are then forwarded into VisitorBadgeCard so no stringResource() call
-    // inside the card can ever resolve from the wrong locale.
-    val strBadgeTitle     = stringResource(R.string.visitor_badge_title)
-    val strViewBadge      = stringResource(R.string.view_visitor_badge)
-    val strCompany        = stringResource(R.string.company_colon)
-    val strVisiting       = stringResource(R.string.visiting_colon2)
-    val strValid          = stringResource(R.string.valid_colon)
-    val strPrinted        = stringResource(R.string.printed_colon)
-    val strAccessControl  = stringResource(R.string.access_control)
-    val strBadgeNote      = stringResource(R.string.badge_note)
+    // Resolve all strings here in the correct locale context
+    val strBadgeTitle   = stringResource(R.string.visitor_badge_title)
+    val strViewBadge    = stringResource(R.string.view_visitor_badge)
+    val strVisiting     = stringResource(R.string.visiting_colon2)
+    val strValid        = stringResource(R.string.valid_colon)
+    val strPrinted      = stringResource(R.string.printed_colon)
+    val strBadgeNote    = stringResource(R.string.badge_note)
+    val strCompany      = stringResource(R.string.company_colon)
 
-    // Botón elegante para mostrar el carnet
+    // Map visitorType key → localized label using existing string resources
+    val strVisitorTypeLabel = when (visitorType) {
+        "VISITOR"         -> stringResource(R.string.visitor_type)
+        "CONTRACTOR"      -> stringResource(R.string.contractor)
+        "VENDOR"          -> stringResource(R.string.vendor)
+        "DELIVERY"        -> stringResource(R.string.delivery)
+        "DRIVER"          -> stringResource(R.string.driver)
+        "TEMPORARY_STAFF" -> stringResource(R.string.temporary_staff)
+        "OTHER"           -> stringResource(R.string.other)
+        else              -> stringResource(R.string.visitor_type)
+    }
+
     OutlinedButton(
-        onClick = { showBadge = true },
+        onClick  = { showBadge = true },
         modifier = modifier.height(48.dp),
         shape    = RoundedCornerShape(12.dp),
         colors   = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF273647)),
@@ -98,37 +106,30 @@ fun VisitorBadgeButton(
         Text(strViewBadge, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 
-    // Modal del carnet — uses Dialog for correct sizing/layout.
-    // All translated strings are pre-resolved above (where LocalContext is
-    // correct) and passed as plain Strings, so locale is always respected.
     if (showBadge) {
         Dialog(onDismissRequest = { showBadge = false }) {
             VisitorBadgeCard(
-                visitorName      = visitorName,
-                company          = company,
-                visitingPerson   = visitingPerson,
-                visitDate        = visitDate,
-                printedDate      = printedDate,
-                qrBitmap         = qrBitmap,
-                grayscaleBitmap  = grayscaleBitmap,
-                strBadgeTitle    = strBadgeTitle,
-                strCompany       = strCompany,
-                strVisiting      = strVisiting,
-                strValid         = strValid,
-                strPrinted       = strPrinted,
-                strAccessControl = strAccessControl,
-                strBadgeNote     = strBadgeNote,
-                onDismiss        = { showBadge = false },
-                onPrint          = { showBadge = false }
+                visitorName         = visitorName,
+                company             = company,
+                visitingPerson      = visitingPerson,
+                visitDate           = visitDate,
+                printedDate         = printedDate,
+                qrBitmap            = qrBitmap,
+                grayscaleBitmap     = grayscaleBitmap,
+                visitorTypeLabel    = strVisitorTypeLabel,
+                strBadgeTitle       = strBadgeTitle,
+                strCompany          = strCompany,
+                strVisiting         = strVisiting,
+                strValid            = strValid,
+                strPrinted          = strPrinted,
+                strBadgeNote        = strBadgeNote,
+                onDismiss           = { showBadge = false },
+                onPrint             = { showBadge = false }
             )
         }
     }
 }
 
-/**
- * Carnet de visitante con diseño profesional en blanco y negro.
- * Tamaño similar a un carnet estándar (proporción 3:2).
- */
 @Composable
 private fun VisitorBadgeCard(
     visitorName: String,
@@ -138,218 +139,256 @@ private fun VisitorBadgeCard(
     printedDate: Long,
     qrBitmap: Bitmap?,
     grayscaleBitmap: Bitmap?,
+    visitorTypeLabel: String,
     strBadgeTitle: String,
     strCompany: String,
     strVisiting: String,
     strValid: String,
     strPrinted: String,
-    strAccessControl: String,
     strBadgeNote: String,
     onDismiss: () -> Unit,
     onPrint: () -> Unit
 ) {
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    val timeFormat = SimpleDateFormat("h:mm a",     Locale.getDefault())
+    val dateFormat     = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    val dateTimeFormat = SimpleDateFormat("dd/MM/yyyy h:mm a", Locale.getDefault())
 
     Card(
-        modifier  = Modifier.fillMaxWidth(0.92f).wrapContentHeight(),
-        shape     = RoundedCornerShape(16.dp),
-        colors    = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        modifier  = Modifier.fillMaxWidth(0.96f).wrapContentHeight(),
+        shape     = RoundedCornerShape(20.dp),
+        colors    = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
 
-            // ── Header ──────────────────────────────────────────────────────
+            // ── Action row (top) ─────────────────────────────────────────────
             Row(
                 modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                Text(
-                    text       = strBadgeTitle,
-                    style      = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color      = Color(0xFF273647)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = onPrint,
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF273647))) {
-                        Icon(Icons.Default.Print, "Print", tint = Color.White)
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, "Close", tint = Color(0xFF273647))
-                    }
+                IconButton(
+                    onClick = onPrint,
+                    modifier = Modifier.size(36.dp),
+                    colors   = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFFE0E0E0))
+                ) {
+                    Icon(Icons.Default.Print, null, tint = Color(0xFF424242), modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                IconButton(
+                    onClick  = onDismiss,
+                    modifier = Modifier.size(36.dp),
+                    colors   = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFFE0E0E0))
+                ) {
+                    Icon(Icons.Default.Close, null, tint = Color(0xFF424242), modifier = Modifier.size(18.dp))
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
-            // ── Badge card body (3:2 aspect ratio) ───────────────────────────
+            // ── Badge card ───────────────────────────────────────────────────
             Card(
-                modifier = Modifier.fillMaxWidth().aspectRatio(1.5f),
-                shape    = RoundedCornerShape(10.dp),
-                colors   = CardDefaults.cardColors(containerColor = Color.White),
-                border   = BorderStroke(2.dp, Color.Black)
+                modifier  = Modifier.fillMaxWidth(),
+                shape     = RoundedCornerShape(14.dp),
+                colors    = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
 
-                    // ── Main content ──────────────────────────────────────────
-                    Column(modifier = Modifier.fillMaxSize().padding(14.dp)) {
-
-                        // Top black bar — ID
-                        Box(
-                            modifier = Modifier.fillMaxWidth()
-                                .background(Color.Black, RoundedCornerShape(4.dp))
-                                .padding(vertical = 5.dp, horizontal = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text       = "ID: ${System.currentTimeMillis().toString().takeLast(10)}",
-                                color      = Color.White,
-                                fontSize   = 8.sp,
-                                fontWeight = FontWeight.Bold
+                    // ── Header: Logo | Title ─────────────────────────────────
+                    Row(
+                        modifier          = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Logo in grayscale
+                        Image(
+                            painter     = painterResource(R.drawable.logo),
+                            contentDescription = null,
+                            modifier    = Modifier.height(36.dp).widthIn(max = 80.dp),
+                            contentScale = ContentScale.Fit,
+                            colorFilter  = ColorFilter.colorMatrix(
+                                androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
                             )
-                        }
-
-                        Spacer(Modifier.height(10.dp))
-
-                        // Photo + data row
-                        Row(
-                            modifier              = Modifier.weight(1f).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment     = Alignment.Top
-                        ) {
-                            // ── Photo (grayscale square) ──────────────────────
-                            Box(
-                                modifier = Modifier
-                                    .size(90.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .border(1.5.dp, Color.Black, RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFEEEEEE)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (grayscaleBitmap != null) {
-                                    Image(
-                                        bitmap       = grayscaleBitmap.asImageBitmap(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier     = Modifier.fillMaxSize()
-                                    )
-                                } else {
-                                    Icon(Icons.Default.Person, null,
-                                        tint     = Color.Gray,
-                                        modifier = Modifier.size(48.dp))
-                                }
-                            }
-
-                            // ── Text data ─────────────────────────────────────
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text       = visitorName.uppercase(),
-                                    fontSize   = 13.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color      = Color.Black,
-                                    lineHeight = 15.sp,
-                                    maxLines   = 2
-                                )
-
-                                Spacer(Modifier.height(6.dp))
-
-                                if (!company.isNullOrBlank()) {
-                                    BadgeField(
-                                        label = strCompany,
-                                        value = company
-                                    )
-                                }
-
-                                BadgeField(
-                                    label = strVisiting,
-                                    value = visitingPerson
-                                )
-
-                                Spacer(Modifier.height(6.dp))
-
-                                // Valid date bar
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(Color.Black, RoundedCornerShape(4.dp))
-                                        .padding(vertical = 3.dp, horizontal = 8.dp)
-                                ) {
-                                    Text(
-                                        text       = strValid + " ${dateFormat.format(Date(visitDate))}",
-                                        color      = Color.White,
-                                        fontSize   = 8.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Spacer(Modifier.height(4.dp))
-
-                                Text(
-                                    text     = strPrinted + " ${dateFormat.format(Date(printedDate))} ${timeFormat.format(Date(printedDate))}",
-                                    fontSize = 7.sp,
-                                    color    = Color.Gray
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-
-                        // ── Footer ─────────────────────────────────────────────
-                        HorizontalDivider(color = Color.Black, thickness = 1.dp)
-                        Spacer(Modifier.height(4.dp))
-                        Row(
-                            modifier              = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment     = Alignment.CenterVertically
-                        ) {
-                            Text("EFL GLOBAL", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
-                            Text(strAccessControl, fontSize = 7.sp, color = Color.Gray)
-                        }
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text       = strBadgeTitle,
+                            fontSize   = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color      = Color(0xFF212121),
+                            modifier   = Modifier.weight(1f)
+                        )
                     }
 
-                    // ── QR in bottom-right corner ─────────────────────────────
-                    if (qrBitmap != null) {
+                    Spacer(Modifier.height(10.dp))
+                    HorizontalDivider(color = Color(0xFFBDBDBD), thickness = 1.dp)
+                    Spacer(Modifier.height(12.dp))
+
+                    // ── Main row: Photo | Data ───────────────────────────────
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment     = Alignment.Top
+                    ) {
+                        // Photo (grayscale square)
                         Box(
                             modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(end = 14.dp, bottom = 28.dp)   // above footer
-                                .size(70.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .border(1.dp, Color.Black, RoundedCornerShape(6.dp))
-                                .background(Color.White)
-                                .padding(3.dp)
+                                .size(110.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(8.dp))
+                                .background(Color(0xFFEEEEEE)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Image(
-                                bitmap             = qrBitmap.asImageBitmap(),
-                                contentDescription = null,
-                                modifier           = Modifier.fillMaxSize()
+                            if (grayscaleBitmap != null) {
+                                Image(
+                                    bitmap       = grayscaleBitmap.asImageBitmap(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier     = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Icon(Icons.Default.Person, null,
+                                    tint     = Color.Gray,
+                                    modifier = Modifier.size(44.dp))
+                            }
+                        }
+
+                        // Data column
+                        Column(
+                            modifier              = Modifier.weight(1f),
+                            verticalArrangement   = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // Full name (bold, large)
+                            Text(
+                                text       = visitorName.uppercase(),
+                                fontSize   = 13.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color      = Color(0xFF212121),
+                                lineHeight = 16.sp,
+                                maxLines   = 2,
+                                overflow   = TextOverflow.Ellipsis
                             )
+
+                            // Company — always visible, label is fully translatable
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(strCompany, fontSize = 11.sp, color = Color(0xFF9E9E9E))
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text       = if (!company.isNullOrBlank()) company else "—",
+                                    fontSize   = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color      = Color(0xFF424242),
+                                    maxLines   = 1,
+                                    overflow   = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // Visiting
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(strVisiting, fontSize = 11.sp, color = Color(0xFF9E9E9E))
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text       = visitingPerson,
+                                    fontSize   = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color      = Color(0xFF212121),
+                                    maxLines   = 1,
+                                    overflow   = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // ID chip (visit date as unique badge ID)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFFF0F0F0), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text       = "ID: ${visitDate.toString().takeLast(10)}",
+                                    fontSize   = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color      = Color(0xFF424242)
+                                )
+                            }
+
+                            // Valid until
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(strValid, fontSize = 10.sp, color = Color(0xFF9E9E9E))
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text       = dateFormat.format(Date(visitDate)),
+                                    fontSize   = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color      = Color(0xFF212121)
+                                )
+                            }
+
+                            // Printed on
+                            Text(
+                                text     = "${strPrinted} ${dateTimeFormat.format(Date(printedDate))}",
+                                fontSize = 9.sp,
+                                color    = Color(0xFF9E9E9E)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+                    Spacer(Modifier.height(10.dp))
+
+                    // ── Footer: Visitor type chip | QR ───────────────────────
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        // Visitor type pill
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFEEEEEE), RoundedCornerShape(50.dp))
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text       = visitorTypeLabel,
+                                fontSize   = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color      = Color(0xFF424242)
+                            )
+                        }
+
+                        // QR code
+                        if (qrBitmap != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(76.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(6.dp))
+                                    .background(Color.White)
+                                    .padding(3.dp)
+                            ) {
+                                Image(
+                                    bitmap             = qrBitmap.asImageBitmap(),
+                                    contentDescription = null,
+                                    modifier           = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // ── Footer note ──────────────────────────────────────────────────
+            // ── Badge note ───────────────────────────────────────────────────
             Text(
-                text      = strBadgeNote,
-                fontSize  = 10.sp,
-                color     = Color.Gray,
-                textAlign = TextAlign.Center,
-                lineHeight = 13.sp,
-                modifier  = Modifier.fillMaxWidth()
+                text       = strBadgeNote,
+                fontSize   = 10.sp,
+                color      = Color.Gray,
+                textAlign  = TextAlign.Center,
+                lineHeight = 14.sp,
+                modifier   = Modifier.fillMaxWidth()
             )
         }
     }
 }
 
-@Composable
-private fun BadgeField(label: String, value: String) {
-    Column(modifier = Modifier.padding(vertical = 2.dp)) {
-        Text(label, fontSize = 8.sp,  fontWeight = FontWeight.Bold,   color = Color.Gray)
-        Text(value, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Color.Black, maxLines = 1)
-    }
-}

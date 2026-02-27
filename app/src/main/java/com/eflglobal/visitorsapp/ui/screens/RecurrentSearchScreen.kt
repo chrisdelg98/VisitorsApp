@@ -1,5 +1,7 @@
 package com.eflglobal.visitorsapp.ui.screens
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +17,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -190,9 +195,10 @@ fun RecurrentSearchScreen(
                     ) {
                         items(persons) { person ->
                             PersonCard(
-                                personName     = person.fullName,
-                                documentNumber = person.documentNumber,
-                                documentType   = person.documentType,
+                                personName      = person.fullName,
+                                documentNumber  = person.documentNumber,
+                                documentType    = person.documentType,
+                                profilePhotoPath = person.profilePhotoPath,
                                 onClick = {
                                     recurrentVisitViewModel.setSelectedPerson(person)
                                     onPersonSelected()
@@ -226,8 +232,16 @@ fun PersonCard(
     personName: String,
     documentNumber: String?,
     documentType: String,
+    profilePhotoPath: String? = null,
     onClick: () -> Unit
 ) {
+    // Load bitmap from disk on first composition
+    val photoBitmap = remember(profilePhotoPath) {
+        profilePhotoPath?.let {
+            runCatching { BitmapFactory.decodeFile(it) }.getOrNull()
+        }
+    }
+
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -246,22 +260,29 @@ fun PersonCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar circular
+            // Avatar circular — real photo or initial fallback
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .background(
-                        color = OrangePrimary.copy(alpha = 0.15f),
-                        shape = CircleShape
-                    ),
+                    .clip(CircleShape)
+                    .background(OrangePrimary.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = personName.firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = OrangePrimary
-                )
+                if (photoBitmap != null) {
+                    Image(
+                        bitmap       = photoBitmap.asImageBitmap(),
+                        contentDescription = personName,
+                        contentScale = ContentScale.Crop,
+                        modifier     = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text       = personName.firstOrNull()?.uppercase() ?: "?",
+                        style      = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color      = OrangePrimary
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))

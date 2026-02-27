@@ -131,6 +131,34 @@ fun RecurrentVisitDataScreen(
     // ── Who visiting ─────────────────────────────────────────────────────────
     var visitingPerson by remember { mutableStateOf(viewModel?.draftVisitingPerson ?: "") }
 
+    // Reactively update visitingPerson and selectedReason when last visit pre-fill arrives
+    val lastVisitPreFill by (viewModel?.lastVisitPreFill ?: return).collectAsState()
+    LaunchedEffect(lastVisitPreFill) {
+        val last = lastVisitPreFill ?: return@LaunchedEffect
+        // Only apply pre-fill if user hasn't manually entered a value yet
+        if (visitingPerson.isBlank()) {
+            visitingPerson = last.visitingPersonName
+        }
+        // Apply visit reason pre-fill if not already set by a draft
+        if (selectedReason == null && visitReasons.isNotEmpty()) {
+            selectedReason = visitReasons.firstOrNull { it.reasonKey == last.visitReason }
+            if (last.visitReason == VisitReasonKeys.OTHER && last.visitReasonCustom != null && customReasonText.isBlank()) {
+                customReasonText = last.visitReasonCustom ?: ""
+            }
+        }
+    }
+
+    // Also re-apply when visitReasons list loads after lastVisitPreFill was already set
+    LaunchedEffect(visitReasons.size, lastVisitPreFill) {
+        val last = lastVisitPreFill ?: return@LaunchedEffect
+        if (visitReasons.isNotEmpty() && selectedReason == null) {
+            selectedReason = visitReasons.firstOrNull { it.reasonKey == last.visitReason }
+            if (last.visitReason == VisitReasonKeys.OTHER && last.visitReasonCustom != null && customReasonText.isBlank()) {
+                customReasonText = last.visitReasonCustom ?: ""
+            }
+        }
+    }
+
     // ── UiState → navigate on success ────────────────────────────────────────
     val uiState by (viewModel?.uiState ?: return).collectAsState()
     LaunchedEffect(uiState) {

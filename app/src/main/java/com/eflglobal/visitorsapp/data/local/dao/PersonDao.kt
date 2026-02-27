@@ -40,9 +40,9 @@ interface PersonDao {
 
     // ===== QUERY - Búsqueda =====
     @Query("""
-        SELECT * FROM persons 
-        WHERE firstName  LIKE '%' || :query || '%' 
-        OR lastName      LIKE '%' || :query || '%' 
+        SELECT * FROM persons
+        WHERE firstName  LIKE '%' || :query || '%'
+        OR lastName      LIKE '%' || :query || '%'
         OR documentNumber LIKE '%' || :query || '%'
         OR company        LIKE '%' || :query || '%'
         ORDER BY lastName ASC, firstName ASC
@@ -50,9 +50,9 @@ interface PersonDao {
     suspend fun searchPersons(query: String): List<PersonEntity>
 
     @Query("""
-        SELECT * FROM persons 
-        WHERE firstName  LIKE '%' || :query || '%' 
-        OR lastName      LIKE '%' || :query || '%' 
+        SELECT * FROM persons
+        WHERE firstName  LIKE '%' || :query || '%'
+        OR lastName      LIKE '%' || :query || '%'
         OR documentNumber LIKE '%' || :query || '%'
         ORDER BY lastName ASC, firstName ASC
     """)

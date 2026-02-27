@@ -87,7 +87,10 @@ fun AppNavHost(
         composable(Routes.RecurrentSearch) {
             RecurrentSearchScreen(
                 onPersonSelected = { navController.navigate(Routes.RecurrentDocumentScan) },
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    recurrentVisitViewModel.resetState()
+                    navController.popBackStack()
+                },
                 selectedLanguage = selectedLanguage,
                 searchViewModel = recurrentSearchViewModel,
                 recurrentVisitViewModel = recurrentVisitViewModel
@@ -96,7 +99,10 @@ fun AppNavHost(
         composable(Routes.RecurrentDocumentScan) {
             RecurrentDocumentScanScreen(
                 onContinue       = { navController.navigate(Routes.RecurrentVisitData) },
-                onBack           = { navController.popBackStack() },
+                onBack           = {
+                    recurrentVisitViewModel.resetDocuments()
+                    navController.popBackStack()
+                },
                 selectedLanguage = selectedLanguage,
                 viewModel        = recurrentVisitViewModel
             )
@@ -154,6 +160,12 @@ fun AppNavHost(
                 else -> null
             }
 
+            val visitorType = when {
+                newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.visitorType
+                recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.visitorType
+                else -> "VISITOR"
+            }
+
             ConfirmScreen(
                 onConfirm = {
                     newVisitViewModel.resetState()
@@ -174,7 +186,8 @@ fun AppNavHost(
                 personName       = personName,
                 visitingPerson   = visitingPerson,
                 company          = company,
-                profilePhotoPath = profilePhotoPath
+                profilePhotoPath = profilePhotoPath,
+                visitorType      = visitorType
             )
         }
         composable(Routes.CheckoutQr) {
