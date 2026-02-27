@@ -59,6 +59,15 @@
     <string name="document_accepted">Document accepted!</string>
     <string name="capture_hint">Will capture automatically once the document is in focus</string>
 
+    <!-- ── DocumentValidator error messages ──────────── -->
+    <string name="err_raw_blurry">Blurry image.\nKeep the document still and try again.</string>
+    <string name="err_crop_failed">Could not crop the document.\nPlease try again.</string>
+    <string name="err_crop_blurry">Document is not sharp enough.\nHold it steady and closer.</string>
+    <string name="err_no_text">No text detected.\nCenter the document in the frame.</string>
+    <string name="err_not_document">Does not appear to be an ID document.\nUse an ID, passport or licence.</string>
+    <string name="err_not_recognised">Document not recognised.\nMake sure it is legible.</string>
+    <string name="err_duplicate_side">Looks like the same side of the document.\nFlip it and scan the back.</string>
+
     <!-- ── PersonDataScreen ───────────────────────────── -->
     <string name="visitor_information">Visitor Information</string>
     <string name="personal_information">Personal Information</string>

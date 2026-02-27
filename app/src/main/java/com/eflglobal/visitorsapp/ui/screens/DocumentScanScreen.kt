@@ -523,6 +523,10 @@ private const val WARMUP_MS = 3500L
 /** How long to display an error message before auto-retrying (ms). */
 private const val ERROR_DISPLAY_MS = 1800L
 
+/** Cooldown after an error before the streak counter re-arms (ms).
+ *  Gives the camera time to refocus before the next capture attempt. */
+private const val RETRY_COOLDOWN_MS = 2200L
+
 @Composable
 internal fun DocumentCameraModal(
     title: String,
@@ -536,6 +540,7 @@ internal fun DocumentCameraModal(
     // ── State machine ────────────────────────────────────────────────────────
     var state          by remember { mutableStateOf<ScanState>(ScanState.Waiting) }
     var captureTrigger by remember { mutableStateOf(false) }
+    val isCancelled    = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
 
     // ── Live sharpness for UI feedback (main thread) ─────────────────────────
     var liveSharpness  by remember { mutableStateOf(0f) }
@@ -545,19 +550,56 @@ internal fun DocumentCameraModal(
     val streakRef      = remember { java.util.concurrent.atomic.AtomicInteger(0) }
     val triggerGuard   = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     val cameraReady    = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val retryReady     = remember { java.util.concurrent.atomic.AtomicBoolean(true) }
 
     val scope = rememberCoroutineScope()
+
+    // ── Validation scope — survives composable dismissal so in-flight jobs finish cleanly ──
+    val validationJob = remember { kotlinx.coroutines.SupervisorJob() }
+    val validationScope = remember {
+        kotlinx.coroutines.CoroutineScope(validationJob + kotlinx.coroutines.Dispatchers.Main)
+    }
+    DisposableEffect(Unit) {
+        onDispose { validationJob.cancel() }
+    }
+
+    // ── Localised validation messages — resolved here so stringResource is on the right thread ──
+    val msgRawBlurry     = stringResource(R.string.err_raw_blurry)
+    val msgCropFailed    = stringResource(R.string.err_crop_failed)
+    val msgCropBlurry    = stringResource(R.string.err_crop_blurry)
+    val msgNoText        = stringResource(R.string.err_no_text)
+    val msgNotDocument   = stringResource(R.string.err_not_document)
+    val msgNotRecognised = stringResource(R.string.err_not_recognised)
+    val msgDuplicateSide = stringResource(R.string.err_duplicate_side)
+
+    val validationMessages = remember(
+        msgRawBlurry, msgCropFailed, msgCropBlurry,
+        msgNoText, msgNotDocument, msgNotRecognised, msgDuplicateSide
+    ) {
+        DocumentValidator.ValidationMessages(
+            rawBlurry     = msgRawBlurry,
+            cropFailed    = msgCropFailed,
+            cropBlurry    = msgCropBlurry,
+            noText        = msgNoText,
+            notDocument   = msgNotDocument,
+            notRecognised = msgNotRecognised,
+            duplicateSide = msgDuplicateSide
+        )
+    }
 
     // Camera warm-up: ignore the first WARMUP_MS of frames
     LaunchedEffect(Unit) {
         delay(WARMUP_MS)
         cameraReady.set(true)
+        retryReady.set(true)
     }
 
     // ── Reset helper ─────────────────────────────────────────────────────────
     fun resetToWaiting() {
         streakRef.set(0)
         triggerGuard.set(false)
+        isCancelled.set(false)
+        retryReady.set(false)   // block streak until cooldown expires
         streakCount   = 0
         liveSharpness = 0f
         state         = ScanState.Waiting
@@ -589,26 +631,48 @@ internal fun DocumentCameraModal(
                 // ── Image captured by CameraX ─────────────────────────────────
                 onImageCaptured = { rawBitmap ->
                     if (state !is ScanState.ReadyToCapture && state !is ScanState.Capturing) return@DocumentCameraPreviewComposable
+                    if (isCancelled.get()) return@DocumentCameraPreviewComposable
                     state = ScanState.Processing
 
-                    scope.launch {
-                        val result = DocumentValidator.validate(
-                            rawBitmap       = rawBitmap,
-                            isBackSide      = isBackSide,
-                            referenceBitmap = referenceBitmap,
-                            lang            = selectedLanguage
-                        )
+                    validationScope.launch {
+                        try {
+                            val result = DocumentValidator.validate(
+                                rawBitmap       = rawBitmap,
+                                isBackSide      = isBackSide,
+                                referenceBitmap = referenceBitmap,
+                                messages        = validationMessages
+                            )
 
-                        when (result) {
-                            is DocumentValidator.ValidationResult.Accepted -> {
-                                state = ScanState.Success
-                                delay(1200)
-                                onCapture(result.croppedBitmap, result.ocrData)
+                            // If the user cancelled while we were processing, discard the result silently
+                            if (isCancelled.get()) return@launch
+
+                            when (result) {
+                                is DocumentValidator.ValidationResult.Accepted -> {
+                                    state = ScanState.Success
+                                    delay(1200)
+                                    if (!isCancelled.get()) onCapture(result.croppedBitmap, result.ocrData)
+                                }
+                                is DocumentValidator.ValidationResult.Rejected -> {
+                                    state = ScanState.Error(result.userMessage)
+                                    delay(ERROR_DISPLAY_MS)
+                                    if (!isCancelled.get() && state is ScanState.Error) {
+                                        resetToWaiting()
+                                        delay(RETRY_COOLDOWN_MS)
+                                        if (!isCancelled.get()) retryReady.set(true)
+                                    }
+                                }
                             }
-                            is DocumentValidator.ValidationResult.Rejected -> {
-                                state = ScanState.Error(result.userMessage)
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            // Composable was dismissed while validating — safe to ignore
+                        } catch (e: Exception) {
+                            if (!isCancelled.get()) {
+                                state = ScanState.Error(validationMessages.notRecognised)
                                 delay(ERROR_DISPLAY_MS)
-                                if (state is ScanState.Error) resetToWaiting()
+                                if (!isCancelled.get() && state is ScanState.Error) {
+                                    resetToWaiting()
+                                    delay(RETRY_COOLDOWN_MS)
+                                    if (!isCancelled.get()) retryReady.set(true)
+                                }
                             }
                         }
                     }
@@ -618,7 +682,7 @@ internal fun DocumentCameraModal(
 
                 // ── Live sharpness callback (main thread, called ~30 fps) ─────
                 onLiveSharpness = { s ->
-                    if (state !is ScanState.Waiting || !cameraReady.get()) return@DocumentCameraPreviewComposable
+                    if (state !is ScanState.Waiting || !cameraReady.get() || !retryReady.get()) return@DocumentCameraPreviewComposable
                     liveSharpness = s
 
                     if (s >= LIVE_THRESHOLD) {
@@ -640,7 +704,7 @@ internal fun DocumentCameraModal(
 
         // ── Vignette overlay (darkens outside the guide frame) ────────────────
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val fw = size.width  * 0.70f
+            val fw = size.width  * 0.63f
             val fh = fw / 1.6f
             val fl = (size.width  - fw) / 2f
             val ft = (size.height - fh) / 2f
@@ -687,7 +751,7 @@ internal fun DocumentCameraModal(
         // ── Document guide frame ──────────────────────────────────────────────
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.70f)
+                .fillMaxWidth(0.63f)
                 .aspectRatio(1.6f)
                 .align(Alignment.Center)
                 .border(3.dp, frameColor, RoundedCornerShape(14.dp))
@@ -711,23 +775,28 @@ internal fun DocumentCameraModal(
 
                 is ScanState.Error -> {
                     Box(
-                        modifier = Modifier.fillMaxSize()
-                            .background(Color(0xFFB71C1C).copy(alpha = 0.88f)),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.padding(horizontal = 20.dp)
+                            modifier = Modifier
+                                .fillMaxWidth(0.70f)
+                                .background(
+                                    color = Color(0xFFB71C1C).copy(alpha = 0.93f),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 24.dp, vertical = 18.dp)
                         ) {
-                            Icon(Icons.Default.Warning, null, tint = Color.White, modifier = Modifier.size(38.dp))
+                            Icon(Icons.Default.Warning, null, tint = Color.White, modifier = Modifier.size(36.dp))
                             Text(
-                                text  = s.message,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                                color = Color.White,
-                                textAlign = TextAlign.Center,
+                                text       = s.message,
+                                style      = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                color      = Color.White,
+                                textAlign  = TextAlign.Center,
                                 fontWeight = FontWeight.SemiBold,
-                                lineHeight = 19.sp
+                                lineHeight  = 20.sp
                             )
                         }
                     }
@@ -735,19 +804,27 @@ internal fun DocumentCameraModal(
 
                 is ScanState.Success -> {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(Color(0xFF1B5E20).copy(alpha = 0.90f)),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth(0.70f)
+                                .background(
+                                    color = Color(0xFF1B5E20).copy(alpha = 0.93f),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 24.dp, vertical = 18.dp)
                         ) {
-                            Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(44.dp))
+                            Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(36.dp))
                             Text(
                                 text       = stringResource(R.string.document_accepted),
-                                style      = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                                style      = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                                 color      = Color.White,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight  = 20.sp
                             )
                         }
                     }
@@ -755,24 +832,31 @@ internal fun DocumentCameraModal(
 
                 is ScanState.Processing, ScanState.ReadyToCapture, ScanState.Capturing -> {
                     Box(
-                        modifier = Modifier.fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.55f)),
+                        modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth(0.70f)
+                                .background(
+                                    color = Color.Black.copy(alpha = 0.78f),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 24.dp, vertical = 18.dp)
                         ) {
                             CircularProgressIndicator(
                                 color       = OrangePrimary,
-                                modifier    = Modifier.size(40.dp),
-                                strokeWidth = 4.dp
+                                modifier    = Modifier.size(36.dp),
+                                strokeWidth = 3.5.dp
                             )
                             Text(
                                 text       = stringResource(R.string.verifying),
-                                style      = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                                style      = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                                 color      = Color.White,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight  = 20.sp
                             )
                         }
                     }
@@ -787,10 +871,10 @@ internal fun DocumentCameraModal(
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .fillMaxWidth(0.70f)
+                    .fillMaxWidth(0.63f)
                     .padding(top = 144.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 LinearProgressIndicator(
                     progress    = { sharpProgress },
@@ -802,46 +886,44 @@ internal fun DocumentCameraModal(
                     },
                     trackColor  = Color.White.copy(alpha = 0.18f)
                 )
+                val guideLabel = when {
+                    sharpProgress >= 0.8f -> stringResource(R.string.capturing)
+                    sharpProgress >= 0.4f -> stringResource(R.string.focusing)
+                    else                  -> stringResource(R.string.center_document)
+                }
+                val guideColor = when {
+                    sharpProgress >= 0.8f -> Color(0xFF43A047)
+                    sharpProgress >= 0.4f -> OrangePrimary
+                    else                  -> Color(0xFFE53935)
+                }
                 Text(
-                    text  = when {
-                        sharpProgress >= 0.8f -> stringResource(R.string.capturing)
-                        sharpProgress >= 0.4f -> stringResource(R.string.focusing)
-                        else                  -> stringResource(R.string.center_document)
-                    },
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = Color.White.copy(alpha = 0.80f),
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        // ── Bottom hint strip ─────────────────────────────────────────────────
-        if (state is ScanState.Waiting) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(Color.Black.copy(alpha = 0.72f))
-                    .padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 18.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text  = stringResource(R.string.capture_hint),
-                    style      = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                    color      = OrangePrimary,
+                    text       = guideLabel,
+                    style      = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                    color      = Color.White,
+                    fontWeight = FontWeight.SemiBold,
                     textAlign  = TextAlign.Center,
-                    fontWeight = FontWeight.SemiBold
+                    lineHeight  = 20.sp,
+                    modifier   = Modifier
+                        .background(
+                            color = guideColor.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                        .padding(horizontal = 20.dp, vertical = 7.dp)
                 )
             }
         }
 
-        // ── Cancel button — just above the bottom strip ───────────────────────
+        // ── Cancel button — bottom of screen ─────────────────────────────────
         if (state !is ScanState.Success) {
             OutlinedButton(
-                onClick  = { state = ScanState.Waiting; onDismiss() },
+                onClick  = {
+                    isCancelled.set(true)
+                    state = ScanState.Waiting
+                    onDismiss()
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 68.dp),
+                    .padding(bottom = 18.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                 border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.65f)),
                 shape  = RoundedCornerShape(8.dp)

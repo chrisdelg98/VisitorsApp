@@ -59,6 +59,15 @@
     <string name="document_accepted">Document accepté !</string>
     <string name="capture_hint">La capture sera automatique lorsque le document sera net</string>
 
+    <!-- ── DocumentValidator error messages ──────────── -->
+    <string name="err_raw_blurry">Image floue.\nMaintenez le document immobile et réessayez.</string>
+    <string name="err_crop_failed">Impossible de recadrer le document.\nVeuillez réessayer.</string>
+    <string name="err_crop_blurry">Le document n\'est pas assez net.\nTenez-le stable et plus près.</string>
+    <string name="err_no_text">Aucun texte détecté.\nCentrez le document dans le cadre.</string>
+    <string name="err_not_document">Ne semble pas être un document d\'identité.\nUtilisez un ID, passeport ou permis.</string>
+    <string name="err_not_recognised">Document non reconnu.\nAssurez-vous qu\'il est lisible.</string>
+    <string name="err_duplicate_side">Il semble s\'agir du même côté du document.\nRetournez-le et scannez le verso.</string>
+
     <!-- ── PersonDataScreen ───────────────────────────── -->
     <string name="visitor_information">Informations du visiteur</string>
     <string name="personal_information">Informations personnelles</string>

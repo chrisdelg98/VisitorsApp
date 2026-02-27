@@ -113,18 +113,33 @@ object DocumentValidator {
     // ─── Public API ───────────────────────────────────────────────────────────
 
     /**
+     * All user-facing error messages used by the validation pipeline.
+     * Build this in the UI layer with `stringResource` so the system locale is
+     * respected automatically — no hardcoded strings inside the validator.
+     */
+    data class ValidationMessages(
+        val rawBlurry:      String,
+        val cropFailed:     String,
+        val cropBlurry:     String,
+        val noText:         String,
+        val notDocument:    String,
+        val notRecognised:  String,
+        val duplicateSide:  String
+    )
+
+    /**
      * Runs the full validation pipeline on [rawBitmap].
      *
-     * @param rawBitmap      Full-resolution bitmap from the camera.
-     * @param isBackSide     True when scanning the back/reverse side.
+     * @param rawBitmap       Full-resolution bitmap from the camera.
+     * @param isBackSide      True when scanning the back/reverse side.
      * @param referenceBitmap Previously accepted front-side bitmap (for dup check).
-     * @param lang           "es" or "en" for user-facing messages.
+     * @param messages        Localised error strings — build from stringResource in the UI.
      */
     suspend fun validate(
         rawBitmap: Bitmap,
         isBackSide: Boolean = false,
         referenceBitmap: Bitmap? = null,
-        lang: String = "es"
+        messages: ValidationMessages
     ): ValidationResult {
 
         // ── STEP 1: Raw sharpness ─────────────────────────────────────────────
@@ -135,10 +150,7 @@ object DocumentValidator {
             return ValidationResult.Rejected(
                 step        = ValidationStep.RAW_SHARPNESS,
                 reason      = "raw_blurry(${"%.1f".format(rawSharpness)})",
-                userMessage = if (lang == "es")
-                    "Imagen borrosa.\nMantenga el documento quieto e intente de nuevo."
-                else
-                    "Blurry image.\nKeep the document still and try again."
+                userMessage = messages.rawBlurry
             )
         }
 
@@ -150,10 +162,7 @@ object DocumentValidator {
             return ValidationResult.Rejected(
                 step        = ValidationStep.CROP,
                 reason      = "crop_failed",
-                userMessage = if (lang == "es")
-                    "Error al recortar el documento.\nIntente de nuevo."
-                else
-                    "Could not crop the document.\nPlease try again."
+                userMessage = messages.cropFailed
             )
         }
         log("STEP 2 — crop OK: ${cropped.width}×${cropped.height}")
@@ -166,10 +175,7 @@ object DocumentValidator {
             return ValidationResult.Rejected(
                 step        = ValidationStep.CROP_SHARPNESS,
                 reason      = "crop_blurry(${"%.1f".format(cropSharpness)})",
-                userMessage = if (lang == "es")
-                    "El documento no está nítido.\nAcerque y estabilice el documento."
-                else
-                    "Document is not sharp enough.\nHold it steady and closer."
+                userMessage = messages.cropBlurry
             )
         }
 
@@ -201,21 +207,9 @@ object DocumentValidator {
 
         if (!docCheck.isDocument) {
             val msg = when (docCheck.reason) {
-                "no_text" ->
-                    if (lang == "es")
-                        "No se detectó texto.\nCentre el documento dentro del marco."
-                    else
-                        "No text detected.\nCenter the document in the frame."
-                "not_document" ->
-                    if (lang == "es")
-                        "No parece un documento de identidad.\nUse un DUI, pasaporte o licencia."
-                    else
-                        "Does not appear to be an ID document.\nUse a DUI, passport or licence."
-                else ->
-                    if (lang == "es")
-                        "Documento no reconocido.\nAsegúrese de que sea legible."
-                    else
-                        "Document not recognised.\nMake sure it is legible."
+                "no_text"      -> messages.noText
+                "not_document" -> messages.notDocument
+                else           -> messages.notRecognised
             }
             return ValidationResult.Rejected(
                 step        = ValidationStep.DOCUMENT_TYPE,
@@ -237,10 +231,7 @@ object DocumentValidator {
                 return ValidationResult.Rejected(
                     step        = ValidationStep.DUPLICATE_SIDE,
                     reason      = "duplicate:${dupResult.reason}",
-                    userMessage = if (lang == "es")
-                        "Parece el mismo lado del documento.\nVoltéelo y escanee el reverso."
-                    else
-                        "Looks like the same side of the document.\nFlip it and scan the back."
+                    userMessage = messages.duplicateSide
                 )
             }
         }
