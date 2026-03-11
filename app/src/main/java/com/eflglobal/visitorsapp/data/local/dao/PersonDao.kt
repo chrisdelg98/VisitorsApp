@@ -39,24 +39,34 @@ interface PersonDao {
     suspend fun getPersonByDocumentNumber(documentNumber: String): PersonEntity?
 
     // ===== QUERY - Búsqueda =====
+    /**
+     * Busca personas que hayan visitado en los últimos 3 meses.
+     * Devuelve 1 registro por persona, el más reciente.
+     */
     @Query("""
-        SELECT * FROM persons
-        WHERE firstName  LIKE '%' || :query || '%'
-        OR lastName      LIKE '%' || :query || '%'
-        OR documentNumber LIKE '%' || :query || '%'
-        OR company        LIKE '%' || :query || '%'
-        ORDER BY lastName ASC, firstName ASC
+        SELECT DISTINCT p.* FROM persons p
+        INNER JOIN visits v ON p.personId = v.personId
+        WHERE (p.firstName  LIKE '%' || :query || '%'
+            OR p.lastName      LIKE '%' || :query || '%'
+            OR p.documentNumber LIKE '%' || :query || '%'
+            OR p.company        LIKE '%' || :query || '%')
+        AND v.entryDate >= :threeMonthsAgoTimestamp
+        GROUP BY p.personId
+        ORDER BY MAX(v.entryDate) DESC
     """)
-    suspend fun searchPersons(query: String): List<PersonEntity>
+    suspend fun searchPersons(query: String, threeMonthsAgoTimestamp: Long): List<PersonEntity>
 
     @Query("""
-        SELECT * FROM persons
-        WHERE firstName  LIKE '%' || :query || '%'
-        OR lastName      LIKE '%' || :query || '%'
-        OR documentNumber LIKE '%' || :query || '%'
-        ORDER BY lastName ASC, firstName ASC
+        SELECT DISTINCT p.* FROM persons p
+        INNER JOIN visits v ON p.personId = v.personId
+        WHERE (p.firstName  LIKE '%' || :query || '%'
+            OR p.lastName      LIKE '%' || :query || '%'
+            OR p.documentNumber LIKE '%' || :query || '%')
+        AND v.entryDate >= :threeMonthsAgoTimestamp
+        GROUP BY p.personId
+        ORDER BY MAX(v.entryDate) DESC
     """)
-    fun searchPersonsFlow(query: String): Flow<List<PersonEntity>>
+    fun searchPersonsFlow(query: String, threeMonthsAgoTimestamp: Long): Flow<List<PersonEntity>>
 
     // ===== QUERY - Listas =====
     @Query("SELECT * FROM persons ORDER BY createdAt DESC")

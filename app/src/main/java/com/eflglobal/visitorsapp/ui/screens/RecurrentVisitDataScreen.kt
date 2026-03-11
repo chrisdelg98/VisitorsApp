@@ -66,26 +66,49 @@ fun RecurrentVisitDataScreen(
     val person = viewModel?.getSelectedPerson()
     val hasDraft = viewModel?.hasDraft == true
 
-    var editFirstName by remember { mutableStateOf(
-        viewModel?.draftFirstName ?: person?.firstName ?: visitorName.substringBefore(" ")
+    // Draft has priority, then last visit data, then person data
+    val lastVisitData = viewModel?.getLastVisit()
+
+    var editFirstName by remember(person?.personId, hasDraft) { mutableStateOf(
+        when {
+            hasDraft && viewModel?.draftFirstName != null -> viewModel.draftFirstName!!
+            lastVisitData != null -> person?.firstName ?: ""
+            else -> person?.firstName ?: visitorName.substringBefore(" ")
+        }
     ) }
-    var editLastName  by remember { mutableStateOf(
-        viewModel?.draftLastName  ?: person?.lastName  ?: visitorName.substringAfter(" ", "")
+    var editLastName  by remember(person?.personId, hasDraft) { mutableStateOf(
+        when {
+            hasDraft && viewModel?.draftLastName != null -> viewModel.draftLastName!!
+            lastVisitData != null -> person?.lastName ?: ""
+            else -> person?.lastName ?: visitorName.substringAfter(" ", "")
+        }
     ) }
-    var editDoc       by remember { mutableStateOf(
-        viewModel?.draftDoc       ?: person?.documentNumber ?: ""
+    var editDoc       by remember(person?.personId, hasDraft) { mutableStateOf(
+        when {
+            hasDraft && viewModel?.draftDoc != null -> viewModel.draftDoc!!
+            else -> person?.documentNumber ?: ""
+        }
     ) }
-    var editCompany   by remember { mutableStateOf(
-        viewModel?.draftCompany   ?: person?.company   ?: ""
+    var editCompany   by remember(person?.personId, hasDraft) { mutableStateOf(
+        when {
+            hasDraft && viewModel?.draftCompany != null -> viewModel.draftCompany!!
+            else -> person?.company ?: ""
+        }
     ) }
-    var editEmail     by remember { mutableStateOf(
-        viewModel?.draftEmail     ?: person?.email     ?: ""
+    var editEmail     by remember(person?.personId, hasDraft) { mutableStateOf(
+        when {
+            hasDraft && viewModel?.draftEmail != null -> viewModel.draftEmail!!
+            else -> person?.email ?: ""
+        }
     ) }
-    var editPhone     by remember { mutableStateOf(
-        viewModel?.draftPhone     ?: person?.phoneNumber ?: ""
+    var editPhone     by remember(person?.personId, hasDraft) { mutableStateOf(
+        when {
+            hasDraft && viewModel?.draftPhone != null -> viewModel.draftPhone!!
+            else -> person?.phoneNumber ?: ""
+        }
     ) }
 
-    // Load profile photo: new photo taken this session wins, then stored path
+    // Load profile photo: new photo taken in this session wins, otherwise use stored person photo
     val effectivePhotoPath = viewModel?.profilePhotoPath ?: person?.profilePhotoPath
     var storedProfileBitmap by remember { mutableStateOf<Bitmap?>(null) }
     LaunchedEffect(effectivePhotoPath) {
@@ -113,14 +136,21 @@ fun RecurrentVisitDataScreen(
         visitReasons.clear()
         visitReasons.addAll(reasons)
     }
-    var selectedReason   by remember { mutableStateOf<VisitReason?>(null) }
+    var selectedReason   by remember { mutableStateOf<VisitReason?>(
+        if (hasDraft && viewModel?.draftVisitReasonKey != null) {
+            visitReasons.firstOrNull { it.reasonKey == viewModel.draftVisitReasonKey }
+        } else null
+    ) }
     var reasonExpanded   by remember { mutableStateOf(false) }
-    var customReasonText by remember { mutableStateOf(viewModel?.draftVisitReasonCustom ?: "") }
+    var customReasonText by remember { mutableStateOf(
+        if (hasDraft) viewModel?.draftVisitReasonCustom ?: ""
+        else ""
+    ) }
     val isOtherSelected  = selectedReason?.reasonKey == VisitReasonKeys.OTHER
 
     // Restore selectedReason from draft once the list is populated
     LaunchedEffect(visitReasons.size) {
-        if (visitReasons.isNotEmpty() && selectedReason == null) {
+        if (visitReasons.isNotEmpty() && selectedReason == null && hasDraft) {
             val draftKey = viewModel?.draftVisitReasonKey
             if (!draftKey.isNullOrBlank()) {
                 selectedReason = visitReasons.firstOrNull { it.reasonKey == draftKey }
@@ -129,18 +159,25 @@ fun RecurrentVisitDataScreen(
     }
 
     // ── Who visiting ─────────────────────────────────────────────────────────
-    var visitingPerson by remember { mutableStateOf(viewModel?.draftVisitingPerson ?: "") }
+    var visitingPerson by remember { mutableStateOf(
+        when {
+            hasDraft && viewModel?.draftVisitingPerson != null -> viewModel.draftVisitingPerson!!
+            lastVisitData != null -> lastVisitData.visitingPersonName
+            else -> ""
+        }
+    ) }
 
     // Reactively update visitingPerson and selectedReason when last visit pre-fill arrives
+    // (only if no draft exists and user hasn't manually entered a value yet)
     val lastVisitPreFill by (viewModel?.lastVisitPreFill ?: return).collectAsState()
     LaunchedEffect(lastVisitPreFill) {
         val last = lastVisitPreFill ?: return@LaunchedEffect
-        // Only apply pre-fill if user hasn't manually entered a value yet
-        if (visitingPerson.isBlank()) {
+        // Only apply pre-fill if user hasn't manually entered a value yet AND no draft exists
+        if (visitingPerson.isBlank() && !hasDraft) {
             visitingPerson = last.visitingPersonName
         }
         // Apply visit reason pre-fill if not already set by a draft
-        if (selectedReason == null && visitReasons.isNotEmpty()) {
+        if (selectedReason == null && visitReasons.isNotEmpty() && !hasDraft) {
             selectedReason = visitReasons.firstOrNull { it.reasonKey == last.visitReason }
             if (last.visitReason == VisitReasonKeys.OTHER && last.visitReasonCustom != null && customReasonText.isBlank()) {
                 customReasonText = last.visitReasonCustom ?: ""
@@ -534,7 +571,10 @@ fun RecurrentVisitDataScreen(
                     viewModel?.createVisit(
                         visitingPersonName = visitingPerson,
                         editedFirstName    = editFirstName,
-                        editedLastName     = editLastName
+                        editedLastName     = editLastName,
+                        editedCompany      = editCompany,
+                        editedEmail        = editEmail,
+                        editedPhone        = editPhone
                     )
                 },
                 enabled  = canSubmit,

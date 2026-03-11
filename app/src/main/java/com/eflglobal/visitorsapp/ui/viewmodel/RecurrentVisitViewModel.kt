@@ -113,7 +113,10 @@ class RecurrentVisitViewModel(
     fun createVisit(
         visitingPersonName: String,
         editedFirstName: String? = null,
-        editedLastName: String? = null
+        editedLastName: String? = null,
+        editedCompany: String? = null,
+        editedEmail: String? = null,
+        editedPhone: String? = null
     ) {
         val person = selectedPerson
         if (person == null) {
@@ -126,16 +129,45 @@ class RecurrentVisitViewModel(
             _uiState.value = RecurrentVisitUiState.Error("Please describe the reason for the visit"); return
         }
 
+        val finalFirstName = (editedFirstName?.trim()?.ifBlank { null } ?: person.firstName).trim()
+        val finalLastName = (editedLastName?.trim()?.ifBlank { null } ?: person.lastName).trim()
+        val finalCompany = editedCompany?.trim()?.ifBlank { null } ?: person.company
+        val finalEmail = (editedEmail?.trim()?.ifBlank { null } ?: person.email).trim()
+        val finalPhone = (editedPhone?.trim()?.ifBlank { null } ?: person.phoneNumber).trim()
+
         val displayName = buildString {
-            append((editedFirstName?.trim()?.ifBlank { null } ?: person.firstName).trim())
-            val ln = (editedLastName?.trim()?.ifBlank { null } ?: person.lastName).trim()
-            if (ln.isNotBlank()) { append(" "); append(ln) }
+            append(finalFirstName)
+            if (finalLastName.isNotBlank()) { append(" "); append(finalLastName) }
         }.trim().ifBlank { person.fullName }
 
         _uiState.value = RecurrentVisitUiState.Loading
 
         viewModelScope.launch {
             try {
+                // First, update person record with any edited data
+                val newPhoto = profilePhotoPath
+                val hasChanges =
+                    finalFirstName != person.firstName ||
+                    finalLastName != person.lastName ||
+                    finalCompany != person.company ||
+                    finalEmail != person.email ||
+                    finalPhone != person.phoneNumber ||
+                    (newPhoto != null && newPhoto != person.profilePhotoPath)
+
+                if (hasChanges) {
+                    personRepository.updatePerson(
+                        person.copy(
+                            firstName = finalFirstName,
+                            lastName = finalLastName,
+                            company = finalCompany,
+                            email = finalEmail,
+                            phoneNumber = finalPhone,
+                            profilePhotoPath = newPhoto ?: person.profilePhotoPath
+                        )
+                    )
+                }
+
+                // Then create the visit
                 val result = createVisitUseCase(
                     personId           = person.personId,
                     visitingPersonName = visitingPersonName,
@@ -145,19 +177,11 @@ class RecurrentVisitViewModel(
                 )
                 result.fold(
                     onSuccess = { visit ->
-                        // If a new photo was taken, persist it on the person record
-                        // so future searches show the most recent photo
-                        val newPhoto = profilePhotoPath
-                        if (newPhoto != null && newPhoto != person.profilePhotoPath) {
-                            personRepository.updatePerson(
-                                person.copy(profilePhotoPath = newPhoto)
-                            )
-                        }
                         _uiState.value = RecurrentVisitUiState.Success(
                             qrCode           = visit.qrCodeValue,
                             personName       = displayName,
                             visitingPerson   = visitingPersonName,
-                            company          = person.company,
+                            company          = finalCompany,
                             profilePhotoPath = newPhoto ?: person.profilePhotoPath,
                             visitorType      = visitorType
                         )

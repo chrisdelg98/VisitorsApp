@@ -7,6 +7,7 @@ import com.eflglobal.visitorsapp.domain.model.Person
 import com.eflglobal.visitorsapp.domain.repository.PersonRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.Calendar
 
 /**
  * Implementación del repositorio de personas/visitantes.
@@ -59,7 +60,12 @@ class PersonRepositoryImpl(
             if (query.isBlank()) {
                 emptyList()
             } else {
-                personDao.searchPersons(query).map { it.toDomain() }
+                // Calculate timestamp for 3 months ago
+                val threeMonthsAgo = Calendar.getInstance().apply {
+                    add(Calendar.MONTH, -3)
+                }.timeInMillis
+
+                personDao.searchPersons(query, threeMonthsAgo).map { it.toDomain() }
             }
         } catch (e: Exception) {
             emptyList()
@@ -67,7 +73,12 @@ class PersonRepositoryImpl(
     }
 
     override fun searchPersonsFlow(query: String): Flow<List<Person>> {
-        return personDao.searchPersonsFlow(query).map { entities ->
+        // Calculate timestamp for 3 months ago
+        val threeMonthsAgo = Calendar.getInstance().apply {
+            add(Calendar.MONTH, -3)
+        }.timeInMillis
+
+        return personDao.searchPersonsFlow(query, threeMonthsAgo).map { entities ->
             entities.map { it.toDomain() }
         }
     }
