@@ -45,5 +45,10 @@ interface StationRepository {
      * Obtiene el ID de la estación activa (para asociar visitas).
      */
     suspend fun getActiveStationId(): String?
-}
 
+    /**
+     * Desactiva la estación actual (logout).
+     * Permite volver a la pantalla de configuración.
+     */
+    suspend fun deactivateCurrentStation(): Result<Unit>
+}

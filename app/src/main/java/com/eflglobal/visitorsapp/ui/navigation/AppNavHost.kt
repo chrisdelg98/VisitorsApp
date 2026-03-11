@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -43,9 +44,19 @@ fun AppNavHost(
     val recurrentVisitViewModel: RecurrentVisitViewModel = viewModel(factory = factory)
     val endVisitViewModel: EndVisitViewModel = viewModel(factory = factory)
 
+    // ViewModel para verificar configuración de estación
+    val stationSetupViewModel: com.eflglobal.visitorsapp.ui.viewmodel.StationSetupViewModel = viewModel(factory = factory)
+    val stationSetupState by stationSetupViewModel.uiState.collectAsState()
+
+    // Determinar startDestination según si ya hay estación configurada
+    val startDestination = when (stationSetupState) {
+        is com.eflglobal.visitorsapp.ui.viewmodel.StationSetupUiState.StationExists -> Routes.Home
+        else -> Routes.StationSetup
+    }
+
     AnimatedNavHost(
         navController = navController,
-        startDestination = Routes.Home,
+        startDestination = startDestination,
         enterTransition = {
             fadeIn(animationSpec = tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         },
@@ -65,6 +76,7 @@ fun AppNavHost(
                 onRecurrentVisit = { navController.navigate(Routes.RecurrentSearch) },
                 onCheckout = { navController.navigate(Routes.CheckoutQr) },
                 onStationSetup = { navController.navigate(Routes.StationSetup) },
+                onAdminAccess = { navController.navigate(Routes.AdminPanel) },
                 languageViewModel = languageViewModel,
                 selectedLanguage = selectedLanguage
             )
@@ -195,6 +207,20 @@ fun AppNavHost(
                 onFinish = { navController.navigate(Routes.Home) },
                 onBack = { navController.popBackStack() },
                 viewModel = endVisitViewModel,
+                selectedLanguage = selectedLanguage
+            )
+        }
+        composable(Routes.AdminPanel) {
+            val adminPanelViewModel: com.eflglobal.visitorsapp.ui.viewmodel.AdminPanelViewModel = viewModel(factory = factory)
+            com.eflglobal.visitorsapp.ui.screens.AdminPanelScreen(
+                onBack = { navController.popBackStack() },
+                onLogout = {
+                    // Navegar a StationSetup y limpiar el back stack
+                    navController.navigate(Routes.StationSetup) {
+                        popUpTo(Routes.Home) { inclusive = true }
+                    }
+                },
+                viewModel = adminPanelViewModel,
                 selectedLanguage = selectedLanguage
             )
         }

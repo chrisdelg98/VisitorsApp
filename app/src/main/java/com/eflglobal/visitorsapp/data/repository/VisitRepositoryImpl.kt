@@ -173,6 +173,41 @@ class VisitRepositoryImpl(
         return "VISIT-$visitId-$timestamp"
     }
 
+    override suspend fun getVisitsByStationId(stationId: String): List<Visit> {
+        return try {
+            visitDao.getVisitsByStationId(stationId).map { it.toDomain() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getVisitsByStationAndDateRange(
+        stationId: String,
+        startDate: Long,
+        endDate: Long
+    ): List<Visit> {
+        return try {
+            visitDao.getVisitsByStationAndDateRange(stationId, startDate, endDate)
+                .map { it.toDomain() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override fun getAllVisitsFlow(): Flow<List<Visit>> {
+        return visitDao.getAllVisitsFlow().map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun getAllVisits(): List<Visit> {
+        return try {
+            visitDao.getAllVisits().map { it.toDomain() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     /**
      * Verifica si una fecha pertenece al día actual.
      */

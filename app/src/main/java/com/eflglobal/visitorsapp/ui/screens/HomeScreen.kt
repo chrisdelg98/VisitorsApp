@@ -47,6 +47,7 @@ fun HomeScreen(
     onRecurrentVisit: () -> Unit,
     onCheckout: () -> Unit,
     onStationSetup: () -> Unit,
+    onAdminAccess: () -> Unit,
     languageViewModel: LanguageViewModel,
     selectedLanguage: String
 ) {
@@ -54,11 +55,41 @@ fun HomeScreen(
     val screenWidth = configuration.screenWidthDp.dp
     val isTablet = screenWidth >= 600.dp // Detectar si es tablet
 
+    // Estado para el detector de 4 clics
+    var clickCount by remember { mutableStateOf(0) }
+    var lastClickTime by remember { mutableStateOf(0L) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // Detector invisible de 4 clics en esquina superior izquierda
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .size(80.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null // Sin efecto visual
+                ) {
+                    val currentTime = System.currentTimeMillis()
+                    // Si pasaron más de 2 segundos, reiniciar contador
+                    if (currentTime - lastClickTime > 2000) {
+                        clickCount = 1
+                    } else {
+                        clickCount++
+                    }
+                    lastClickTime = currentTime
+
+                    // Si llegamos a 4 clics, navegar al admin panel
+                    if (clickCount >= 4) {
+                        clickCount = 0
+                        onAdminAccess()
+                    }
+                }
+        )
+
         // Layout adaptativo: Column para móvil, Row para tablet
         if (isTablet) {
             // Layout de dos columnas para tablet

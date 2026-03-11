@@ -63,6 +63,13 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                 ) as T
             }
 
+            modelClass.isAssignableFrom(AdminPanelViewModel::class.java) -> {
+                AdminPanelViewModel(
+                    stationRepository = stationRepository,
+                    visitRepository = visitRepository
+                ) as T
+            }
+
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }

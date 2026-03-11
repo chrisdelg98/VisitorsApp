@@ -3,6 +3,7 @@ package com.eflglobal.visitorsapp.ui.navigation
 object Routes {
     const val Home = "home"
     const val StationSetup = "station_setup"
+    const val AdminPanel = "admin_panel"
     const val DocumentScan = "document_scan"
     const val PersonData = "person_data"
     const val Confirm = "confirm"

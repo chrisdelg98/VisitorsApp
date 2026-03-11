@@ -130,7 +130,7 @@
     <string name="valid_code">Valid Code!</string>
     <string name="processing_checkout">Processing checkout...</string>
     <string name="start_scanning">Start Scanning</string>
-    <string name="use_qr_hint">ℹ️ Use the QR code you received at check-in</string>
+    <string name="use_qr_hint">Use the QR code you received at check-in</string>
     <string name="checkout_success">Checkout Registered!</string>
     <string name="checkout_time">Checkout time</string>
     <string name="thanks_for_visit">Thank you for your visit</string>
@@ -197,5 +197,19 @@
     <string name="printed_colon">Printed:</string>
     <string name="access_control">Access Control</string>
     <string name="badge_note">This badge is valid only for the indicated date. It must be worn visibly throughout the visit.</string>
+
+    <!-- ── AdminPanelScreen ───────────────────────────── -->
+    <string name="admin_panel">Admin Panel</string>
+    <string name="current_station">Current Station</string>
+    <string name="total_visits">Total Visits</string>
+    <string name="active_visits">Active Visits</string>
+    <string name="today_visits">Today\'s Visits</string>
+    <string name="month_visits">This Month</string>
+    <string name="recent_visits">Recent Visits</string>
+    <string name="no_visits_yet">No visits registered yet</string>
+    <string name="logout">Logout</string>
+    <string name="logout_confirmation">Are you sure you want to logout? You will need to enter the PIN again.</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
 </resources>
 

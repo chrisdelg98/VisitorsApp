@@ -83,5 +83,32 @@ interface VisitRepository {
      * Genera un código QR único para una visita.
      */
     fun generateQRCode(visitId: String): String
+
+    /**
+     * Obtiene todas las visitas de una estación específica.
+     * Útil para panel de administración por estación.
+     */
+    suspend fun getVisitsByStationId(stationId: String): List<Visit>
+
+    /**
+     * Obtiene visitas de una estación en un rango de fechas.
+     * Útil para reportes y estadísticas por período.
+     */
+    suspend fun getVisitsByStationAndDateRange(
+        stationId: String,
+        startDate: Long,
+        endDate: Long
+    ): List<Visit>
+
+    /**
+     * Obtiene todas las visitas como Flow (observable).
+     * Para actualización en tiempo real en dashboard.
+     */
+    fun getAllVisitsFlow(): Flow<List<Visit>>
+
+    /**
+     * Obtiene todas las visitas (sin filtro).
+     */
+    suspend fun getAllVisits(): List<Visit>
 }
 

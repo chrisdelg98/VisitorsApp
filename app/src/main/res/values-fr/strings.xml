@@ -130,7 +130,7 @@
     <string name="valid_code">Code valide !</string>
     <string name="processing_checkout">Traitement de la sortie...</string>
     <string name="start_scanning">Démarrer le scan</string>
-    <string name="use_qr_hint">ℹ️ Utilisez le QR code reçu lors de votre enregistrement d\'entrée</string>
+    <string name="use_qr_hint">Utilisez le QR code reçu lors de votre enregistrement d\'entrée</string>
     <string name="checkout_success">Sortie enregistrée !</string>
     <string name="checkout_time">Heure de sortie</string>
     <string name="thanks_for_visit">Merci de votre visite</string>
@@ -197,5 +197,19 @@
     <string name="printed_colon">Imprimé :</string>
     <string name="access_control">Contrôle d\'Accès</string>
     <string name="badge_note">Ce badge n\'est valable que pour la date indiquée. Il doit être porté de façon visible pendant toute la visite.</string>
+
+    <!-- ── AdminPanelScreen ───────────────────────────── -->
+    <string name="admin_panel">Panneau d\'Administration</string>
+    <string name="current_station">Station Actuelle</string>
+    <string name="total_visits">Total des Visites</string>
+    <string name="active_visits">Visites Actives</string>
+    <string name="today_visits">Visites Aujourd\'hui</string>
+    <string name="month_visits">Visites du Mois</string>
+    <string name="recent_visits">Visites Récentes</string>
+    <string name="no_visits_yet">Aucune visite enregistrée pour le moment</string>
+    <string name="logout">Déconnexion</string>
+    <string name="logout_confirmation">Êtes-vous sûr de vouloir vous déconnecter ? Vous devrez entrer le PIN à nouveau.</string>
+    <string name="yes">Oui</string>
+    <string name="no">Non</string>
 </resources>
 

@@ -88,5 +88,13 @@ class StationRepositoryImpl(
     override suspend fun getActiveStationId(): String? {
         return getActiveStation()?.stationId
     }
-}
 
+    override suspend fun deactivateCurrentStation(): Result<Unit> {
+        return try {
+            stationDao.deactivateAllStations()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
