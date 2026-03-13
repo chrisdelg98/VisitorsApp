@@ -15,19 +15,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.ui.localization.LanguageManager
 import com.eflglobal.visitorsapp.ui.navigation.AppNavHost
+import com.eflglobal.visitorsapp.ui.navigation.Routes
 import com.eflglobal.visitorsapp.ui.theme.VisitorsAppTheme
 import com.eflglobal.visitorsapp.ui.viewmodel.LanguageViewModel
+import com.eflglobal.visitorsapp.ui.viewmodel.SplashViewModel
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun VisitorsAppRoot() {
-    // We need the Activity context (not applicationContext) so that
-    // Accompanist permissions and other Activity-aware APIs can still
-    // find the Activity by walking up the context chain.
+fun VisitorsAppRoot(splashViewModel: SplashViewModel) {
     val context = LocalContext.current
     val activityContext: android.content.Context = remember(context) {
-        // Walk up until we find the Activity, fall back to context as-is
         var ctx = context
         while (ctx is android.content.ContextWrapper && ctx !is Activity) {
             ctx = ctx.baseContext
@@ -42,11 +40,15 @@ fun VisitorsAppRoot() {
     )
     val selectedLanguage by languageViewModel.selectedLanguage.collectAsState()
 
-    // Wrap the Activity context with the selected locale.
-    // ContextWrapper preserves the Activity in the chain — permissions,
-    // CameraX and other Activity-aware APIs continue to work correctly.
     val localizedContext = remember(selectedLanguage) {
         LanguageManager.wrapContext(activityContext, selectedLanguage)
+    }
+
+    // Determine start destination from splash result (splash keeps screen while Loading)
+    val splashState by splashViewModel.state.collectAsState()
+    val startDestination = when (splashState) {
+        is SplashViewModel.State.HasStation -> Routes.Home
+        else                               -> Routes.StationSetup
     }
 
     VisitorsAppTheme(dynamicColor = false) {
@@ -56,9 +58,10 @@ fun VisitorsAppRoot() {
                 color    = MaterialTheme.colorScheme.background
             ) {
                 AppNavHost(
-                    navController     = rememberAnimatedNavController(),
+                    navController    = rememberAnimatedNavController(),
                     languageViewModel = languageViewModel,
-                    selectedLanguage  = selectedLanguage
+                    selectedLanguage  = selectedLanguage,
+                    startDestination  = startDestination
                 )
             }
         }

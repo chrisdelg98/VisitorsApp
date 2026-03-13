@@ -1,6 +1,7 @@
 package com.eflglobal.visitorsapp.domain.repository
 
 import com.eflglobal.visitorsapp.domain.model.Visit
+import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -110,5 +111,10 @@ interface VisitRepository {
      * Obtiene todas las visitas (sin filtro).
      */
     suspend fun getAllVisits(): List<Visit>
-}
 
+    /**
+     * Obtiene todas las visitas de una estación específica con información de persona.
+     * Útil para panel de administración por estación.
+     */
+    suspend fun getVisitsWithPersonInfoByStationId(stationId: String): List<VisitWithPersonInfo>
+}

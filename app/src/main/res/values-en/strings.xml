@@ -34,6 +34,7 @@
     <string name="scan_document">Scan Document</string>
     <string name="scan_document_hint">Documents are scanned using the device\'s rear camera</string>
     <string name="i_am_a">I am a:</string>
+    <string name="visitor">Visitor</string>
     <string name="visitor_type">Visitor</string>
     <string name="contractor">Contractor</string>
     <string name="vendor">Vendor</string>
@@ -81,6 +82,7 @@
     <string name="phone">Phone Number</string>
     <string name="enter_phone">Enter phone number</string>
     <string name="who_visiting">Full Name of Person Being Visited</string>
+    <string name="visiting_person">Visiting Person</string>
     <string name="enter_who_visiting">Enter person\'s name</string>
     <string name="personal_photo">Personal Photo</string>
     <string name="take_photo">Take Photo</string>
@@ -206,10 +208,48 @@
     <string name="today_visits">Today\'s Visits</string>
     <string name="month_visits">This Month</string>
     <string name="recent_visits">Recent Visits</string>
+    <string name="visits">Visits</string>
+    <string name="visit_details">Visit Details</string>
+    <string name="visit_times">Visit Times</string>
     <string name="no_visits_yet">No visits registered yet</string>
     <string name="logout">Logout</string>
     <string name="logout_confirmation">Are you sure you want to logout? You will need to enter the PIN again.</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
+    <string name="filters">Filters</string>
+    <string name="advanced_filters">Advanced Filters</string>
+    <string name="apply_filters">Apply Filters</string>
+    <string name="clear_filters">Clear Filters</string>
+    <string name="filter_by_date">Filter by Date</string>
+    <string name="start_date">Start Date</string>
+    <string name="end_date">End Date</string>
+    <string name="filter_by_name">Filter by Name</string>
+    <string name="first_name_filter">First Name</string>
+    <string name="last_name_filter">Last Name</string>
+    <string name="visiting_person_filter">Visiting Person</string>
+    <string name="visit_status">Visit Status</string>
+    <string name="all">All</string>
+    <string name="selected">selected</string>
+    <string name="active">Active</string>
+    <string name="completed">Completed</string>
+    <string name="visitor_type_filter">Visitor Type</string>
+    <string name="status">Status</string>
+    <string name="entry_time">Entry Time</string>
+    <string name="entry">Entry</string>
+    <string name="exit_time">Exit Time</string>
+    <string name="exit">Exit</string>
+    <string name="duration">Duration</string>
+    <string name="technical_info">Technical Information</string>
+    <string name="visit_id">Visit ID</string>
+    <string name="person_id">Person ID</string>
+    <string name="still_active">Still active</string>
+    <string name="in_progress">In progress</string>
+    <string name="close">Close</string>
+    <string name="custom_reason">Custom Reason</string>
+    <string name="print_badge">Print Badge</string>
 </resources>
+
+
+
+
 

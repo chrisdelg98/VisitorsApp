@@ -33,9 +33,10 @@
     <!-- ── DocumentScanScreen ─────────────────────────── -->
     <string name="scan_document">Escanear Documento</string>
     <string name="scan_document_hint">Os documentos são digitalizados com a câmera traseira do dispositivo</string>
-    <string name="i_am_a">Eu sou um(a):</string>
+    <string name="i_am_a">Eu sou um:</string>
+    <string name="visitor">Visitante</string>
     <string name="visitor_type">Visitante</string>
-    <string name="contractor">Empreiteiro</string>
+    <string name="contractor">Contratante</string>
     <string name="vendor">Fornecedor</string>
     <string name="delivery">Entrega</string>
     <string name="driver">Motorista</string>
@@ -81,6 +82,7 @@
     <string name="phone">Número de telefone</string>
     <string name="enter_phone">Digite o número de telefone</string>
     <string name="who_visiting">Nome completo da pessoa visitada</string>
+    <string name="visiting_person">Pessoa Visitante</string>
     <string name="enter_who_visiting">Digite o nome da pessoa</string>
     <string name="personal_photo">Foto Pessoal</string>
     <string name="take_photo">Tirar Foto</string>
@@ -206,10 +208,46 @@
     <string name="today_visits">Visitas Hoje</string>
     <string name="month_visits">Visitas do Mês</string>
     <string name="recent_visits">Visitas Recentes</string>
+    <string name="visits">Visitas</string>
+    <string name="visit_details">Detalhes da Visita</string>
+    <string name="visit_times">Horários da Visita</string>
     <string name="no_visits_yet">Nenhuma visita registrada ainda</string>
-    <string name="logout">Encerrar Sessão</string>
-    <string name="logout_confirmation">Tem certeza de que deseja encerrar a sessão? Você precisará inserir o PIN novamente.</string>
+    <string name="logout">Encerrar Sesso</string>
+    <string name="logout_confirmation">Tem certeza de que deseja encerrar a sesso? Voc precisar inserir o PIN novamente.</string>
     <string name="yes">Sim</string>
-    <string name="no">Não</string>
+    <string name="no">No</string>
+    <string name="filters">Filtros</string>
+    <string name="advanced_filters">Filtros Avançados</string>
+    <string name="apply_filters">Aplicar Filtros</string>
+    <string name="clear_filters">Limpar Filtros</string>
+    <string name="filter_by_date">Filtrar por Data</string>
+    <string name="start_date">Data Início</string>
+    <string name="end_date">Data Fim</string>
+    <string name="filter_by_name">Filtrar por Nome</string>
+    <string name="first_name_filter">Nome</string>
+    <string name="last_name_filter">Sobrenome</string>
+    <string name="visiting_person_filter">Pessoa Visitada</string>
+    <string name="visit_status">Status da Visita</string>
+    <string name="all">Todos</string>
+    <string name="selected">selecionados</string>
+    <string name="active">Ativa</string>
+    <string name="completed">Concluída</string>
+    <string name="visitor_type_filter">Tipo de Visitante</string>
+    <string name="status">Status</string>
+    <string name="entry_time">Hora de Entrada</string>
+    <string name="entry">Entrada</string>
+    <string name="exit_time">Hora de Saída</string>
+    <string name="exit">Saída</string>
+    <string name="duration">Duração</string>
+    <string name="technical_info">Informações Técnicas</string>
+    <string name="visit_id">ID da Visita</string>
+    <string name="person_id">ID da Pessoa</string>
+    <string name="still_active">Ainda ativa</string>
+    <string name="in_progress">Em andamento</string>
+    <string name="close">Fechar</string>
+    <string name="custom_reason">Motivo Personalizado</string>
+    <string name="print_badge">Imprimir Crachá</string>
 </resources>
+
+
 

@@ -10,6 +10,24 @@ data class ReasonCount(
     val cnt: Int
 )
 
+/** Visit with person information for display */
+data class VisitWithPersonDto(
+    val visitId: String,
+    val personId: String,
+    val stationId: String?,
+    val visitingPersonName: String,
+    val visitorType: String,
+    val visitReason: String,
+    val visitReasonCustom: String?,
+    val entryDate: Long,
+    val exitDate: Long?,
+    val qrCodeValue: String,
+    val isSynced: Boolean,
+    val lastSyncAt: Long?,
+    val personFirstName: String,
+    val personLastName: String
+)
+
 @Dao
 interface VisitDao {
 
@@ -164,6 +182,20 @@ interface VisitDao {
         endDate: Long
     ): List<VisitEntity>
 
+    // ===== QUERY - Por Estación con JOIN =====
+    @Query("""
+        SELECT 
+            v.visitId, v.personId, v.stationId, v.visitingPersonName,
+            v.visitorType, v.visitReason, v.visitReasonCustom,
+            v.entryDate, v.exitDate, v.qrCodeValue, v.isSynced, v.lastSyncAt,
+            p.firstName as personFirstName, p.lastName as personLastName
+        FROM visits v
+        INNER JOIN persons p ON v.personId = p.personId
+        WHERE v.stationId = :stationId 
+        ORDER BY v.entryDate DESC
+    """)
+    suspend fun getVisitsWithPersonInfoByStationId(stationId: String): List<VisitWithPersonDto>
+
     // ===== QUERY - Todas las visitas =====
     @Query("SELECT * FROM visits ORDER BY entryDate DESC")
     suspend fun getAllVisits(): List<VisitEntity>
@@ -207,4 +239,3 @@ interface VisitDao {
     @Query("DELETE FROM visits WHERE exitDate IS NOT NULL AND entryDate < :beforeDate")
     suspend fun deleteOldCompletedVisits(beforeDate: Long)
 }
-

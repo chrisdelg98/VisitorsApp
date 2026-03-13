@@ -231,10 +231,10 @@ private fun LanguageSelector(
     onLanguageSelected: (String) -> Unit
 ) {
     val languages = listOf(
-        AppLanguage.SPANISH    to stringResource(R.string.lang_spanish),
-        AppLanguage.ENGLISH    to stringResource(R.string.lang_english),
-        AppLanguage.FRENCH     to stringResource(R.string.lang_french),
-        AppLanguage.PORTUGUESE to stringResource(R.string.lang_portuguese),
+        AppLanguage.SPANISH    to AppLanguage.SPANISH.nativeName,
+        AppLanguage.ENGLISH    to AppLanguage.ENGLISH.nativeName,
+        AppLanguage.FRENCH     to AppLanguage.FRENCH.nativeName,
+        AppLanguage.PORTUGUESE to AppLanguage.PORTUGUESE.nativeName,
     )
 
     Column(

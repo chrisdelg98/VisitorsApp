@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eflglobal.visitorsapp.domain.model.Station
 import com.eflglobal.visitorsapp.domain.model.Visit
+import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
 import com.eflglobal.visitorsapp.domain.repository.StationRepository
 import com.eflglobal.visitorsapp.domain.repository.VisitRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,39 +42,34 @@ class AdminPanelViewModel(
                 }
                 currentStation = station
 
-                // 2. Obtener visitas de esta estación
-                val stationVisits = visitRepository.getVisitsByStationId(station.stationId)
+                // 2. Obtener TODAS las visitas de la base de datos
+                val allExistingVisits = visitRepository.getAllVisits()
 
-                // 3. Si no hay visitas de esta estación, buscar visitas antiguas sin estación asignada
-                val allVisits = if (stationVisits.isEmpty()) {
-                    // Obtener todas las visitas y filtrar las que no tienen stationId
-                    val allExistingVisits = visitRepository.getAllVisits()
-                    val orphanVisits = allExistingVisits.filter { it.stationId == null }
-
-                    // Si hay visitas sin estación, migrarlas automáticamente
-                    if (orphanVisits.isNotEmpty()) {
-                        migrateOrphanVisitsToStation(orphanVisits, station.stationId)
-                        // Después de migrar, volver a cargar
-                        visitRepository.getVisitsByStationId(station.stationId)
-                    } else {
-                        emptyList()
-                    }
-                } else {
-                    stationVisits
+                // 3. Buscar visitas que necesitan migración (null, vacío, o stationId diferente)
+                val visitsToMigrate = allExistingVisits.filter {
+                    it.stationId == null || it.stationId.isBlank() || it.stationId != station.stationId
                 }
 
-                // 4. Calcular estadísticas
-                val activeVisits = allVisits.filter { it.exitDate == null }
-                val todayVisits = getTodayVisits(allVisits)
-                val thisMonthVisits = getThisMonthVisits(allVisits)
+                // 4. Si hay visitas que migrar, hacerlo automáticamente
+                if (visitsToMigrate.isNotEmpty()) {
+                    migrateVisitsToStation(visitsToMigrate, station.stationId)
+                }
+
+                // 5. Obtener visitas con información de personas
+                val visitsWithPersonInfo = visitRepository.getVisitsWithPersonInfoByStationId(station.stationId)
+
+                // 6. Calcular estadísticas
+                val activeVisits = visitsWithPersonInfo.filter { it.visit.exitDate == null }
+                val todayVisits = getTodayVisitsWithInfo(visitsWithPersonInfo)
+                val thisMonthVisits = getThisMonthVisitsWithInfo(visitsWithPersonInfo)
 
                 _uiState.value = AdminPanelUiState.Success(
                     station = station,
-                    totalVisits = allVisits.size,
+                    totalVisits = visitsWithPersonInfo.size,
                     activeVisits = activeVisits.size,
                     todayVisits = todayVisits.size,
                     thisMonthVisits = thisMonthVisits.size,
-                    recentVisits = allVisits.take(20) // Últimas 20 visitas
+                    recentVisits = visitsWithPersonInfo.take(50) // Últimas 50 visitas
                 )
             } catch (e: Exception) {
                 _uiState.value = AdminPanelUiState.Error(e.message ?: "Unknown error")
@@ -82,11 +78,11 @@ class AdminPanelViewModel(
     }
 
     /**
-     * Migra visitas antiguas sin stationId a la estación actual.
+     * Migra visitas a la estación actual.
      */
-    private suspend fun migrateOrphanVisitsToStation(orphanVisits: List<Visit>, stationId: String) {
+    private suspend fun migrateVisitsToStation(visits: List<Visit>, stationId: String) {
         try {
-            orphanVisits.forEach { visit ->
+            visits.forEach { visit ->
                 val updatedVisit = visit.copy(stationId = stationId)
                 visitRepository.updateVisit(updatedVisit)
             }
@@ -96,6 +92,7 @@ class AdminPanelViewModel(
         }
     }
 
+    /*
     fun loadVisitsInDateRange(startDate: Long, endDate: Long) {
         viewModelScope.launch {
             try {
@@ -116,8 +113,10 @@ class AdminPanelViewModel(
             }
         }
     }
+    */
 
-    private fun getTodayVisits(visits: List<Visit>): List<Visit> {
+
+    private fun getTodayVisitsWithInfo(visits: List<VisitWithPersonInfo>): List<VisitWithPersonInfo> {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
@@ -125,10 +124,10 @@ class AdminPanelViewModel(
         calendar.set(Calendar.MILLISECOND, 0)
         val startOfDay = calendar.timeInMillis
 
-        return visits.filter { it.entryDate >= startOfDay }
+        return visits.filter { it.visit.entryDate >= startOfDay }
     }
 
-    private fun getThisMonthVisits(visits: List<Visit>): List<Visit> {
+    private fun getThisMonthVisitsWithInfo(visits: List<VisitWithPersonInfo>): List<VisitWithPersonInfo> {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -137,7 +136,7 @@ class AdminPanelViewModel(
         calendar.set(Calendar.MILLISECOND, 0)
         val startOfMonth = calendar.timeInMillis
 
-        return visits.filter { it.entryDate >= startOfMonth }
+        return visits.filter { it.visit.entryDate >= startOfMonth }
     }
 
     fun refresh() {
@@ -164,7 +163,7 @@ sealed class AdminPanelUiState {
         val activeVisits: Int,
         val todayVisits: Int,
         val thisMonthVisits: Int,
-        val recentVisits: List<Visit>
+        val recentVisits: List<VisitWithPersonInfo>
     ) : AdminPanelUiState()
     data class Error(val message: String) : AdminPanelUiState()
 }

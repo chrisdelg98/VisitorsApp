@@ -4,6 +4,7 @@ import com.eflglobal.visitorsapp.data.local.dao.VisitDao
 import com.eflglobal.visitorsapp.data.local.mapper.toDomain
 import com.eflglobal.visitorsapp.data.local.mapper.toEntity
 import com.eflglobal.visitorsapp.domain.model.Visit
+import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
 import com.eflglobal.visitorsapp.domain.repository.VisitRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -176,6 +177,33 @@ class VisitRepositoryImpl(
     override suspend fun getVisitsByStationId(stationId: String): List<Visit> {
         return try {
             visitDao.getVisitsByStationId(stationId).map { it.toDomain() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getVisitsWithPersonInfoByStationId(stationId: String): List<VisitWithPersonInfo> {
+        return try {
+            visitDao.getVisitsWithPersonInfoByStationId(stationId).map { dto ->
+                VisitWithPersonInfo(
+                    visit = Visit(
+                        visitId = dto.visitId,
+                        personId = dto.personId,
+                        stationId = dto.stationId,
+                        visitingPersonName = dto.visitingPersonName,
+                        visitorType = dto.visitorType,
+                        visitReason = dto.visitReason,
+                        visitReasonCustom = dto.visitReasonCustom,
+                        entryDate = dto.entryDate,
+                        exitDate = dto.exitDate,
+                        qrCodeValue = dto.qrCodeValue,
+                        isSynced = dto.isSynced,
+                        lastSyncAt = dto.lastSyncAt
+                    ),
+                    personFirstName = dto.personFirstName,
+                    personLastName = dto.personLastName
+                )
+            }
         } catch (e: Exception) {
             emptyList()
         }

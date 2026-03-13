@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -33,7 +32,8 @@ import com.google.accompanist.navigation.animation.composable
 fun AppNavHost(
     navController: NavHostController,
     languageViewModel: LanguageViewModel,
-    selectedLanguage: String
+    selectedLanguage: String,
+    startDestination: String = Routes.StationSetup
 ) {
     val context = LocalContext.current
     val factory = ViewModelFactory(context)
@@ -44,15 +44,6 @@ fun AppNavHost(
     val recurrentVisitViewModel: RecurrentVisitViewModel = viewModel(factory = factory)
     val endVisitViewModel: EndVisitViewModel = viewModel(factory = factory)
 
-    // ViewModel para verificar configuración de estación
-    val stationSetupViewModel: com.eflglobal.visitorsapp.ui.viewmodel.StationSetupViewModel = viewModel(factory = factory)
-    val stationSetupState by stationSetupViewModel.uiState.collectAsState()
-
-    // Determinar startDestination según si ya hay estación configurada
-    val startDestination = when (stationSetupState) {
-        is com.eflglobal.visitorsapp.ui.viewmodel.StationSetupUiState.StationExists -> Routes.Home
-        else -> Routes.StationSetup
-    }
 
     AnimatedNavHost(
         navController = navController,
