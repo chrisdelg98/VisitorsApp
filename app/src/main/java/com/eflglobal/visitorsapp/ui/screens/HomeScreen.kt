@@ -67,7 +67,7 @@ fun HomeScreen(
         // Detector invisible de 4 clics en esquina superior izquierda
         Box(
             modifier = Modifier
-                .align(Alignment.TopStart)
+                .align(Alignment.BottomStart)
                 .size(80.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
