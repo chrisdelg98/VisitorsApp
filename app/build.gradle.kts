@@ -34,6 +34,20 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/LICENSE", "META-INF/LICENSE.txt",
+                "META-INF/NOTICE", "META-INF/NOTICE.txt",
+                "META-INF/ASL2.0", "META-INF/*.kotlin_module",
+                "META-INF/versions/9/previous-compilation-data.bin",
+                // Conflicting META-INF files from Apache Commons / Jackson JARs
+                "META-INF/DEPENDENCIES",
+                "META-INF/MANIFEST.MF",
+                "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"
+            )
+        }
+    }
 }
 
 ksp {
@@ -43,6 +57,9 @@ ksp {
 }
 
 dependencies {
+    // ── Zebra Link-OS SDK v2.16.5518 + dependencies (local JARs) ──────────────
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

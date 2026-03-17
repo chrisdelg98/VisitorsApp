@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.eflglobal.visitorsapp.R
+import com.eflglobal.visitorsapp.core.printing.PrinterConfigRepository
+import com.eflglobal.visitorsapp.core.printing.ZebraPrinterManager
+import com.eflglobal.visitorsapp.core.printing.ZplBadgeGenerator
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -65,15 +70,24 @@ fun VisitorBadgeButton(
     profileBitmap: Bitmap? = null,
     visitorType: String = "VISITOR",
     selectedLanguage: String = "es",
+    /** Raw QR value (e.g. "VISIT-…") — used by ZPL to encode the barcode. */
+    qrCode: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val context       = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var showBadge by remember { mutableStateOf(false) }
+
+    // Print status: null = idle, true = printing, false = result shown
+    var isPrinting   by remember { mutableStateOf(false) }
+    var printMessage by remember { mutableStateOf<String?>(null) }
+    var printSuccess by remember { mutableStateOf(false) }
 
     val grayscaleBitmap: Bitmap? = remember(profileBitmap) {
         profileBitmap?.let { toSquareGrayscale(it) }
     }
 
-    // Resolve all strings here in the correct locale context
+    // Resolve localized strings in correct locale context
     val strBadgeTitle   = stringResource(R.string.visitor_badge_title)
     val strViewBadge    = stringResource(R.string.view_visitor_badge)
     val strVisiting     = stringResource(R.string.visiting_colon2)
@@ -81,8 +95,9 @@ fun VisitorBadgeButton(
     val strPrinted      = stringResource(R.string.printed_colon)
     val strBadgeNote    = stringResource(R.string.badge_note)
     val strCompany      = stringResource(R.string.company_colon)
+    val strPrinting     = stringResource(R.string.printing)
+    val strPrintOk      = stringResource(R.string.print_success)
 
-    // Map visitorType key → localized label using existing string resources
     val strVisitorTypeLabel = when (visitorType) {
         "VISITOR"         -> stringResource(R.string.visitor_type)
         "CONTRACTOR"      -> stringResource(R.string.contractor)
@@ -92,6 +107,68 @@ fun VisitorBadgeButton(
         "TEMPORARY_STAFF" -> stringResource(R.string.temporary_staff)
         "OTHER"           -> stringResource(R.string.other)
         else              -> stringResource(R.string.visitor_type)
+    }
+
+    // ── "Print" action ────────────────────────────────────────────────────────
+    val onPrintClicked: () -> Unit = {
+        if (!isPrinting) {
+            coroutineScope.launch {
+                isPrinting   = true
+                printMessage = strPrinting
+
+                val config = PrinterConfigRepository
+                    .getConfig(context)
+                    .let { flow ->
+                        // Collect one value synchronously
+                        var cfg = com.eflglobal.visitorsapp.core.printing.PrinterConfig()
+                        val job = launch {
+                            flow.collect {
+                                cfg = it
+                                return@collect
+                            }
+                        }
+                        kotlinx.coroutines.delay(200)
+                        job.cancel()
+                        cfg
+                    }
+
+                val badgeData = ZplBadgeGenerator.BadgeData(
+                    visitorName      = visitorName,
+                    company          = company,
+                    visitingPerson   = visitingPerson,
+                    visitorTypeLabel = strVisitorTypeLabel,
+                    qrValue          = qrCode ?: "VISIT",
+                    entryDate        = visitDate,
+                    profileBitmap    = grayscaleBitmap,
+                    labelBadgeTitle  = strBadgeTitle,
+                    labelVisiting    = strVisiting,
+                    labelValidFor    = strBadgeNote,
+                    labelPrinted     = strPrinted
+                )
+                val zpl    = ZplBadgeGenerator.generate(badgeData)
+                val result = ZebraPrinterManager.printZpl(context, zpl, config)
+
+                isPrinting = false
+                when (result) {
+                    is ZebraPrinterManager.PrintResult.Success -> {
+                        printSuccess = true
+                        printMessage = strPrintOk
+                    }
+                    is ZebraPrinterManager.PrintResult.PermissionRequested -> {
+                        printSuccess = false
+                        printMessage = "USB permission requested. Tap Print again."
+                    }
+                    is ZebraPrinterManager.PrintResult.Error -> {
+                        printSuccess = false
+                        printMessage = result.message
+                    }
+                }
+                // Auto-clear message after 4 s
+                kotlinx.coroutines.delay(4_000)
+                printMessage = null
+                printSuccess = false
+            }
+        }
     }
 
     OutlinedButton(
@@ -104,6 +181,39 @@ fun VisitorBadgeButton(
         Icon(Icons.Default.Badge, null, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
         Text(strViewBadge, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+
+    // ── Print status snackbar ─────────────────────────────────────────────────
+    printMessage?.let { msg ->
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                shape  = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (printSuccess) Color(0xFF2E7D32) else
+                        if (isPrinting) Color(0xFF1565C0) else Color(0xFFC62828)
+                ),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isPrinting) CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color.White, strokeWidth = 2.dp
+                    )
+                    else Icon(
+                        if (printSuccess) Icons.Default.Badge else Icons.Default.Print,
+                        null, tint = Color.White, modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(msg, color = Color.White, fontSize = 13.sp)
+                }
+            }
+        }
     }
 
     if (showBadge) {
@@ -124,7 +234,7 @@ fun VisitorBadgeButton(
                 strPrinted          = strPrinted,
                 strBadgeNote        = strBadgeNote,
                 onDismiss           = { showBadge = false },
-                onPrint             = { showBadge = false }
+                onPrint             = onPrintClicked
             )
         }
     }

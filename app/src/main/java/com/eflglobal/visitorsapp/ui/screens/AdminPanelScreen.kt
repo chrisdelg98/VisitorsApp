@@ -43,6 +43,7 @@ import com.eflglobal.visitorsapp.ui.viewmodel.AdminPanelUiState
 import com.eflglobal.visitorsapp.ui.viewmodel.AdminPanelViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +56,7 @@ fun AdminPanelScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
     var selectedVisit by remember { mutableStateOf<VisitWithPersonInfo?>(null) }
+    var showPrinterSettings by remember { mutableStateOf(false) }
 
     // Estados de filtros
     var filterStatus by remember { mutableStateOf<Set<VisitFilterStatus>>(emptySet()) }
@@ -72,6 +74,11 @@ fun AdminPanelScreen(
             onDismiss = { selectedVisit = null },
             selectedLanguage = selectedLanguage
         )
+    }
+
+    // Printer settings dialog
+    if (showPrinterSettings) {
+        PrinterSettingsDialog(onDismiss = { showPrinterSettings = false })
     }
 
     // Diálogo de confirmación de logout
@@ -138,6 +145,12 @@ fun AdminPanelScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showPrinterSettings = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Print,
+                            contentDescription = stringResource(R.string.printer_settings)
+                        )
+                    }
                     IconButton(onClick = { showFiltersPanel = true }) {
                         Icon(
                             imageVector = Icons.Default.FilterList,
@@ -1597,6 +1610,155 @@ private fun FilterDrawerContent(
                 shape    = RoundedCornerShape(8.dp)
             ) {
                 Text(stringResource(R.string.apply_filters))
+            }
+        }
+    }
+}
+
+// ── Printer Settings Dialog ───────────────────────────────────────────────────
+
+@Composable
+private fun PrinterSettingsDialog(onDismiss: () -> Unit) {
+    val context        = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val configFlow = remember {
+        com.eflglobal.visitorsapp.core.printing.PrinterConfigRepository.getConfig(context)
+    }
+    val currentConfig by configFlow.collectAsState(
+        initial = com.eflglobal.visitorsapp.core.printing.PrinterConfig()
+    )
+
+    var selectedType by remember(currentConfig) { mutableStateOf(currentConfig.connectionType) }
+    var ipAddress    by remember(currentConfig) { mutableStateOf(currentConfig.networkHost ?: "") }
+    var port         by remember(currentConfig) { mutableStateOf(currentConfig.networkPort.toString()) }
+    var testResult   by remember { mutableStateOf<String?>(null) }
+    var isTesting    by remember { mutableStateOf(false) }
+    var isSaving     by remember { mutableStateOf(false) }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier  = Modifier.fillMaxWidth(0.72f),
+            shape     = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(8.dp)
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Print, null, tint = SlatePrimary, modifier = Modifier.size(26.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        stringResource(R.string.printer_settings),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold, color = SlatePrimary
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Text(stringResource(R.string.connection_type),
+                    style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
+                Spacer(Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    com.eflglobal.visitorsapp.core.printing.PrinterConfig.ConnectionType.entries
+                        .forEach { type ->
+                            val label = if (type == com.eflglobal.visitorsapp.core.printing.PrinterConfig.ConnectionType.USB)
+                                stringResource(R.string.printer_usb)
+                            else stringResource(R.string.printer_network)
+                            FilterChip(
+                                selected = selectedType == type,
+                                onClick  = { selectedType = type },
+                                label    = { Text(label) },
+                                colors   = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = OrangePrimary,
+                                    selectedLabelColor     = Color.White
+                                )
+                            )
+                        }
+                }
+
+                if (selectedType == com.eflglobal.visitorsapp.core.printing.PrinterConfig.ConnectionType.NETWORK) {
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = ipAddress, onValueChange = { ipAddress = it },
+                        label = { Text(stringResource(R.string.printer_ip_address)) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = port,
+                        onValueChange = { port = it.filter { c -> c.isDigit() } },
+                        label = { Text(stringResource(R.string.printer_port)) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(0.4f)
+                    )
+                }
+
+                testResult?.let { msg ->
+                    Spacer(Modifier.height(12.dp))
+                    val ok = msg == "OK"
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (ok) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                        ), shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            if (ok) "✓ ${stringResource(R.string.printer_connected)}" else "✗ $msg",
+                            modifier = Modifier.padding(12.dp),
+                            color = if (ok) Color(0xFF2E7D32) else Color(0xFFC62828),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                isTesting = true; testResult = null
+                                val cfg = com.eflglobal.visitorsapp.core.printing.PrinterConfig(
+                                    connectionType = selectedType,
+                                    networkHost    = ipAddress.ifBlank { null },
+                                    networkPort    = port.toIntOrNull()
+                                        ?: com.eflglobal.visitorsapp.core.printing.PrinterConfig.DEFAULT_PORT
+                                )
+                                testResult = com.eflglobal.visitorsapp.core.printing.ZebraPrinterManager
+                                    .testConnection(context, cfg) ?: "OK"
+                                isTesting = false
+                            }
+                        },
+                        modifier = Modifier.weight(1f), enabled = !isTesting && !isSaving
+                    ) {
+                        if (isTesting) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        else Text(stringResource(R.string.printer_test), fontSize = 13.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                isSaving = true
+                                com.eflglobal.visitorsapp.core.printing.PrinterConfigRepository.saveConfig(
+                                    context,
+                                    com.eflglobal.visitorsapp.core.printing.PrinterConfig(
+                                        connectionType = selectedType,
+                                        networkHost    = ipAddress.ifBlank { null },
+                                        networkPort    = port.toIntOrNull()
+                                            ?: com.eflglobal.visitorsapp.core.printing.PrinterConfig.DEFAULT_PORT
+                                    )
+                                )
+                                isSaving = false; onDismiss()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors   = ButtonDefaults.buttonColors(containerColor = OrangePrimary),
+                        enabled  = !isTesting && !isSaving
+                    ) {
+                        if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                        else Text(stringResource(R.string.save), fontSize = 13.sp)
+                    }
+                }
             }
         }
     }

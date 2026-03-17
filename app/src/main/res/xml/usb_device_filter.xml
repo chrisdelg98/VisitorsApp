@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    USB device filter for Zebra Technologies printers.
+    Vendor ID 0x0A5F = 2655 (decimal) — all Zebra printer models including ZT230.
+    Android will prompt for USB permission when a Zebra device is connected.
+-->
+<resources>
+    <usb-device vendor-id="2655" />
+</resources>
+

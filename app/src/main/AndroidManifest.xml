@@ -7,6 +7,9 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- USB Host — required for Zebra printer communication via USB -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
     <application
         android:name=".VisitorsApplication"
         android:allowBackup="true"
@@ -26,9 +29,15 @@
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Notify MainActivity when a Zebra USB printer is connected -->
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/usb_device_filter" />
         </activity>
     </application>
 
