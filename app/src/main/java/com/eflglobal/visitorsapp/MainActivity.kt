@@ -17,15 +17,19 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // ① Install splash BEFORE super.onCreate() so the theme is applied correctly
         val splash = installSplashScreen()
+
+        // Keep the splash visible until BOTH:
+        //  1. The station check has resolved (not Loading)
+        //  2. At least 2 seconds have elapsed
+        val startTime = System.currentTimeMillis()
+        splash.setKeepOnScreenCondition {
+            val elapsed = System.currentTimeMillis() - startTime
+            splashViewModel.isLoading || elapsed < 2_000L
+        }
 
         super.onCreate(savedInstanceState)
 
-        // ② Keep splash on screen while the station check is still running
-        splash.setKeepOnScreenCondition { splashViewModel.isLoading }
-
-        // Forzar orientación horizontal (landscape)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
         enableEdgeToEdge()

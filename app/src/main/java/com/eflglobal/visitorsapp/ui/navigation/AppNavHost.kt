@@ -33,7 +33,7 @@ fun AppNavHost(
     navController: NavHostController,
     languageViewModel: LanguageViewModel,
     selectedLanguage: String,
-    startDestination: String = Routes.StationSetup
+    startDestination: String = Routes.Home
 ) {
     val context = LocalContext.current
     val factory = ViewModelFactory(context)
@@ -61,6 +61,7 @@ fun AppNavHost(
             fadeOut(animationSpec = tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         }
     ) {
+        // ── Home ─────────────────────────────────────────────────────────────────
         composable(Routes.Home) {
             HomeScreen(
                 onNewVisit = { navController.navigate(Routes.DocumentScan) },

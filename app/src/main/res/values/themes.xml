@@ -3,10 +3,17 @@
 
     <style name="Theme.VisitorsApp" parent="android:Theme.Material.Light.NoActionBar" />
 
-    <!-- Splash Screen theme (androidx.core:core-splashscreen) -->
+    <!--
+        Splash Screen theme.
+        • windowSplashScreenAnimatedIcon  → EFL logo centered (the "brand icon")
+        • windowSplashScreenBackground    → white, matches app background
+        • postSplashScreenTheme           → restores the app theme after splash
+        The splash stays on screen for ≥ 2 s while MainActivity's
+        setKeepOnScreenCondition checks station config.
+    -->
     <style name="Theme.VisitorsApp.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#FFFFFF</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/efl_logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logoefl</item>
         <item name="windowSplashScreenIconBackgroundColor">#FFFFFF</item>
         <item name="postSplashScreenTheme">@style/Theme.VisitorsApp</item>
     </style>

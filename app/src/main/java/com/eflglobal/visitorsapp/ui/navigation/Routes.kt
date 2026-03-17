@@ -1,6 +1,7 @@
 package com.eflglobal.visitorsapp.ui.navigation
 
 object Routes {
+    const val Startup = "startup"
     const val Home = "home"
     const val StationSetup = "station_setup"
     const val AdminPanel = "admin_panel"
