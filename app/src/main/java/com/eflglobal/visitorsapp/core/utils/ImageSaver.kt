@@ -67,6 +67,36 @@ object ImageSaver {
     }
 
     /**
+     * Guarda una imagen asociada a una visita específica (snapshot de auditoría).
+     * Las fotos se almacenan en visits/{visitId}/ y NUNCA se sobreescriben.
+     *
+     * @param context   Contexto de la aplicación
+     * @param bitmap    Imagen a guardar
+     * @param visitId   ID único de la visita
+     * @param imageType Tipo de imagen (PROFILE, DOCUMENT_FRONT, DOCUMENT_BACK)
+     * @return Path absoluto del archivo guardado
+     */
+    fun saveImageForVisit(
+        context: Context,
+        bitmap: Bitmap,
+        visitId: String,
+        imageType: ImageType
+    ): String {
+        val visitDir = File(context.filesDir, "visits/$visitId")
+        if (!visitDir.exists()) visitDir.mkdirs()
+
+        val imageFile = File(visitDir, imageType.filename)
+        FileOutputStream(imageFile).use { out ->
+            val format  = if (imageType == ImageType.QR_CODE) Bitmap.CompressFormat.PNG
+                          else Bitmap.CompressFormat.JPEG
+            val quality = if (imageType == ImageType.QR_CODE) 100 else 90
+            bitmap.compress(format, quality, out)
+            out.flush()
+        }
+        return imageFile.absolutePath
+    }
+
+    /**
      * Guarda una imagen para una visita (como QR).
      *
      * @param context Contexto de la aplicación

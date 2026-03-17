@@ -24,8 +24,17 @@ data class VisitWithPersonDto(
     val qrCodeValue: String,
     val isSynced: Boolean,
     val lastSyncAt: Long?,
+    // Person reference data
     val personFirstName: String,
-    val personLastName: String
+    val personLastName: String,
+    val personCompany: String?,
+    val personProfilePhotoPath: String?,
+    val personDocumentFrontPath: String?,
+    val personDocumentBackPath: String?,
+    // Visit-specific audit snapshots (nullable — null for pre-v5 records)
+    val visitProfilePhotoPath: String?,
+    val visitDocumentFrontPath: String?,
+    val visitDocumentBackPath: String?
 )
 
 @Dao
@@ -188,7 +197,15 @@ interface VisitDao {
             v.visitId, v.personId, v.stationId, v.visitingPersonName,
             v.visitorType, v.visitReason, v.visitReasonCustom,
             v.entryDate, v.exitDate, v.qrCodeValue, v.isSynced, v.lastSyncAt,
-            p.firstName as personFirstName, p.lastName as personLastName
+            v.visitProfilePhotoPath  AS visitProfilePhotoPath,
+            v.visitDocumentFrontPath AS visitDocumentFrontPath,
+            v.visitDocumentBackPath  AS visitDocumentBackPath,
+            p.firstName  AS personFirstName,
+            p.lastName   AS personLastName,
+            p.company    AS personCompany,
+            p.profilePhotoPath   AS personProfilePhotoPath,
+            p.documentFrontPath  AS personDocumentFrontPath,
+            p.documentBackPath   AS personDocumentBackPath
         FROM visits v
         INNER JOIN persons p ON v.personId = p.personId
         WHERE v.stationId = :stationId 

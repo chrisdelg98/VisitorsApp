@@ -187,21 +187,31 @@ class VisitRepositoryImpl(
             visitDao.getVisitsWithPersonInfoByStationId(stationId).map { dto ->
                 VisitWithPersonInfo(
                     visit = Visit(
-                        visitId = dto.visitId,
-                        personId = dto.personId,
-                        stationId = dto.stationId,
-                        visitingPersonName = dto.visitingPersonName,
-                        visitorType = dto.visitorType,
-                        visitReason = dto.visitReason,
-                        visitReasonCustom = dto.visitReasonCustom,
-                        entryDate = dto.entryDate,
-                        exitDate = dto.exitDate,
-                        qrCodeValue = dto.qrCodeValue,
-                        isSynced = dto.isSynced,
-                        lastSyncAt = dto.lastSyncAt
+                        visitId                = dto.visitId,
+                        personId               = dto.personId,
+                        stationId              = dto.stationId,
+                        visitingPersonName     = dto.visitingPersonName,
+                        visitorType            = dto.visitorType,
+                        visitReason            = dto.visitReason,
+                        visitReasonCustom      = dto.visitReasonCustom,
+                        entryDate              = dto.entryDate,
+                        exitDate               = dto.exitDate,
+                        qrCodeValue            = dto.qrCodeValue,
+                        visitProfilePhotoPath  = dto.visitProfilePhotoPath,
+                        visitDocumentFrontPath = dto.visitDocumentFrontPath,
+                        visitDocumentBackPath  = dto.visitDocumentBackPath,
+                        isSynced               = dto.isSynced,
+                        lastSyncAt             = dto.lastSyncAt
                     ),
-                    personFirstName = dto.personFirstName,
-                    personLastName = dto.personLastName
+                    personFirstName          = dto.personFirstName,
+                    personLastName           = dto.personLastName,
+                    personCompany            = dto.personCompany,
+                    personProfilePhotoPath   = dto.personProfilePhotoPath,
+                    personDocumentFrontPath  = dto.personDocumentFrontPath,
+                    personDocumentBackPath   = dto.personDocumentBackPath,
+                    visitProfilePhotoPath    = dto.visitProfilePhotoPath,
+                    visitDocumentFrontPath   = dto.visitDocumentFrontPath,
+                    visitDocumentBackPath    = dto.visitDocumentBackPath
                 )
             }
         } catch (e: Exception) {

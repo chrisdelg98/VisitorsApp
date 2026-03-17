@@ -1027,9 +1027,11 @@ private fun VisitDetailsContent(
                                         .apply { setPixels(pixels, 0, w, 0, 0, w, h) }
                                 }
                             },
-                            profileBitmap  = remember {
-                                val f = java.io.File(context.filesDir, "photos/${visit.personId}_photo.jpg")
-                                if (f.exists()) android.graphics.BitmapFactory.decodeFile(f.absolutePath) else null
+                            profileBitmap  = remember(visitWithInfo.personProfilePhotoPath) {
+                                visitWithInfo.personProfilePhotoPath
+                                    ?.let { java.io.File(it) }
+                                    ?.takeIf { it.exists() }
+                                    ?.let { android.graphics.BitmapFactory.decodeFile(it.absolutePath) }
                             },
                             visitorType      = visit.visitorType,
                             selectedLanguage = selectedLanguage,
@@ -1079,10 +1081,17 @@ private fun VisitDetailsContent(
                             )
                         ) {
                             Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                val photoFile = remember {
-                                    java.io.File(context.filesDir, "photos/${visit.personId}_photo.jpg")
+                                // Prefer visit-specific snapshot; fall back to person registration photo
+                                val photoFile = remember(
+                                    visitWithInfo.visitProfilePhotoPath,
+                                    visitWithInfo.personProfilePhotoPath
+                                ) {
+                                    (visitWithInfo.visitProfilePhotoPath
+                                        ?: visitWithInfo.personProfilePhotoPath)
+                                        ?.let { java.io.File(it) }
+                                        ?.takeIf { it.exists() }
                                 }
-                                if (photoFile.exists()) {
+                                if (photoFile != null) {
                                     Image(
                                         bitmap           = android.graphics.BitmapFactory
                                             .decodeFile(photoFile.absolutePath).asImageBitmap(),
@@ -1131,10 +1140,16 @@ private fun VisitDetailsContent(
                             )
                         ) {
                             Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                val frontDoc = remember {
-                                    java.io.File(context.filesDir, "documents/${visit.personId}_front.jpg")
+                                val frontDoc = remember(
+                                    visitWithInfo.visitDocumentFrontPath,
+                                    visitWithInfo.personDocumentFrontPath
+                                ) {
+                                    (visitWithInfo.visitDocumentFrontPath
+                                        ?: visitWithInfo.personDocumentFrontPath)
+                                        ?.let { java.io.File(it) }
+                                        ?.takeIf { it.exists() }
                                 }
-                                if (frontDoc.exists()) {
+                                if (frontDoc != null) {
                                     Image(
                                         bitmap           = android.graphics.BitmapFactory
                                             .decodeFile(frontDoc.absolutePath).asImageBitmap(),
@@ -1170,10 +1185,16 @@ private fun VisitDetailsContent(
                             )
                         ) {
                             Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                val backDoc = remember {
-                                    java.io.File(context.filesDir, "documents/${visit.personId}_back.jpg")
+                                val backDoc = remember(
+                                    visitWithInfo.visitDocumentBackPath,
+                                    visitWithInfo.personDocumentBackPath
+                                ) {
+                                    (visitWithInfo.visitDocumentBackPath
+                                        ?: visitWithInfo.personDocumentBackPath)
+                                        ?.let { java.io.File(it) }
+                                        ?.takeIf { it.exists() }
                                 }
-                                if (backDoc.exists()) {
+                                if (backDoc != null) {
                                     Image(
                                         bitmap           = android.graphics.BitmapFactory
                                             .decodeFile(backDoc.absolutePath).asImageBitmap(),

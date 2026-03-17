@@ -266,11 +266,11 @@ fun DocumentScanScreen(
                         coroutineScope.launch {
                             try {
                                 frontBitmap = bitmap
-                                val personId = viewModel.getPersonId()
-                                val path     = ImageSaver.saveImage(
+                                val visitId = viewModel.getVisitId()
+                                val path    = ImageSaver.saveImageForVisit(
                                     context   = context,
                                     bitmap    = bitmap,
-                                    personId  = personId,
+                                    visitId   = visitId,
                                     imageType = ImageSaver.ImageType.DOCUMENT_FRONT
                                 )
                                 viewModel.setDocumentFront(
@@ -308,11 +308,11 @@ fun DocumentScanScreen(
                         coroutineScope.launch {
                             try {
                                 backBitmap = bitmap
-                                val personId = viewModel.getPersonId()
-                                val path     = ImageSaver.saveImage(
+                                val visitId = viewModel.getVisitId()
+                                val path    = ImageSaver.saveImageForVisit(
                                     context   = context,
                                     bitmap    = bitmap,
-                                    personId  = personId,
+                                    visitId   = visitId,
                                     imageType = ImageSaver.ImageType.DOCUMENT_BACK
                                 )
                                 viewModel.setDocumentBack(path)

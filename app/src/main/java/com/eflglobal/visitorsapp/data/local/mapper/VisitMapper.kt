@@ -6,34 +6,40 @@ import com.eflglobal.visitorsapp.domain.model.Visit
 import com.eflglobal.visitorsapp.domain.model.VisitReason
 
 fun VisitEntity.toDomain(): Visit = Visit(
-    visitId            = visitId,
-    personId           = personId,
-    stationId          = stationId,
-    visitingPersonName = visitingPersonName,
-    visitorType        = visitorType,
-    visitReason        = visitReason,
-    visitReasonCustom  = visitReasonCustom,
-    entryDate          = entryDate,
-    exitDate           = exitDate,
-    qrCodeValue        = qrCodeValue,
-    isSynced           = isSynced,
-    lastSyncAt         = lastSyncAt
+    visitId                = visitId,
+    personId               = personId,
+    stationId              = stationId,
+    visitingPersonName     = visitingPersonName,
+    visitorType            = visitorType,
+    visitReason            = visitReason,
+    visitReasonCustom      = visitReasonCustom,
+    entryDate              = entryDate,
+    exitDate               = exitDate,
+    qrCodeValue            = qrCodeValue,
+    visitProfilePhotoPath  = visitProfilePhotoPath,
+    visitDocumentFrontPath = visitDocumentFrontPath,
+    visitDocumentBackPath  = visitDocumentBackPath,
+    isSynced               = isSynced,
+    lastSyncAt             = lastSyncAt
 )
 
 fun Visit.toEntity(createdAt: Long = System.currentTimeMillis()): VisitEntity = VisitEntity(
-    visitId            = visitId,
-    personId           = personId,
-    stationId          = stationId,
-    visitingPersonName = visitingPersonName,
-    visitorType        = visitorType,
-    visitReason        = visitReason,
-    visitReasonCustom  = visitReasonCustom,
-    entryDate          = entryDate,
-    exitDate           = exitDate,
-    qrCodeValue        = qrCodeValue,
-    createdAt          = createdAt,
-    isSynced           = isSynced,
-    lastSyncAt         = lastSyncAt
+    visitId                = visitId,
+    personId               = personId,
+    stationId              = stationId,
+    visitingPersonName     = visitingPersonName,
+    visitorType            = visitorType,
+    visitReason            = visitReason,
+    visitReasonCustom      = visitReasonCustom,
+    entryDate              = entryDate,
+    exitDate               = exitDate,
+    qrCodeValue            = qrCodeValue,
+    visitProfilePhotoPath  = visitProfilePhotoPath,
+    visitDocumentFrontPath = visitDocumentFrontPath,
+    visitDocumentBackPath  = visitDocumentBackPath,
+    createdAt              = createdAt,
+    isSynced               = isSynced,
+    lastSyncAt             = lastSyncAt
 )
 
 fun VisitReasonEntity.toDomain(): VisitReason = VisitReason(

@@ -68,6 +68,15 @@ data class VisitEntity(
     /** Unique QR code value for this visit. */
     val qrCodeValue: String,
 
+    /**
+     * Immutable audit snapshots — photos captured at this specific visit.
+     * Stored in visits/{visitId}/ and NEVER overwritten.
+     * These are the authoritative photos for audit/compliance queries.
+     */
+    val visitProfilePhotoPath: String?,
+    val visitDocumentFrontPath: String?,
+    val visitDocumentBackPath: String?,
+
     // Metadata
     val createdAt: Long,
 

@@ -612,10 +612,10 @@ fun RecurrentVisitDataScreen(
                     coroutineScope.launch {
                         try {
                             val savedPath = withContext(Dispatchers.IO) {
-                                ImageSaver.saveImage(
+                                ImageSaver.saveImageForVisit(
                                     context   = context,
                                     bitmap    = bitmap,
-                                    personId  = person?.personId ?: "recurrent",
+                                    visitId   = viewModel?.getVisitId() ?: "visit_temp",
                                     imageType = ImageSaver.ImageType.PROFILE
                                 )
                             }

@@ -258,11 +258,11 @@ fun RecurrentDocumentScanScreen(
                         coroutineScope.launch {
                             try {
                                 frontBitmap = bitmap
-                                val personId = person?.personId ?: "recurrent"
-                                val path = ImageSaver.saveImage(
+                                val visitId = viewModel?.getVisitId() ?: "visit_temp"
+                                val path = ImageSaver.saveImageForVisit(
                                     context   = context,
                                     bitmap    = bitmap,
-                                    personId  = personId,
+                                    visitId   = visitId,
                                     imageType = ImageSaver.ImageType.DOCUMENT_FRONT
                                 )
                                 viewModel?.setDocumentFront(path)
@@ -291,11 +291,11 @@ fun RecurrentDocumentScanScreen(
                         coroutineScope.launch {
                             try {
                                 backBitmap = bitmap
-                                val personId = person?.personId ?: "recurrent"
-                                val path = ImageSaver.saveImage(
+                                val visitId = viewModel?.getVisitId() ?: "visit_temp"
+                                val path = ImageSaver.saveImageForVisit(
                                     context   = context,
                                     bitmap    = bitmap,
-                                    personId  = personId,
+                                    visitId   = visitId,
                                     imageType = ImageSaver.ImageType.DOCUMENT_BACK
                                 )
                                 viewModel?.setDocumentBack(path)

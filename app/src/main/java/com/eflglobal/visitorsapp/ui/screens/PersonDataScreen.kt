@@ -501,8 +501,12 @@ fun PersonDataScreen(
                     coroutineScope.launch {
                         try {
                             val savedPath = withContext(Dispatchers.IO) {
-                                ImageSaver.saveImage(context = context, bitmap = bitmap,
-                                    personId = viewModel.getPersonId(), imageType = ImageSaver.ImageType.PROFILE)
+                                ImageSaver.saveImageForVisit(
+                                    context   = context,
+                                    bitmap    = bitmap,
+                                    visitId   = viewModel.getVisitId(),
+                                    imageType = ImageSaver.ImageType.PROFILE
+                                )
                             }
                             capturedBitmap   = bitmap
                             profilePhotoPath = savedPath

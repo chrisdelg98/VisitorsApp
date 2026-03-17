@@ -26,6 +26,15 @@ data class Visit(
     val entryDate: Long,
     val exitDate: Long?,
     val qrCodeValue: String,
+
+    /**
+     * Immutable audit snapshots — photos captured at this specific visit.
+     * Stored in visits/{visitId}/ folder, never overwritten by future visits.
+     */
+    val visitProfilePhotoPath: String? = null,
+    val visitDocumentFrontPath: String? = null,
+    val visitDocumentBackPath: String? = null,
+
     val isSynced: Boolean,
     val lastSyncAt: Long?
 )

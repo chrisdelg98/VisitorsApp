@@ -2,7 +2,6 @@ package com.eflglobal.visitorsapp.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.eflglobal.visitorsapp.domain.model.Person
 import com.eflglobal.visitorsapp.domain.model.Visit
 import com.eflglobal.visitorsapp.domain.model.VisitReasonKeys
@@ -47,6 +46,12 @@ class RecurrentVisitViewModel(
 
     // Profile photo taken on this visit (may differ from person.profilePhotoPath)
     var profilePhotoPath: String? = null; private set
+
+    /**
+     * Pre-generated visitId for this recurring visit flow.
+     * Photos are saved to visits/{visitId}/ for an immutable audit trail.
+     */
+    private var visitId: String? = null
 
     // ── Draft editable fields — survive popBackStack() for "Edit" flow ────────
     var draftFirstName:    String? = null; private set
@@ -102,6 +107,15 @@ class RecurrentVisitViewModel(
     fun setDocumentBack(path: String)     { documentBackPath  = path }
     fun setProfilePhoto(path: String)     { profilePhotoPath  = path }
 
+    /**
+     * Returns the pre-generated visitId for this recurring visit flow.
+     * All photos should be saved to visits/{visitId}/ using this ID.
+     */
+    fun getVisitId(): String {
+        if (visitId == null) visitId = java.util.UUID.randomUUID().toString()
+        return visitId!!
+    }
+
     fun setVisitReason(key: String, custom: String? = null) {
         visitReason       = key
         visitReasonCustom = if (key == VisitReasonKeys.OTHER) custom else null
@@ -144,36 +158,47 @@ class RecurrentVisitViewModel(
 
         viewModelScope.launch {
             try {
-                // First, update person record with any edited data
-                val newPhoto = profilePhotoPath
-                val hasChanges =
+                val newPhoto  = profilePhotoPath
+                val newFront  = documentFrontPath?.ifBlank { null }
+                val newBack   = documentBackPath?.ifBlank  { null }
+
+                // Update PersonEntity only for personal data changes (name, contact, company).
+                // Profile photo in PersonEntity is updated so list views show the current face.
+                // Document photos are NOT updated — they belong to VisitEntity as audit snapshots.
+                val hasPersonChanges =
                     finalFirstName != person.firstName ||
-                    finalLastName != person.lastName ||
-                    finalCompany != person.company ||
-                    finalEmail != person.email ||
-                    finalPhone != person.phoneNumber ||
+                    finalLastName  != person.lastName  ||
+                    finalCompany   != person.company   ||
+                    finalEmail     != person.email     ||
+                    finalPhone     != person.phoneNumber ||
                     (newPhoto != null && newPhoto != person.profilePhotoPath)
 
-                if (hasChanges) {
+                if (hasPersonChanges) {
                     personRepository.updatePerson(
                         person.copy(
-                            firstName = finalFirstName,
-                            lastName = finalLastName,
-                            company = finalCompany,
-                            email = finalEmail,
-                            phoneNumber = finalPhone,
+                            firstName        = finalFirstName,
+                            lastName         = finalLastName,
+                            company          = finalCompany,
+                            email            = finalEmail,
+                            phoneNumber      = finalPhone,
                             profilePhotoPath = newPhoto ?: person.profilePhotoPath
+                            // documentFrontPath / documentBackPath intentionally NOT updated:
+                            // visit-specific docs go into VisitEntity.visitDocumentFrontPath/Back
                         )
                     )
                 }
 
-                // Then create the visit
+                // Create the new visit with its own immutable photo snapshots
                 val result = createVisitUseCase(
-                    personId           = person.personId,
-                    visitingPersonName = visitingPersonName,
-                    visitorType        = visitorType,
-                    visitReason        = visitReason,
-                    visitReasonCustom  = visitReasonCustom
+                    personId               = person.personId,
+                    visitingPersonName     = visitingPersonName,
+                    visitorType            = visitorType,
+                    visitReason            = visitReason,
+                    visitReasonCustom      = visitReasonCustom,
+                    visitId                = getVisitId(),
+                    visitProfilePhotoPath  = newPhoto,
+                    visitDocumentFrontPath = newFront,
+                    visitDocumentBackPath  = newBack
                 )
                 result.fold(
                     onSuccess = { visit ->
@@ -208,6 +233,7 @@ class RecurrentVisitViewModel(
         documentFrontPath    = null
         documentBackPath     = null
         profilePhotoPath     = null
+        visitId              = null
         draftFirstName       = null
         draftLastName        = null
         draftDoc             = null
@@ -225,8 +251,8 @@ class RecurrentVisitViewModel(
 
     /**
      * Resets document scan + photo state only.
-     * Called when the user goes back from RecurrentDocumentScanScreen so that
-     * re-entering the screen starts fresh (no stale "already scanned" state).
+     * Called when the user goes back from RecurrentDocumentScanScreen.
+     * Also resets visitId so photos are saved under a fresh visitId on retry.
      */
     fun resetDocuments() {
         documentFrontPath = null
@@ -234,6 +260,7 @@ class RecurrentVisitViewModel(
         profilePhotoPath  = null
         documentType      = "DUI"
         visitorType       = VisitReasonKeys.VISITOR
+        visitId           = null  // fresh visitId for next scan attempt
     }
 }
 

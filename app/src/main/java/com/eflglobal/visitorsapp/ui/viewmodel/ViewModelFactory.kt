@@ -35,9 +35,9 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
 
             modelClass.isAssignableFrom(NewVisitViewModel::class.java) -> {
                 NewVisitViewModel(
-                    createPersonUseCase = CreatePersonUseCase(personRepository),
+                    createPersonUseCase        = CreatePersonUseCase(personRepository),
                     getPersonByDocumentUseCase = GetPersonByDocumentUseCase(personRepository),
-                    createVisitUseCase = CreateVisitUseCase(visitRepository, stationRepository)
+                    createVisitUseCase         = CreateVisitUseCase(visitRepository, stationRepository)
                 ) as T
             }
 

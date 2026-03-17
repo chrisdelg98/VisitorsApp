@@ -16,31 +16,40 @@ class CreateVisitUseCase(
     suspend operator fun invoke(
         personId: String,
         visitingPersonName: String,
-        visitorType: String,               // "Yo soy un:" — who the visitor IS
-        visitReason: String,               // "Motivo de visita" — why they are visiting
-        visitReasonCustom: String? = null  // free-text only when visitReason == "OTHER"
+        visitorType: String,
+        visitReason: String,
+        visitReasonCustom: String? = null,
+        /** Pre-generated visitId — if null a new UUID is generated here. */
+        visitId: String? = null,
+        /** Audit snapshot photos taken at this specific visit. */
+        visitProfilePhotoPath: String? = null,
+        visitDocumentFrontPath: String? = null,
+        visitDocumentBackPath: String? = null
     ): Result<Visit> {
-        val stationId = stationRepository.getActiveStationId()
-        val visitId   = UUID.randomUUID().toString()
-        val qrCode    = visitRepository.generateQRCode(visitId)
+        val stationId     = stationRepository.getActiveStationId()
+        val resolvedVisitId = visitId ?: UUID.randomUUID().toString()
+        val qrCode        = visitRepository.generateQRCode(resolvedVisitId)
 
         val sanitisedCustom = if (visitReason == VisitReasonKeys.OTHER)
             visitReasonCustom?.trim()?.takeIf { it.isNotBlank() }
         else null
 
         val visit = Visit(
-            visitId            = visitId,
-            personId           = personId,
-            stationId          = stationId,
-            visitingPersonName = visitingPersonName,
-            visitorType        = visitorType,
-            visitReason        = visitReason,
-            visitReasonCustom  = sanitisedCustom,
-            entryDate          = System.currentTimeMillis(),
-            exitDate           = null,
-            qrCodeValue        = qrCode,
-            isSynced           = false,
-            lastSyncAt         = null
+            visitId                = resolvedVisitId,
+            personId               = personId,
+            stationId              = stationId,
+            visitingPersonName     = visitingPersonName,
+            visitorType            = visitorType,
+            visitReason            = visitReason,
+            visitReasonCustom      = sanitisedCustom,
+            entryDate              = System.currentTimeMillis(),
+            exitDate               = null,
+            qrCodeValue            = qrCode,
+            visitProfilePhotoPath  = visitProfilePhotoPath,
+            visitDocumentFrontPath = visitDocumentFrontPath,
+            visitDocumentBackPath  = visitDocumentBackPath,
+            isSynced               = false,
+            lastSyncAt             = null
         )
 
         return visitRepository.createVisit(visit)

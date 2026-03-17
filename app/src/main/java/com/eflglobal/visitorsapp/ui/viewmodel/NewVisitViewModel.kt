@@ -26,6 +26,13 @@ class NewVisitViewModel(
 
     // ── Transient flow data ────────────────────────────────────────────────────
     private var personId: String? = null
+
+    /**
+     * Pre-generated visitId — generated on first call to getVisitId().
+     * Photos are saved to visits/{visitId}/ for an immutable audit trail.
+     */
+    private var visitId: String? = null
+
     private var documentType: String = ""
 
     /** "Yo soy un:" — who the visitor IS (VISITOR, CONTRACTOR, VENDOR, DELIVERY…) */
@@ -64,27 +71,25 @@ class NewVisitViewModel(
         return personId!!
     }
 
+    /**
+     * Returns the pre-generated visitId for this visit flow.
+     * All photos should be saved to visits/{visitId}/ using this ID.
+     */
+    fun getVisitId(): String {
+        if (visitId == null) visitId = java.util.UUID.randomUUID().toString()
+        return visitId!!
+    }
+
     fun setDocumentType(type: String) { documentType = type }
 
     /** Sets "Yo soy un:" — who the visitor IS. Called from DocumentScanScreen. */
     fun setVisitorType(type: String) { visitorType = type }
 
-    /**
-     * Sets the visit reason — WHY they are visiting.
-     * Called from PersonDataScreen.
-     */
     fun setVisitReason(key: String, custom: String? = null) {
         visitReason       = key
         visitReasonCustom = if (key == VisitReasonKeys.OTHER) custom else null
     }
 
-    /**
-     * Called after front document is scanned.
-     *
-     * [firstName] and [lastName] come from DocumentDataExtractor (MRZ → OCR keyed → heuristic).
-     * Both may be null when extraction failed — the form will show empty fields for manual entry.
-     * We never invent a placeholder name here.
-     */
     fun setDocumentFront(
         path: String,
         firstName: String? = null,
@@ -131,9 +136,7 @@ class NewVisitViewModel(
             return
         }
         if (visitReason == VisitReasonKeys.OTHER && visitReasonCustom.isNullOrBlank()) {
-            _uiState.value = NewVisitUiState.Error(
-                "Please describe the reason for your visit"
-            )
+            _uiState.value = NewVisitUiState.Error("Please describe the reason for your visit")
             return
         }
 
@@ -141,12 +144,15 @@ class NewVisitViewModel(
 
         viewModelScope.launch {
             try {
-                // Look up existing person by document number (if available)
+                // Look up existing person by document number (if available).
+                // If found: reuse their personId — do NOT update PersonEntity.
+                // PersonEntity is an immutable identity record after first registration.
                 val existingPerson = documentNumber?.let { getPersonByDocumentUseCase(it) }
 
                 val resolvedPersonId = if (existingPerson != null) {
                     existingPerson.personId
                 } else {
+                    // Brand-new person — create identity record with today's photos
                     createPersonUseCase(
                         firstName         = firstName,
                         lastName          = lastName,
@@ -161,18 +167,25 @@ class NewVisitViewModel(
                     ).fold(
                         onSuccess = { it.personId },
                         onFailure = { error ->
-                            _uiState.value = NewVisitUiState.Error(error.message ?: "Failed to create person")
+                            _uiState.value = NewVisitUiState.Error(
+                                error.message ?: "Failed to create person"
+                            )
                             return@launch
                         }
                     )
                 }
 
+                // Always create a new visit with its own immutable photo snapshots
                 createVisitUseCase(
-                    personId           = resolvedPersonId,
-                    visitingPersonName = visitingPersonName,
-                    visitorType        = visitorType,
-                    visitReason        = visitReason,
-                    visitReasonCustom  = visitReasonCustom
+                    personId               = resolvedPersonId,
+                    visitingPersonName     = visitingPersonName,
+                    visitorType            = visitorType,
+                    visitReason            = visitReason,
+                    visitReasonCustom      = visitReasonCustom,
+                    visitId                = getVisitId(),
+                    visitProfilePhotoPath  = profilePhotoPath,
+                    visitDocumentFrontPath = documentFrontPath,
+                    visitDocumentBackPath  = documentBackPath
                 ).fold(
                     onSuccess = { visit ->
                         _uiState.value = NewVisitUiState.Success(
@@ -185,7 +198,9 @@ class NewVisitViewModel(
                         )
                     },
                     onFailure = { error ->
-                        _uiState.value = NewVisitUiState.Error(error.message ?: "Failed to create visit")
+                        _uiState.value = NewVisitUiState.Error(
+                            error.message ?: "Failed to create visit"
+                        )
                     }
                 )
             } catch (e: Exception) {
@@ -208,6 +223,7 @@ class NewVisitViewModel(
         extractionSource     = DocumentDataExtractor.ExtractionSource.NONE
         extractionConfidence = DocumentDataExtractor.Confidence.NONE
         personId             = null
+        visitId              = null   // new visitId will be generated on next flow
     }
 
     /**

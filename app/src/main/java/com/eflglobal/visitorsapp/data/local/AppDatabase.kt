@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.eflglobal.visitorsapp.data.local.dao.OcrMetricDao
 import com.eflglobal.visitorsapp.data.local.dao.PersonDao
@@ -27,7 +28,7 @@ import kotlinx.coroutines.launch
         VisitReasonEntity::class,
         OcrMetricEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -52,6 +53,18 @@ abstract class AppDatabase : RoomDatabase() {
             VisitReasonEntity("OTHER",          "Otro",             "Other",          7)
         )
 
+        /**
+         * Migration 4 → 5: adds per-visit photo snapshot columns to the visits table.
+         * All existing rows get NULL values (no data loss).
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE visits ADD COLUMN visitProfilePhotoPath TEXT")
+                db.execSQL("ALTER TABLE visits ADD COLUMN visitDocumentFrontPath TEXT")
+                db.execSQL("ALTER TABLE visits ADD COLUMN visitDocumentBackPath TEXT")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -62,6 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
+                    .addMigrations(MIGRATION_4_5)
                     .fallbackToDestructiveMigration()
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
