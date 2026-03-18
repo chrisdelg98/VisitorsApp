@@ -15,23 +15,23 @@ import java.util.Locale
 /**
  * Renders the visitor badge as an Android [Bitmap] using the native Canvas API.
  *
- * Target size : 696 × 480 px — optimised for Brother 62 mm continuous roll at 300 DPI
- * (696 px ≈ 58.9 mm ≤ 62 mm printable width).
- * Zebra ZT230 (203 DPI) also fits: 696/203 = 3.43 in × 480/203 = 2.36 in (within 4 × 3 in label).
+ * The layout replicates the Compose UI preview card exactly:
  *
- * ┌─ HEADER (h=70) ──────────────────────────────────────────────┐
- * │  EFL Global [logo accent]              VISITOR BADGE         │
+ * Target size : 696 × 480 px — optimised for Brother 62 mm continuous roll at 300 DPI.
+ *
+ * ┌──────────────────────────────────────────────────────────────┐
+ * │  EFL Global (logo)              VISITOR BADGE (title)       │
  * ├──────────────────────────────────────────────────────────────┤
- * │ [Photo 137×185]  VISITOR NAME (bold)          [QR 136×136]  │
- * │                  Company: …                                  │
- * │                  Visiting: …                                 │
- * │                  Date: dd/MM/yyyy                            │
+ * │ ┌─────────┐  FIRST NAME (bold)                              │
+ * │ │  PHOTO  │  LAST NAME  (bold)                              │
+ * │ │ (square)│  Company: EFL                                   │
+ * │ │ grayscl │  Visiting: John Doe                             │
+ * │ └─────────┘  Valid: 18/03/2026                              │
+ * │              Printed: 18/03/2026 10:30                       │
  * ├──────────────────────────────────────────────────────────────┤
- * │  [VISITOR TYPE PILL]       Valid for 24 hours from entry     │
- * ├──────────────────────────────────────────────────────────────┤
- * │  Printed: dd/MM/yyyy HH:mm                                   │
- * ├──────────────────────────────────────────────────────────────┤
- * │  ▓▓▓▓▓▓▓▓▓▓▓▓▓  ORANGE FOOTER BAR (h=10)  ▓▓▓▓▓▓▓▓▓▓▓▓▓   │
+ * │  [ VISITOR ]                                   ┌──────┐     │
+ * │  Valid for 24 hours from entry                  │  QR  │     │
+ * │                                                 └──────┘     │
  * └──────────────────────────────────────────────────────────────┘
  */
 object BadgeBitmapRenderer {
@@ -42,35 +42,24 @@ object BadgeBitmapRenderer {
     /** Height in pixels — compact layout, no excess dead space. */
     const val BADGE_H = 480
 
-    // ── Colors ─────────────────────────────────────────────────────────────
-    private val CLR_HEADER   = Color.parseColor("#273647")   // Slate
-    private val CLR_ORANGE   = Color.parseColor("#F68E2A")   // Brand orange
-    private val CLR_TEXT     = Color.parseColor("#212121")   // Near-black
-    private val CLR_GRAY     = Color.parseColor("#757575")   // Medium gray
-    private val CLR_DIVIDER  = Color.parseColor("#BDBDBD")   // Light gray
-    private val CLR_PILL_BG  = Color.parseColor("#F0F0F0")   // Pill background
-    private val CLR_PHOTO_BG = Color.parseColor("#EEEEEE")   // Photo placeholder
+    // ── Colors — optimised for 1-bit thermal printing ──────────────────────
+    // The Brother QL thermal printer converts to black/white at luma < 128.
+    // ALL text & lines MUST have luma < 128 to be visible on the printout.
+    private val CLR_TEXT     = Color.parseColor("#000000")   // Pure black (luma 0)
+    private val CLR_GRAY     = Color.parseColor("#333333")   // Dark gray (luma ~51)
+    private val CLR_LABEL    = Color.parseColor("#555555")   // Label gray (luma ~85) — visible on thermal
+    private val CLR_DIVIDER  = Color.parseColor("#666666")   // Divider (luma ~102) — visible on thermal
+    private val CLR_CHIP_BG  = Color.parseColor("#D0D0D0")   // Pill bg — light on screen, border on print
+    private val CLR_PHOTO_BG = Color.parseColor("#E0E0E0")   // Photo placeholder
 
-    // ── Layout constants ───────────────────────────────────────────────────
-    private const val HEADER_H   = 70f
-    private const val PHOTO_X    = 15f
-    private const val PHOTO_Y    = 78f
-    private const val PHOTO_W    = 137f
-    private const val PHOTO_H    = 185f
-    private const val TEXT_X     = 162f
-    private const val QR_SIZE    = 136f
-    private const val QR_X       = BADGE_W - QR_SIZE - 15f   // 545f
-    private const val QR_Y       = 78f
-    private const val DIVIDER1_Y = 270f
-    private const val PILL_Y     = 280f
-    private const val DIVIDER2_Y = 324f
-    private const val PRINTED_Y  = 340f
-    private const val FOOTER_Y   = BADGE_H - 12f             // 468f
+    // ── Margins ────────────────────────────────────────────────────────────
+    private const val M = 20f   // outer margin
 
     // ── Data model ─────────────────────────────────────────────────────────
 
     data class RenderData(
-        val visitorName: String,
+        val firstName: String,
+        val lastName: String,
         val company: String?,
         val visitingPerson: String,
         val visitorTypeLabel: String,
@@ -81,6 +70,7 @@ object BadgeBitmapRenderer {
         val labelBadgeTitle: String = "VISITOR BADGE",
         val labelCompany: String    = "Company:",
         val labelVisiting: String   = "Visiting:",
+        val labelValid: String      = "Valid:",
         val labelValidFor: String   = "Valid for 24 hours from entry",
         val labelPrinted: String    = "Printed:"
     )
@@ -96,43 +86,48 @@ object BadgeBitmapRenderer {
         val canvas = Canvas(bmp)
         canvas.drawColor(Color.WHITE)
 
-        drawHeader(canvas, data.labelBadgeTitle)
-        drawPhoto(canvas, data.profileBitmap)
-        drawQr(canvas, data.qrBitmap)
-        drawTextBlock(canvas, data)
-        drawDivider(canvas, DIVIDER1_Y)
-        drawVisitorTypePill(canvas, data.visitorTypeLabel, data.labelValidFor)
-        drawDivider(canvas, DIVIDER2_Y)
-        drawFooterText(canvas, data.labelPrinted, data.entryDate)
-        drawOrangeBar(canvas)
+        val headerBottom = drawHeader(canvas, data.labelBadgeTitle)
+        drawDivider(canvas, headerBottom + 4f)
+
+        val contentTop = headerBottom + 12f
+        val photoSize  = 160f
+        drawPhoto(canvas, data.profileBitmap, M, contentTop, photoSize)
+
+        val textX = M + photoSize + 16f
+        val dataBottom = drawDataColumn(canvas, data, textX, contentTop)
+
+        // Place divider below whichever is taller: photo or data column
+        val sectionBottom = maxOf(contentTop + photoSize, dataBottom) + 14f
+        drawDivider(canvas, sectionBottom)
+
+        val footerTop = sectionBottom + 10f
+        drawFooter(canvas, data, footerTop)
 
         return bmp
     }
 
     // ── Section renderers ─────────────────────────────────────────────────
 
-    private fun drawHeader(canvas: Canvas, title: String) {
-        // Background bar
-        canvas.drawRect(0f, 0f, BADGE_W.toFloat(), HEADER_H, paint { color = CLR_HEADER })
+    /** Draws header: "EFL Global" left + badge title right. Returns bottom Y. */
+    private fun drawHeader(canvas: Canvas, title: String): Float {
+        val y = M + 28f
 
-        // "EFL Global" on the left (orange accent)
+        // "EFL Global" on the left
         canvas.drawText(
-            "EFL Global",
-            16f, HEADER_H - 20f,
+            "EFL Global", M, y,
             paint {
-                color     = CLR_ORANGE
-                textSize  = 24f
+                color     = CLR_TEXT
+                textSize  = 26f
                 typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 isAntiAlias = true
             }
         )
 
-        // Badge title on the right (white)
+        // Badge title on the right
         canvas.drawText(
-            title.uppercase(Locale.getDefault()),
-            BADGE_W - 16f, HEADER_H - 20f,
+            title, BADGE_W - M, y,
             paint {
-                color     = Color.WHITE
+                color     = CLR_GRAY
                 textSize  = 22f
                 typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.RIGHT
@@ -140,150 +135,160 @@ object BadgeBitmapRenderer {
             }
         )
 
-        // Thin orange underline accent
-        canvas.drawRect(
-            0f, HEADER_H - 4f, BADGE_W.toFloat(), HEADER_H,
-            paint { color = CLR_ORANGE }
-        )
+        return y + 10f
     }
 
-    private fun drawPhoto(canvas: Canvas, src: Bitmap?) {
-        val rect = RectF(PHOTO_X, PHOTO_Y, PHOTO_X + PHOTO_W, PHOTO_Y + PHOTO_H)
+    /** Draws grayscale square photo with border. */
+    private fun drawPhoto(canvas: Canvas, src: Bitmap?, x: Float, y: Float, size: Float) {
+        val rect = RectF(x, y, x + size, y + size)
+
+        // Background
+        canvas.drawRoundRect(rect, 8f, 8f, paint { color = CLR_PHOTO_BG; isAntiAlias = true })
+
         if (src != null) {
             val gs     = toSquareGrayscale(src)
-            val scaled = Bitmap.createScaledBitmap(gs, PHOTO_W.toInt(), PHOTO_H.toInt(), true)
-            canvas.drawBitmap(scaled, PHOTO_X, PHOTO_Y, null)
+            val scaled = Bitmap.createScaledBitmap(gs, size.toInt(), size.toInt(), true)
+            canvas.drawBitmap(scaled, x, y, null)
             if (gs !== src) gs.recycle()
             if (scaled !== src) scaled.recycle()
         } else {
-            // Placeholder
-            canvas.drawRect(rect, paint { color = CLR_PHOTO_BG; isAntiAlias = true })
-            canvas.drawRect(rect, paint {
-                color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 1.5f; isAntiAlias = true
-            })
+            // Placeholder "N/A"
             canvas.drawText(
-                "N/A", PHOTO_X + PHOTO_W / 2f, PHOTO_Y + PHOTO_H / 2f + 10f,
-                paint { color = CLR_GRAY; textSize = 28f; textAlign = Paint.Align.CENTER; isAntiAlias = true }
+                "N/A", x + size / 2f, y + size / 2f + 10f,
+                paint {
+                    color = CLR_GRAY; textSize = 30f
+                    textAlign = Paint.Align.CENTER; isAntiAlias = true
+                }
             )
         }
+
         // Border overlay
-        canvas.drawRect(rect, paint {
-            color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 1f; isAntiAlias = true
+        canvas.drawRoundRect(rect, 8f, 8f, paint {
+            color = CLR_DIVIDER; style = Paint.Style.STROKE
+            strokeWidth = 2f; isAntiAlias = true
         })
     }
 
-    private fun drawQr(canvas: Canvas, qrBitmap: Bitmap?) {
-        if (qrBitmap == null) return
-        val scaled = Bitmap.createScaledBitmap(qrBitmap, QR_SIZE.toInt(), QR_SIZE.toInt(), true)
-        canvas.drawBitmap(scaled, QR_X, QR_Y, null)
-        if (scaled !== qrBitmap) scaled.recycle()
-        // Border
-        canvas.drawRect(
-            QR_X, QR_Y, QR_X + QR_SIZE, QR_Y + QR_SIZE,
-            paint { color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 1f; isAntiAlias = true }
-        )
-    }
+    /** Draws the data column: first name, last name, company, visiting, valid, printed. Returns bottom Y. */
+    private fun drawDataColumn(canvas: Canvas, data: RenderData, x: Float, startY: Float): Float {
+        val maxW = BADGE_W - x - M
+        var y = startY + 24f
 
-    private fun drawTextBlock(canvas: Canvas, data: RenderData) {
-        val maxTextWidth = QR_X - TEXT_X - 10f   // don't overlap QR code
-
-        var y = 114f
-
-        // ── Visitor name ─────────────────────────────────────────────────
+        // ── First name ───────────────────────────────────────────────────
         val namePaint = paint {
             color    = CLR_TEXT
-            textSize = 32f
+            textSize = 28f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
-        val nameStr = data.visitorName.uppercase(Locale.getDefault())
-        y = drawWrappedText(canvas, nameStr, TEXT_X, y, maxTextWidth, namePaint, lineSpacing = 36f)
-        y += 10f
+        val firstName = data.firstName.uppercase(Locale.getDefault())
+        y = drawWrappedText(canvas, firstName, x, y, maxW, namePaint, 32f)
+
+        // ── Last name ────────────────────────────────────────────────────
+        val lastName = data.lastName.uppercase(Locale.getDefault())
+        y = drawWrappedText(canvas, lastName, x, y, maxW, namePaint, 32f)
+        y += 8f
 
         // ── Company ──────────────────────────────────────────────────────
         if (!data.company.isNullOrBlank()) {
-            y = drawLabelValue(
-                canvas, data.labelCompany, data.company.take(30), TEXT_X, y, maxTextWidth
-            )
+            y = drawLabelValue(canvas, data.labelCompany, data.company.take(30), x, y)
             y += 4f
         }
 
         // ── Visiting ─────────────────────────────────────────────────────
-        y = drawLabelValue(
-            canvas, data.labelVisiting, data.visitingPerson.take(28), TEXT_X, y, maxTextWidth
-        )
-        y += 8f
+        y = drawLabelValue(canvas, data.labelVisiting, data.visitingPerson.take(28), x, y)
+        y += 10f
 
-        // ── Entry date ───────────────────────────────────────────────────
+        // ── Valid ────────────────────────────────────────────────────────
         val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             .format(Date(data.entryDate))
+        y = drawLabelValue(canvas, data.labelValid, dateStr, x, y)
+        y += 4f
+
+        // ── Printed ──────────────────────────────────────────────────────
+        val printedStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            .format(Date())
         canvas.drawText(
-            dateStr, TEXT_X, y,
-            paint { color = CLR_GRAY; textSize = 20f; isAntiAlias = true }
+            "${data.labelPrinted} $printedStr", x, y,
+            paint { color = CLR_LABEL; textSize = 19f; isAntiAlias = true }
         )
+        y += 22f
+
+        return y
     }
 
-    private fun drawVisitorTypePill(canvas: Canvas, typeLabel: String, noteText: String) {
-        val pillPaint = paint { color = CLR_PILL_BG; isAntiAlias = true }
-        val textPaint = paint {
-            color    = CLR_TEXT
-            textSize = 22f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            isAntiAlias = true
+    /** Draws footer: visitor type pill (left) + QR code (right) + note. */
+    private fun drawFooter(canvas: Canvas, data: RenderData, top: Float) {
+        // ── Visitor type pill ────────────────────────────────────────────
+        val pillText  = data.visitorTypeLabel.uppercase(Locale.getDefault())
+        val pillPaint = paint {
+            color = Color.BLACK; textSize = 20f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true
         }
+        val pillTextW = pillPaint.measureText(pillText)
+        val pillH     = 34f
+        val pillW     = pillTextW + 28f
+        val pillRect  = RectF(M, top, M + pillW, top + pillH)
+        canvas.drawRoundRect(pillRect, 50f, 50f, paint { color = CLR_CHIP_BG; isAntiAlias = true })
+        // Dark border so pill outline is visible on thermal print
+        canvas.drawRoundRect(pillRect, 50f, 50f, paint {
+            color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 2f; isAntiAlias = true
+        })
+        canvas.drawText(pillText, M + 14f, top + pillH - 9f, pillPaint)
 
-        val text      = typeLabel.uppercase(Locale.getDefault())
-        val textWidth = textPaint.measureText(text)
-        val pillH     = 38f
-        val pillLeft  = 16f
-        val pillRight = pillLeft + textWidth + 30f
-        val pillRect  = RectF(pillLeft, PILL_Y, pillRight, PILL_Y + pillH)
-        canvas.drawRoundRect(pillRect, 22f, 22f, pillPaint)
-        canvas.drawText(text, pillLeft + 15f, PILL_Y + pillH - 11f, textPaint)
+        // ── QR code (bottom-right) ───────────────────────────────────────
+        if (data.qrBitmap != null) {
+            val qrSize = 100f
+            val qrX    = BADGE_W - M - qrSize
+            val qrY    = top
+            val qrRect = RectF(qrX, qrY, qrX + qrSize, qrY + qrSize)
 
-        // Note text (smaller, gray) to the right of pill
-        val noteX = pillRight + 18f
-        if (noteX < BADGE_W - 20f) {
-            canvas.drawText(
-                noteText.take(55), noteX, PILL_Y + pillH - 11f,
-                paint { color = CLR_GRAY; textSize = 18f; isAntiAlias = true }
+            // White background + border
+            canvas.drawRoundRect(qrRect, 6f, 6f, paint { color = Color.WHITE; isAntiAlias = true })
+            canvas.drawRoundRect(qrRect, 6f, 6f, paint {
+                color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 1.5f; isAntiAlias = true
+            })
+
+            val padding = 4f
+            val scaled = Bitmap.createScaledBitmap(
+                data.qrBitmap,
+                (qrSize - padding * 2).toInt(),
+                (qrSize - padding * 2).toInt(),
+                true
             )
+            canvas.drawBitmap(scaled, qrX + padding, qrY + padding, null)
+            scaled.recycle()
         }
     }
+
+    // ── Drawing helpers ──────────────────────────────────────────────────
 
     private fun drawDivider(canvas: Canvas, y: Float) {
-        canvas.drawLine(16f, y, BADGE_W - 16f, y,
-            paint { color = CLR_DIVIDER; strokeWidth = 1.5f })
+        canvas.drawLine(M, y, BADGE_W - M, y,
+            paint { color = CLR_DIVIDER; strokeWidth = 2f; isAntiAlias = true })
     }
 
-    private fun drawFooterText(canvas: Canvas, printedLabel: String, entryDate: Long) {
-        canvas.drawText(
-            "$printedLabel ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}",
-            16f, PRINTED_Y,
-            paint { color = CLR_GRAY; textSize = 18f; isAntiAlias = true }
-        )
+    /** Draws a gray [label] + bold [value] inline. Returns the Y after the line. */
+    private fun drawLabelValue(canvas: Canvas, label: String, value: String, x: Float, y: Float): Float {
+        val labelPaint = paint { color = CLR_LABEL; textSize = 21f; isAntiAlias = true }
+        val valuePaint = paint {
+            color    = CLR_TEXT; textSize = 21f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true
+        }
+        canvas.drawText(label, x, y, labelPaint)
+        val lw = labelPaint.measureText(label)
+        canvas.drawText(value, x + lw + 6f, y, valuePaint)
+        return y + 27f
     }
 
-    private fun drawOrangeBar(canvas: Canvas) {
-        canvas.drawRect(0f, FOOTER_Y, BADGE_W.toFloat(), BADGE_H.toFloat(),
-            paint { color = CLR_ORANGE })
-    }
-
-    // ── Text helpers ──────────────────────────────────────────────────────
-
-    /**
-     * Draws [text] starting at ([x], [y]), wrapping onto a new line if [text] exceeds [maxWidth].
-     * Returns the Y position after the last drawn line.
-     */
     private fun drawWrappedText(
         canvas: Canvas, text: String, x: Float, y: Float,
-        maxWidth: Float, paint: Paint, lineSpacing: Float = 36f
+        maxWidth: Float, paint: Paint, lineSpacing: Float = 32f
     ): Float {
         if (paint.measureText(text) <= maxWidth) {
             canvas.drawText(text, x, y, paint)
             return y + lineSpacing
         }
-        // Split at words
         val words = text.split(" ")
         var line  = ""
         var curY  = y
@@ -304,24 +309,6 @@ object BadgeBitmapRenderer {
             curY += lineSpacing
         }
         return curY
-    }
-
-    /** Draws a gray [label] followed by a bold [value]. Returns the Y after the line. */
-    private fun drawLabelValue(
-        canvas: Canvas, label: String, value: String,
-        x: Float, y: Float, maxWidth: Float
-    ): Float {
-        val labelPaint = paint { color = CLR_GRAY; textSize = 22f; isAntiAlias = true }
-        val valuePaint = paint {
-            color    = CLR_TEXT
-            textSize = 22f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            isAntiAlias = true
-        }
-        canvas.drawText(label, x, y, labelPaint)
-        val lw = labelPaint.measureText(label)
-        canvas.drawText(value, x + lw + 6f, y, valuePaint)
-        return y + 30f
     }
 
     // ── Bitmap utilities ──────────────────────────────────────────────────
@@ -350,4 +337,3 @@ object BadgeBitmapRenderer {
 
     private inline fun paint(block: Paint.() -> Unit) = Paint().apply(block)
 }
-

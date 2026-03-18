@@ -61,7 +61,8 @@ private fun toSquareGrayscale(src: Bitmap): Bitmap {
 
 @Composable
 fun VisitorBadgeButton(
-    visitorName: String,
+    firstName: String,
+    lastName: String,
     company: String?,
     visitingPerson: String,
     visitDate: Long,
@@ -117,7 +118,8 @@ fun VisitorBadgeButton(
                 printMessage = strPrinting
 
                 val renderData = BadgeBitmapRenderer.RenderData(
-                    visitorName      = visitorName,
+                    firstName        = firstName,
+                    lastName         = lastName,
                     company          = company,
                     visitingPerson   = visitingPerson,
                     visitorTypeLabel = strVisitorTypeLabel,
@@ -125,7 +127,9 @@ fun VisitorBadgeButton(
                     profileBitmap    = profileBitmap,  // renderer handles grayscale internally
                     qrBitmap         = qrBitmap,
                     labelBadgeTitle  = strBadgeTitle,
+                    labelCompany     = strCompany,
                     labelVisiting    = strVisiting,
+                    labelValid       = strValid,
                     labelValidFor    = strBadgeNote,
                     labelPrinted     = strPrinted
                 )
@@ -203,7 +207,8 @@ fun VisitorBadgeButton(
     if (showBadge) {
         Dialog(onDismissRequest = { showBadge = false }) {
             VisitorBadgeCard(
-                visitorName         = visitorName,
+                firstName           = firstName,
+                lastName            = lastName,
                 company             = company,
                 visitingPerson      = visitingPerson,
                 visitDate           = visitDate,
@@ -226,7 +231,8 @@ fun VisitorBadgeButton(
 
 @Composable
 private fun VisitorBadgeCard(
-    visitorName: String,
+    firstName: String,
+    lastName: String,
     company: String?,
     visitingPerson: String,
     visitDate: Long,
@@ -351,14 +357,25 @@ private fun VisitorBadgeCard(
                             modifier              = Modifier.weight(1f),
                             verticalArrangement   = Arrangement.spacedBy(6.dp)
                         ) {
-                            // Full name (bold, large)
+                            // First name (bold)
                             Text(
-                                text       = visitorName.uppercase(),
+                                text       = firstName.uppercase(),
                                 fontSize   = 13.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color      = Color(0xFF212121),
                                 lineHeight = 16.sp,
-                                maxLines   = 2,
+                                maxLines   = 1,
+                                overflow   = TextOverflow.Ellipsis
+                            )
+
+                            // Last name (bold)
+                            Text(
+                                text       = lastName.uppercase(),
+                                fontSize   = 13.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color      = Color(0xFF212121),
+                                lineHeight = 16.sp,
+                                maxLines   = 1,
                                 overflow   = TextOverflow.Ellipsis
                             )
 
@@ -390,20 +407,6 @@ private fun VisitorBadgeCard(
                                 )
                             }
 
-                            // ID chip (visit date as unique badge ID)
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFFF0F0F0), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                            ) {
-                                Text(
-                                    text       = "ID: ${visitDate.toString().takeLast(10)}",
-                                    fontSize   = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color      = Color(0xFF424242)
-                                )
-                            }
 
                             // Valid until
                             Row(verticalAlignment = Alignment.CenterVertically) {

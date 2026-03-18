@@ -1115,7 +1115,8 @@ private fun VisitDetailsContent(
                     // Print badge button
                     item {
                         VisitorBadgeButton(
-                            visitorName    = "${visitWithInfo.personFirstName} ${visitWithInfo.personLastName}",
+                            firstName      = visitWithInfo.personFirstName,
+                            lastName       = visitWithInfo.personLastName,
                             company        = visitWithInfo.personCompany,
                             visitingPerson = visit.visitingPersonName,
                             visitDate      = visit.entryDate,

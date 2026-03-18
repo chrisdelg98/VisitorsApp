@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp.core.printing
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -444,15 +445,41 @@ object BrotherPrinterAdapter : PrinterAdapter {
             ?: return PrintResult.Error("No IP address for raw raster printing")
         val port = config.networkPort
 
-        // ── Scale bitmap to 720 pixels wide (printable area for 62mm @ 300 DPI) ──
+        // ── Step 1: Rotate 90° CW — landscape → portrait on the roll ─────
+        // The badge is rendered as landscape (696×480).  The Brother QL roll
+        // is 62 mm wide (720 dots @ 300 DPI).  Without rotation the 696 px
+        // width fills the 62 mm, producing a tiny ≈42 mm tall label.
+        // Rotating 90° CW maps the shorter side (480 px → 62 mm width)
+        // and the longer side (696 px → feed direction ≈88 mm length),
+        // giving a properly-sized ≈62 mm × ≈88 mm badge.
+        val cwMatrix = Matrix().apply { postRotate(90f) }
+        val rotatedCW = Bitmap.createBitmap(
+            bitmap, 0, 0, bitmap.width, bitmap.height, cwMatrix, true
+        )
+        // rotatedCW is now  480 × 696
+
+        // ── Step 2: Vertical flip for QL raster protocol ─────────────────
+        // Brother QL convention: first raster line = leading edge (exits
+        // the printer first).  The flip ensures the badge top exits last
+        // and reads correctly when the printed label is rotated 90° CCW.
+        val flipMatrix = Matrix().apply {
+            postScale(1f, -1f, rotatedCW.width / 2f, rotatedCW.height / 2f)
+        }
+        val rotated = Bitmap.createBitmap(
+            rotatedCW, 0, 0, rotatedCW.width, rotatedCW.height, flipMatrix, true
+        )
+        rotatedCW.recycle()
+
+        // ── Step 3: Scale to 720 px wide (62 mm printable area @ 300 DPI) ─
         val targetW = 720
-        val scale = targetW.toFloat() / bitmap.width
-        val targetH = (bitmap.height * scale).toInt()
-        val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+        val scale = targetW.toFloat() / rotated.width
+        val targetH = (rotated.height * scale).toInt()
+        val scaled = Bitmap.createScaledBitmap(rotated, targetW, targetH, true)
+        rotated.recycle()
         val bytesPerLine = targetW / 8  // 720 / 8 = 90 bytes per raster line
         val numLines = targetH
 
-        Log.i(TAG, "  Raw raster: ${bitmap.width}×${bitmap.height} → ${targetW}×${targetH}, $numLines lines, $bytesPerLine bytes/line")
+        Log.i(TAG, "  Raw raster: ${bitmap.width}×${bitmap.height} → 90°CW+vFlip → scale → ${targetW}×${targetH}, $numLines lines, $bytesPerLine bytes/line")
 
         val socket = java.net.Socket()
         try {
@@ -503,7 +530,43 @@ object BrotherPrinterAdapter : PrinterAdapter {
             // ── 8. Compression mode off (M 0) ──
             out.write(byteArrayOf(0x4D, 0x00))
 
-            // ── 9. Send raster data, line by line ──
+            // ── 9. Apply Floyd-Steinberg dithering & send raster data ──────
+            // Dithering distributes quantisation error to neighbouring pixels,
+            // producing much better photo quality on 1-bit thermal printers.
+            // We work on a float grayscale buffer to avoid integer rounding issues.
+            val grayBuf = FloatArray(targetW * targetH)
+            for (y in 0 until targetH) {
+                for (x in 0 until targetW) {
+                    val px = scaled.getPixel(x, y)
+                    val r = (px shr 16) and 0xFF
+                    val g = (px shr 8) and 0xFF
+                    val b = px and 0xFF
+                    grayBuf[y * targetW + x] = (0.299f * r + 0.587f * g + 0.114f * b)
+                }
+            }
+
+            // Floyd-Steinberg error diffusion
+            for (y in 0 until targetH) {
+                for (x in 0 until targetW) {
+                    val idx = y * targetW + x
+                    val oldVal = grayBuf[idx]
+                    val newVal = if (oldVal < 128f) 0f else 255f
+                    grayBuf[idx] = newVal
+                    val err = oldVal - newVal
+                    // Distribute error to neighbours
+                    if (x + 1 < targetW)
+                        grayBuf[idx + 1] += err * 7f / 16f
+                    if (y + 1 < targetH) {
+                        if (x - 1 >= 0)
+                            grayBuf[(y + 1) * targetW + (x - 1)] += err * 3f / 16f
+                        grayBuf[(y + 1) * targetW + x] += err * 5f / 16f
+                        if (x + 1 < targetW)
+                            grayBuf[(y + 1) * targetW + (x + 1)] += err * 1f / 16f
+                    }
+                }
+            }
+
+            // Convert dithered buffer to raster data and send line by line
             val lineHeader = byteArrayOf(
                 0x67,                            // 'g' = raster graphics transfer
                 0x00,                            // compression mode 0 (none)
@@ -512,17 +575,9 @@ object BrotherPrinterAdapter : PrinterAdapter {
             val lineData = ByteArray(bytesPerLine)
 
             for (y in 0 until numLines) {
-                // Clear line buffer
                 lineData.fill(0)
-
-                // Convert pixel row to 1-bit monochrome (MSB first, dark = ink)
                 for (x in 0 until targetW) {
-                    val px = scaled.getPixel(x, y)
-                    val r = (px shr 16) and 0xFF
-                    val g = (px shr 8) and 0xFF
-                    val b = px and 0xFF
-                    val luma = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-                    if (luma < 128) {  // dark pixel → print (black)
+                    if (grayBuf[y * targetW + x] < 128f) {  // black pixel → ink
                         lineData[x / 8] = (lineData[x / 8].toInt() or (0x80 shr (x % 8))).toByte()
                     }
                 }
@@ -554,7 +609,7 @@ object BrotherPrinterAdapter : PrinterAdapter {
             return PrintResult.Error("Raw raster: ${e.message}")
         } finally {
             runCatching { socket.close() }
-            if (scaled !== bitmap) scaled.recycle()
+            runCatching { scaled.recycle() }
         }
     }
 
@@ -645,15 +700,23 @@ object BrotherPrinterAdapter : PrinterAdapter {
             Log.d(TAG, "  CustomPaperApi (post-setPrinterInfo): ok=$ok")
         }
 
-        // ── Step 3: Communicate and print ──
-        Log.d(TAG, "  bitmap ${bitmap.width}×${bitmap.height} → startCommunication…")
+        // ── Step 3: Rotate bitmap 90° CW (landscape → portrait on roll) ──
+        // Same logic as the raw raster path: the badge is 696×480 landscape
+        // but the QL roll is only 62 mm wide.  Rotating maps the shorter
+        // side to the roll width and the longer side to the feed direction.
+        val cwMatrix = Matrix().apply { postRotate(90f) }
+        val printBitmap = Bitmap.createBitmap(
+            bitmap, 0, 0, bitmap.width, bitmap.height, cwMatrix, true
+        )
+        Log.d(TAG, "  bitmap ${bitmap.width}×${bitmap.height} → 90°CW → ${printBitmap.width}×${printBitmap.height} → startCommunication…")
         sdk.invoke(printer, "startCommunication")
 
         val status = try {
             sdk.printerClass.getMethod("printImage", Bitmap::class.java)
-                .invoke(printer, bitmap)
+                .invoke(printer, printBitmap)
         } finally {
             runCatching { sdk.invoke(printer, "endCommunication") }
+            if (printBitmap !== bitmap) printBitmap.recycle()
         }
 
         if (status == null) return "ERROR_NULL_STATUS" to mapOf("errorCode" to "ERROR_NULL_STATUS")

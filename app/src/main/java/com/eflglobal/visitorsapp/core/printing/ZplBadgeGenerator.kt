@@ -28,7 +28,8 @@ import java.util.Locale
 object ZplBadgeGenerator {
 
     data class BadgeData(
-        val visitorName: String,
+        val firstName: String,
+        val lastName: String,
         val company: String?,
         val visitingPerson: String,
         val visitorTypeLabel: String,
@@ -64,7 +65,8 @@ object ZplBadgeGenerator {
         val dateFmt     = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         val dateTimeFmt = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
-        val name      = data.visitorName.take(22)
+        val firstName = data.firstName.take(22)
+        val lastName  = data.lastName.take(22)
         val company   = data.company?.take(30) ?: ""
         val visiting  = data.visitingPerson.take(26)
         val dateStr   = dateFmt.format(Date(data.entryDate))
@@ -96,12 +98,13 @@ object ZplBadgeGenerator {
             }
 
             // ── Text block ─────────────────────────────────────────────────
-            append("^FO${TEXT_X},88^A0N,48,42^FD$name^FS")
+            append("^FO${TEXT_X},88^A0N,40,36^FD$firstName^FS")
+            append("^FO${TEXT_X},132^A0N,40,36^FD$lastName^FS")
             if (company.isNotBlank()) {
-                append("^FO${TEXT_X},148^A0N,28,24^FD$company^FS")
+                append("^FO${TEXT_X},180^A0N,28,24^FD$company^FS")
             }
-            append("^FO${TEXT_X},188^A0N,26,22^FD${data.labelVisiting}: $visiting^FS")
-            append("^FO${TEXT_X},226^A0N,24,20^FD$dateStr^FS")
+            append("^FO${TEXT_X},216^A0N,26,22^FD${data.labelVisiting}: $visiting^FS")
+            append("^FO${TEXT_X},254^A0N,24,20^FD$dateStr^FS")
 
             // ── QR code ────────────────────────────────────────────────────
             // ^BQN,model=2,magnification=5  ^FD error_level,data ^FS

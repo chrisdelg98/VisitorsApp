@@ -191,6 +191,8 @@ class NewVisitViewModel(
                         _uiState.value = NewVisitUiState.Success(
                             qrCode           = visit.qrCodeValue,
                             personName       = "$firstName $lastName".trim(),
+                            firstName        = firstName,
+                            lastName         = lastName,
                             visitingPerson   = visitingPersonName,
                             company          = company,
                             profilePhotoPath = profilePhotoPath,
@@ -242,6 +244,8 @@ sealed class NewVisitUiState {
     data class Success(
         val qrCode: String,
         val personName: String,
+        val firstName: String,
+        val lastName: String,
         val visitingPerson: String,
         val company: String?,
         val profilePhotoPath: String? = null,

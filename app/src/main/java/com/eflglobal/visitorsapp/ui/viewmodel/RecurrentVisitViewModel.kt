@@ -205,6 +205,8 @@ class RecurrentVisitViewModel(
                         _uiState.value = RecurrentVisitUiState.Success(
                             qrCode           = visit.qrCodeValue,
                             personName       = displayName,
+                            firstName        = finalFirstName,
+                            lastName         = finalLastName,
                             visitingPerson   = visitingPersonName,
                             company          = finalCompany,
                             profilePhotoPath = newPhoto ?: person.profilePhotoPath,
@@ -270,6 +272,8 @@ sealed class RecurrentVisitUiState {
     data class Success(
         val qrCode: String,
         val personName: String,
+        val firstName: String,
+        val lastName: String,
         val visitingPerson: String,
         val company: String?,
         val profilePhotoPath: String? = null,

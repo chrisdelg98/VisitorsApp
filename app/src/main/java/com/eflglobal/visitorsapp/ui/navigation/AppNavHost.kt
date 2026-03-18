@@ -147,6 +147,18 @@ fun AppNavHost(
                 else -> null
             }
 
+            val personFirstName = when {
+                newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.firstName
+                recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.firstName
+                else -> null
+            }
+
+            val personLastName = when {
+                newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.lastName
+                recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.lastName
+                else -> null
+            }
+
             val visitingPerson = when {
                 newVisitState is com.eflglobal.visitorsapp.ui.viewmodel.NewVisitUiState.Success -> newVisitState.visitingPerson
                 recurrentVisitState is com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitUiState.Success -> recurrentVisitState.visitingPerson
@@ -189,6 +201,8 @@ fun AppNavHost(
                 selectedLanguage = selectedLanguage,
                 qrCode           = qrCode,
                 personName       = personName,
+                firstName        = personFirstName,
+                lastName         = personLastName,
                 visitingPerson   = visitingPerson,
                 company          = company,
                 profilePhotoPath = profilePhotoPath,

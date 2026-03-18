@@ -45,6 +45,8 @@ fun ConfirmScreen(
     selectedLanguage: String = "es",
     qrCode: String? = null,
     personName: String? = null,
+    firstName: String? = null,
+    lastName: String? = null,
     visitingPerson: String? = null,
     company: String? = null,
     profilePhotoPath: String? = null,
@@ -194,7 +196,8 @@ fun ConfirmScreen(
                         // Botón Ver Carnet de Visitante
                         if (qrBitmap != null && personName != null && visitingPerson != null) {
                             VisitorBadgeButton(
-                                visitorName      = personName,
+                                firstName        = firstName ?: personName.substringBefore(" "),
+                                lastName         = lastName ?: personName.substringAfter(" ", ""),
                                 company          = company,
                                 visitingPerson   = visitingPerson,
                                 visitDate        = System.currentTimeMillis(),
