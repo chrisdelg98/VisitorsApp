@@ -155,6 +155,9 @@
     <string name="configure_station">Configurar Estação</string>
     <string name="invalid_pin">PIN inválido. Por favor, tente novamente.</string>
     <string name="setup_instructions">Esta é a configuração inicial da estação. Digite o PIN fornecido pelo seu administrador.</string>
+    <string name="activate_station">Ativar Estação</string>
+    <string name="station_note_title">Registro único do dispositivo</string>
+    <string name="station_note_body">Esta configuração é realizada apenas uma vez por dispositivo. Uma vez ativada, este tablet será registrado como estação de controle. Contate seu administrador se precisar do PIN de ativação.</string>
 
     <!-- OCR extraction banner -->
     <string name="ocr_auto_filled">Dados detectados automaticamente do documento</string>
