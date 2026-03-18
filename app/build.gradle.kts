@@ -57,8 +57,8 @@ ksp {
 }
 
 dependencies {
-    // ── Zebra Link-OS SDK v2.16.5518 + dependencies (local JARs) ──────────────
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
+    // ── Zebra Link-OS SDK + Brother Print Library + other local libs ──────────
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

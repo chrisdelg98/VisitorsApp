@@ -1,26 +1,26 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<!-- French translations / Traductions franÃ§aises -->
+﻿﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- French translations / Traductions françaises -->
 <resources>
     <string name="app_name">VisitorsApp</string>
 
-    <!-- â”€â”€ HomeScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── HomeScreen ──────────────────────────────────── -->
     <string name="welcome">Bienvenue</string>
-    <string name="visitor_registration_system">SystÃ¨me d\'enregistrement des visiteurs</string>
+    <string name="visitor_registration_system">Système d\'enregistrement des visiteurs</string>
     <string name="select_language">Choisir la langue</string>
     <string name="new_visit">Nouvelle visite</string>
     <string name="new_visit_desc">Enregistrer un nouveau visiteur</string>
-    <string name="returning_visit">Visite rÃ©currente</string>
-    <string name="returning_visit_desc">Visiteur dÃ©jÃ  enregistrÃ©</string>
+    <string name="returning_visit">Visite récurrente</string>
+    <string name="returning_visit_desc">Visiteur déjà enregistré</string>
     <string name="end_visit">Terminer la visite</string>
     <string name="end_visit_desc">Scanner le QR code de sortie</string>
 
-    <!-- â”€â”€ Language names â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── Language names ─────────────────────────────── -->
     <string name="lang_spanish">Espagnol</string>
     <string name="lang_english">Anglais</string>
     <string name="lang_portuguese">Portugais</string>
-    <string name="lang_french">FranÃ§ais</string>
+    <string name="lang_french">Français</string>
 
-    <!-- â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── Navigation ─────────────────────────────────── -->
     <string name="back">Retour</string>
     <string name="continue_btn">Continuer</string>
     <string name="cancel">Annuler</string>
@@ -30,9 +30,9 @@
     <string name="edit">Modifier</string>
     <string name="optional">Optionnel</string>
 
-    <!-- â”€â”€ DocumentScanScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── DocumentScanScreen ─────────────────────────── -->
     <string name="scan_document">Scanner le document</string>
-    <string name="scan_document_hint">Les documents sont numÃ©risÃ©s avec la camÃ©ra arriÃ¨re de l\'appareil</string>
+    <string name="scan_document_hint">Les documents sont numérisés avec la caméra arrière de l\'appareil</string>
     <string name="i_am_a">Je suis un:</string>
     <string name="visitor">Visiteur</string>
     <string name="visitor_type">Visiteur</string>
@@ -42,212 +42,217 @@
     <string name="driver">Chauffeur</string>
     <string name="temporary_staff">Personnel temporaire</string>
     <string name="other">Autre</string>
-    <string name="select_option">SÃ©lectionnez une option</string>
-    <string name="what_doc_type">Quel type de document prÃ©sentez-vous ?</string>
-    <string name="identity_document_id">Document d\'identitÃ© / ID</string>
+    <string name="select_option">Sélectionnez une option</string>
+    <string name="what_doc_type">Quel type de document présentez-vous ?</string>
+    <string name="identity_document_id">Document d\'identité / ID</string>
     <string name="passport">Passeport</string>
     <string name="front_of_document">Recto du document</string>
     <string name="back_of_document">Verso du document</string>
-    <string name="scanned_successfully">âœ“ ScannÃ© avec succÃ¨s</string>
+    <string name="scanned_successfully">✓ Scanné avec succès</string>
     <string name="tap_to_scan">Appuyez pour scanner</string>
     <string name="scan_front_first">Scannez le recto d\'abord</string>
 
-    <!-- â”€â”€ DocumentCameraModal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── DocumentCameraModal ────────────────────────── -->
     <string name="center_document">Centrez le document dans le cadre</string>
-    <string name="focusing">Mise au pointâ€¦</string>
-    <string name="capturing">Captureâ€¦</string>
-    <string name="verifying">VÃ©rificationâ€¦</string>
-    <string name="document_accepted">Document acceptÃ© !</string>
+    <string name="focusing">Mise au point…</string>
+    <string name="capturing">Capture…</string>
+    <string name="verifying">Vérification…</string>
+    <string name="document_accepted">Document accepté !</string>
     <string name="capture_hint">La capture sera automatique lorsque le document sera net</string>
 
-    <!-- â”€â”€ DocumentValidator error messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <string name="err_raw_blurry">Image floue.\nMaintenez le document immobile et rÃ©essayez.</string>
-    <string name="err_crop_failed">Impossible de recadrer le document.\nVeuillez rÃ©essayer.</string>
-    <string name="err_crop_blurry">Le document n\'est pas assez net.\nTenez-le stable et plus prÃ¨s.</string>
-    <string name="err_no_text">Aucun texte dÃ©tectÃ©.\nCentrez le document dans le cadre.</string>
-    <string name="err_not_document">Ne semble pas Ãªtre un document d\'identitÃ©.\nUtilisez un ID, passeport ou permis.</string>
+    <!-- ── DocumentValidator error messages ──────────── -->
+    <string name="err_raw_blurry">Image floue.\nMaintenez le document immobile et réessayez.</string>
+    <string name="err_crop_failed">Impossible de recadrer le document.\nVeuillez réessayer.</string>
+    <string name="err_crop_blurry">Le document n\'est pas assez net.\nTenez-le stable et plus près.</string>
+    <string name="err_no_text">Aucun texte détecté.\nCentrez le document dans le cadre.</string>
+    <string name="err_not_document">Ne semble pas être un document d\'identité.\nUtilisez un ID, passeport ou permis.</string>
     <string name="err_not_recognised">Document non reconnu.\nAssurez-vous qu\'il est lisible.</string>
-    <string name="err_duplicate_side">Il semble s\'agir du mÃªme cÃ´tÃ© du document.\nRetournez-le et scannez le verso.</string>
+    <string name="err_duplicate_side">Il semble s\'agir du même côté du document.\nRetournez-le et scannez le verso.</string>
 
-    <!-- â”€â”€ PersonDataScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── PersonDataScreen ───────────────────────────── -->
     <string name="visitor_information">Informations du visiteur</string>
     <string name="personal_information">Informations personnelles</string>
-    <string name="first_name">PrÃ©nom(s)</string>
-    <string name="enter_first_name">Entrez le(s) prÃ©nom(s)</string>
+    <string name="first_name">Prénom(s)</string>
+    <string name="enter_first_name">Entrez le(s) prénom(s)</string>
     <string name="last_name">Nom(s) de famille</string>
     <string name="enter_last_name">Entrez le(s) nom(s)</string>
     <string name="company">Entreprise</string>
     <string name="email">Adresse e-mail</string>
     <string name="enter_email">exemple@email.com</string>
-    <string name="phone">NumÃ©ro de tÃ©lÃ©phone</string>
-    <string name="enter_phone">Entrez le numÃ©ro de tÃ©lÃ©phone</string>
-    <string name="who_visiting">Nom complet de la personne visitÃ©e</string>
-    <string name="visiting_person">Personne VisitÃ©e</string>
+    <string name="phone">Numéro de téléphone</string>
+    <string name="enter_phone">Entrez le numéro de téléphone</string>
+    <string name="who_visiting">Nom complet de la personne visitée</string>
+    <string name="visiting_person">Personne Visitée</string>
     <string name="enter_who_visiting">Entrez le nom de la personne</string>
     <string name="personal_photo">Photo personnelle</string>
     <string name="take_photo">Prendre une photo</string>
     <string name="retake_photo">Reprendre la photo</string>
-    <string name="photo_taken_successfully">Photo prise avec succÃ¨s</string>
-    <string name="detected_from_document">DÃ©tectÃ© automatiquement depuis le document</string>
+    <string name="photo_taken_successfully">Photo prise avec succès</string>
+    <string name="detected_from_document">Détecté automatiquement depuis le document</string>
     <string name="visit_reason">Motif de la visite</string>
-    <string name="select_visit_reason">SÃ©lectionnez un motif</string>
-    <string name="other_specify">PrÃ©cisez le motif</string>
-    <string name="document_number">NumÃ©ro de document</string>
+    <string name="select_visit_reason">Sélectionnez un motif</string>
+    <string name="other_specify">Précisez le motif</string>
+    <string name="document_number">Numéro de document</string>
 
-    <!-- â”€â”€ Photo Capture Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <string name="get_ready">PrÃ©parez-vous !</string>
-    <string name="look_at_camera">Regardez la camÃ©ra et souriez</string>
+    <!-- ── Photo Capture Modal ────────────────────────── -->
+    <string name="get_ready">Préparez-vous !</string>
+    <string name="look_at_camera">Regardez la caméra et souriez</string>
     <string name="photo_will_be_taken">La photo sera prise automatiquement</string>
     <string name="position_face">Placez votre visage dans l\'ovale</string>
 
-    <!-- â”€â”€ ConfirmScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── ConfirmScreen ──────────────────────────────── -->
     <string name="confirmation">Confirmation</string>
-    <string name="verify_information">VÃ©rifier les informations</string>
+    <string name="verify_information">Vérifier les informations</string>
     <string name="confirm_subtitle">Veuillez confirmer que les informations sont correctes avant de finaliser l\'enregistrement</string>
-    <string name="documents_verified">Documents vÃ©rifiÃ©s</string>
-    <string name="front_back_scanned">Recto et verso scannÃ©s avec succÃ¨s</string>
+    <string name="documents_verified">Documents vérifiés</string>
+    <string name="front_back_scanned">Recto et verso scannés avec succès</string>
     <string name="confirm_registration">Confirmer l\'enregistrement</string>
     <string name="edit_information">Modifier les informations</string>
-    <string name="visitor_data">DonnÃ©es du visiteur</string>
+    <string name="visitor_data">Données du visiteur</string>
     <string name="visiting_label">Visite</string>
     <string name="type_label">Type</string>
     <string name="document_type">Type de document</string>
     <string name="full_name_label">Nom complet</string>
     <string name="date_and_time">Date et heure</string>
-    <string name="registration_success">Enregistrement rÃ©ussi !</string>
-    <string name="visitor_registered_correctly">Le visiteur a Ã©tÃ© enregistrÃ© avec succÃ¨s.</string>
-    <string name="visit_registered">Votre visite a Ã©tÃ© enregistrÃ©e avec succÃ¨s</string>
+    <string name="registration_success">Enregistrement réussi !</string>
+    <string name="visitor_registered_correctly">Le visiteur a été enregistré avec succès.</string>
+    <string name="visit_registered">Votre visite a été enregistrée avec succès</string>
     <string name="keep_qr_code">Veuillez conserver ce QR code pour enregistrer votre sortie</string>
     <string name="visit_qr_code">QR Code de visite</string>
     <string name="printing_qr">Impression du QR code...</string>
-    <string name="no_printer_found">Aucune imprimante trouvÃ©e. Enregistrement terminÃ© avec succÃ¨s.</string>
+    <string name="no_printer_found">Aucune imprimante trouvée. Enregistrement terminé avec succès.</string>
 
-    <!-- â”€â”€ CheckoutQrScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── CheckoutQrScreen ───────────────────────────── -->
     <string name="end_visit_title">Terminer la visite</string>
     <string name="scan_qr_code">Scanner le QR code</string>
-    <string name="present_qr">PrÃ©sentez le QR code de votre visite pour enregistrer la sortie</string>
-    <string name="place_qr">Placez le QR code\ndans la zone indiquÃ©e</string>
+    <string name="present_qr">Présentez le QR code de votre visite pour enregistrer la sortie</string>
+    <string name="place_qr">Placez le QR code\ndans la zone indiquée</string>
     <string name="scanning_qr">Scan du QR code...</string>
     <string name="valid_code">Code valide !</string>
     <string name="processing_checkout">Traitement de la sortie...</string>
-    <string name="start_scanning">DÃ©marrer le scan</string>
-    <string name="use_qr_hint">Utilisez le QR code reÃ§u lors de votre enregistrement d\'entrÃ©e</string>
-    <string name="checkout_success">Sortie enregistrÃ©e !</string>
+    <string name="start_scanning">Démarrer le scan</string>
+    <string name="use_qr_hint">Utilisez le QR code reçu lors de votre enregistrement d\'entrée</string>
+    <string name="checkout_success">Sortie enregistrée !</string>
     <string name="checkout_time">Heure de sortie</string>
     <string name="thanks_for_visit">Merci de votre visite</string>
     <string name="manual_checkout">Sortie manuelle</string>
-    <string name="manual_checkout_instructions">Scannez le QR code du visiteur ou recherchez-le manuellement par son nom pour complÃ©ter la sortie.</string>
+    <string name="manual_checkout_instructions">Scannez le QR code du visiteur ou recherchez-le manuellement par son nom pour compléter la sortie.</string>
     <string name="visiting_colon">Visite : %s</string>
 
-    <!-- â”€â”€ RecurringVisitScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <string name="recurring_visit">Visite rÃ©currente</string>
-    <string name="search_registered">Rechercher un visiteur enregistrÃ©</string>
+    <!-- ── RecurringVisitScreen ───────────────────────── -->
+    <string name="recurring_visit">Visite récurrente</string>
+    <string name="search_registered">Rechercher un visiteur enregistré</string>
     <string name="search_by_name">Rechercher par nom ou document...</string>
-    <string name="no_results">Aucun rÃ©sultat trouvÃ©</string>
+    <string name="no_results">Aucun résultat trouvé</string>
     <string name="try_different_search">Essayez un autre terme de recherche</string>
-    <string name="recent_visitors">Visiteurs rÃ©cents</string>
-    <string name="last_visit">DerniÃ¨re visite</string>
-    <string name="select_visitor">SÃ©lectionner</string>
+    <string name="recent_visitors">Visiteurs récents</string>
+    <string name="last_visit">Dernière visite</string>
+    <string name="select_visitor">Sélectionner</string>
 
-    <!-- â”€â”€ StationSetupScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── StationSetupScreen ─────────────────────────── -->
     <string name="station_setup">Configuration de la station</string>
-    <string name="enter_pin">Entrez le PIN Ã  8 chiffres</string>
+    <string name="enter_pin">Entrez le PIN à 8 chiffres</string>
     <string name="configure_station">Configurer la station</string>
-    <string name="invalid_pin">PIN invalide. Veuillez rÃ©essayer.</string>
+    <string name="invalid_pin">PIN invalide. Veuillez réessayer.</string>
     <string name="setup_instructions">Il s\'agit de la configuration initiale de la station. Entrez le PIN fourni par votre administrateur.</string>
 
-    <!-- â”€â”€ OCR extraction banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <string name="ocr_auto_filled">DonnÃ©es dÃ©tectÃ©es automatiquement du document</string>
-    <string name="ocr_partial">DonnÃ©es partiellement dÃ©tectÃ©es. Veuillez vÃ©rifier les champs.</string>
-    <string name="ocr_none">Non dÃ©tectÃ©</string>
+    <!-- ── OCR extraction banner ──────────────────────── -->
+    <string name="ocr_auto_filled">Données détectées automatiquement du document</string>
+    <string name="ocr_partial">Données partiellement détectées. Veuillez vérifier les champs.</string>
+    <string name="ocr_none">Non détecté</string>
     <string name="required_field">Requis</string>
 
-    <!-- â”€â”€ RecurrentDocumentScanScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <string name="verify_document">VÃ©rifier le Document</string>
-    <string name="identity_verification">VÃ©rification d\'IdentitÃ©</string>
-    <string name="identity_verification_hint">Pour des raisons de certification, nous devons vÃ©rifier votre document Ã  nouveau.</string>
-    <string name="scan_both_sides">Scannez les deux cÃ´tÃ©s du document pour continuer</string>
+    <!-- ── RecurrentDocumentScanScreen ──────────────────── -->
+    <string name="verify_document">Vérifier le Document</string>
+    <string name="identity_verification">Vérification d\'Identité</string>
+    <string name="identity_verification_hint">Pour des raisons de certification, nous devons vérifier votre document à nouveau.</string>
+    <string name="scan_both_sides">Scannez les deux côtés du document pour continuer</string>
 
-    <!-- â”€â”€ RecurrentSearchScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <string name="select_visitor_hint">SÃ©lectionnez un visiteur pour crÃ©er un nouvel enregistrement de visite</string>
-    <string name="search_hint_3chars">Entrez au moins 3 caractÃ¨res pour rechercher</string>
+    <!-- ── RecurrentSearchScreen ─────────────────────── -->
+    <string name="select_visitor_hint">Sélectionnez un visiteur pour créer un nouvel enregistrement de visite</string>
+    <string name="search_hint_3chars">Entrez au moins 3 caractères pour rechercher</string>
 
-    <!-- â”€â”€ RecurrentVisitDataScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── RecurrentVisitDataScreen ──────────────────── -->
     <string name="visit_information">Informations sur la Visite</string>
-    <string name="registered_visitor">Visiteur EnregistrÃ©</string>
-    <string name="document_verified">Document vÃ©rifiÃ©</string>
+    <string name="registered_visitor">Visiteur Enregistré</string>
+    <string name="document_verified">Document vérifié</string>
     <string name="who_visiting_title">Qui allez-vous visiter ?</string>
     <string name="who_visiting_hint">Entrez le nom complet de la personne que vous allez visiter</string>
     <string name="complete_field_to_continue">Remplissez ce champ pour continuer</string>
 
-    <!-- â”€â”€ CheckoutQrScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── CheckoutQrScreen ───────────────────────────── -->
     <string name="search_visitor_by_name">Rechercher un Visiteur par Nom</string>
     <string name="active_visits_today">Visites Actives Aujourd\'hui</string>
-    <string name="no_active_visits">Aucune visite active trouvÃ©e</string>
-    <string name="qr_scan_auto_hint">Le scan QR s\'activera automatiquement avec la camÃ©ra frontale</string>
-    <string name="front_camera_auto">CamÃ©ra frontale â€¢ Scan automatique</string>
-    <string name="checkout_registered_for">Sortie enregistrÃ©e avec succÃ¨s pour :</string>
-    <string name="entry_colon">EntrÃ©e : %s</string>
+    <string name="no_active_visits">Aucune visite active trouvée</string>
+    <string name="qr_scan_auto_hint">Le scan QR s\'activera automatiquement avec la caméra frontale</string>
+    <string name="front_camera_auto">Caméra frontale • Scan automatique</string>
+    <string name="checkout_registered_for">Sortie enregistrée avec succès pour :</string>
+    <string name="entry_colon">Entrée : %s</string>
 
-    <!-- â”€â”€ VisitorBadge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── VisitorBadge ───────────────────────────────── -->
     <string name="view_visitor_badge">Voir le Badge Visiteur</string>
     <string name="visitor_badge_title">Badge Visiteur</string>
     <string name="company_colon">Entreprise :</string>
     <string name="visiting_colon2">Visite :</string>
     <string name="valid_colon">Valide :</string>
-    <string name="printed_colon">ImprimÃ© :</string>
-    <string name="access_control">ContrÃ´le d\'AccÃ¨s</string>
-    <string name="badge_note">Ce badge n\'est valable que pour la date indiquÃ©e. Il doit Ãªtre portÃ© de faÃ§on visible pendant toute la visite.</string>
+    <string name="printed_colon">Imprimé :</string>
+    <string name="access_control">Contrôle d\'Accès</string>
+    <string name="badge_note">Ce badge n\'est valable que pour la date indiquée. Il doit être porté de façon visible pendant toute la visite.</string>
 
-    <!-- â”€â”€ AdminPanelScreen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- ── AdminPanelScreen ───────────────────────────── -->
     <string name="admin_panel">Panneau d\'Administration</string>
     <string name="current_station">Station Actuelle</string>
     <string name="total_visits">Total des Visites</string>
     <string name="active_visits">Visites Actives</string>
     <string name="today_visits">Visites Aujourd\'hui</string>
     <string name="month_visits">Visites du Mois</string>
-    <string name="recent_visits">Visites RÃ©centes</string>
+    <string name="recent_visits">Visites Récentes</string>
     <string name="visits">Visites</string>
-    <string name="visit_details">DÃ©tails de la Visite</string>
+    <string name="visit_details">Détails de la Visite</string>
     <string name="visit_times">Horaires de Visite</string>
-    <string name="no_visits_yet">Aucune visite enregistrÃ©e pour le moment</string>
-    <string name="logout">DÃ©connexion</string>
-    <string name="logout_confirmation">ÃŠtes-vous sÃ»r de vouloir vous dÃ©connecter ? Vous devrez entrer le PIN Ã  nouveau.</string>
+    <string name="no_visits_yet">Aucune visite enregistrée pour le moment</string>
+    <string name="logout">Déconnexion</string>
+    <string name="logout_confirmation">Êtes-vous sûr de vouloir vous déconnecter ? Vous devrez entrer le PIN à nouveau.</string>
     <string name="yes">Oui</string>
     <string name="no">Non</string>
     <string name="filters">Filtres</string>
-    <string name="advanced_filters">Filtres AvancÃ©s</string>
+    <string name="advanced_filters">Filtres Avancés</string>
     <string name="apply_filters">Appliquer les Filtres</string>
     <string name="clear_filters">Effacer les Filtres</string>
     <string name="filter_by_date">Filtrer par Date</string>
-    <string name="start_date">Date de DÃ©but</string>
+    <string name="start_date">Date de Début</string>
     <string name="end_date">Date de Fin</string>
     <string name="filter_by_name">Filtrer par Nom</string>
-    <string name="first_name_filter">PrÃ©nom</string>
+    <string name="first_name_filter">Prénom</string>
     <string name="last_name_filter">Nom de Famille</string>
-    <string name="visiting_person_filter">Personne VisitÃ©e</string>
+    <string name="visiting_person_filter">Personne Visitée</string>
     <string name="visit_status">Statut de la Visite</string>
     <string name="all">Tous</string>
-    <string name="selected">sÃ©lectionnÃ©s</string>
+    <string name="selected">sélectionnés</string>
     <string name="active">Active</string>
-    <string name="completed">TerminÃ©e</string>
+    <string name="completed">Terminée</string>
     <string name="visitor_type_filter">Type de Visiteur</string>
     <string name="status">Statut</string>
-    <string name="entry_time">Heure d\'EntrÃ©e</string>
-    <string name="entry">EntrÃ©e</string>
+    <string name="entry_time">Heure d\'Entrée</string>
+    <string name="entry">Entrée</string>
     <string name="exit_time">Heure de Sortie</string>
     <string name="exit">Sortie</string>
-    <string name="duration">DurÃ©e</string>
+    <string name="duration">Durée</string>
     <string name="technical_info">Informations Techniques</string>
     <string name="visit_id">ID de Visite</string>
     <string name="person_id">ID de Personne</string>
     <string name="still_active">Toujours active</string>
     <string name="in_progress">En cours</string>
     <string name="close">Fermer</string>
-    <string name="custom_reason">Raison PersonnalisÃ©e</string>
+    <string name="custom_reason">Raison Personnalisée</string>
     <string name="print_badge">Imprimer le Badge</string>
-    <!-- Imprimante / Zebra -->
+    <!-- Imprimante / Zebra / Brother -->
     <string name="printer_settings">Paramètres d\'Imprimante</string>
+    <string name="printer_brand">Marque d\'Imprimante</string>
+    <string name="printer_brand_none">Sans imprimante</string>
+    <string name="printer_brand_zebra">Zebra</string>
+    <string name="printer_brand_brother">Brother</string>
+    <string name="brother_model">Modèle Brother</string>
     <string name="connection_type">Type de Connexion</string>
     <string name="printer_usb">USB</string>
     <string name="printer_network">Réseau (TCP/IP)</string>

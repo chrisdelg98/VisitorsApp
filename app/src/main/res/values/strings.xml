@@ -247,8 +247,13 @@
     <string name="custom_reason">Motivo Personalizado</string>
     <string name="print_badge">Imprimir Carnet</string>
 
-    <!-- Printer / Zebra -->
+    <!-- Printer / Zebra / Brother -->
     <string name="printer_settings">Configuración de Impresora</string>
+    <string name="printer_brand">Marca de Impresora</string>
+    <string name="printer_brand_none">Sin impresora</string>
+    <string name="printer_brand_zebra">Zebra</string>
+    <string name="printer_brand_brother">Brother</string>
+    <string name="brother_model">Modelo Brother</string>
     <string name="connection_type">Tipo de Conexión</string>
     <string name="printer_usb">USB</string>
     <string name="printer_network">Red (TCP/IP)</string>
@@ -256,7 +261,7 @@
     <string name="printer_port">Puerto</string>
     <string name="printer_test">Probar Conexión</string>
     <string name="printer_connected">Impresora conectada</string>
-    <string name="printing">Imprimiendo...</string>
+    <string name="printing">Imprimiendo…</string>
     <string name="print_success">Carnet impreso exitosamente</string>
     <string name="save">Guardar</string>
 </resources>

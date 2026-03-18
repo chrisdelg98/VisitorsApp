@@ -34,9 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.eflglobal.visitorsapp.R
-import com.eflglobal.visitorsapp.core.printing.PrinterConfigRepository
-import com.eflglobal.visitorsapp.core.printing.ZebraPrinterManager
-import com.eflglobal.visitorsapp.core.printing.ZplBadgeGenerator
+import com.eflglobal.visitorsapp.core.printing.BadgeBitmapRenderer
+import com.eflglobal.visitorsapp.core.printing.PrintResult
+import com.eflglobal.visitorsapp.core.printing.PrinterManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -116,49 +116,33 @@ fun VisitorBadgeButton(
                 isPrinting   = true
                 printMessage = strPrinting
 
-                val config = PrinterConfigRepository
-                    .getConfig(context)
-                    .let { flow ->
-                        // Collect one value synchronously
-                        var cfg = com.eflglobal.visitorsapp.core.printing.PrinterConfig()
-                        val job = launch {
-                            flow.collect {
-                                cfg = it
-                                return@collect
-                            }
-                        }
-                        kotlinx.coroutines.delay(200)
-                        job.cancel()
-                        cfg
-                    }
-
-                val badgeData = ZplBadgeGenerator.BadgeData(
+                val renderData = BadgeBitmapRenderer.RenderData(
                     visitorName      = visitorName,
                     company          = company,
                     visitingPerson   = visitingPerson,
                     visitorTypeLabel = strVisitorTypeLabel,
-                    qrValue          = qrCode ?: "VISIT",
                     entryDate        = visitDate,
-                    profileBitmap    = grayscaleBitmap,
+                    profileBitmap    = profileBitmap,  // renderer handles grayscale internally
+                    qrBitmap         = qrBitmap,
                     labelBadgeTitle  = strBadgeTitle,
                     labelVisiting    = strVisiting,
                     labelValidFor    = strBadgeNote,
                     labelPrinted     = strPrinted
                 )
-                val zpl    = ZplBadgeGenerator.generate(badgeData)
-                val result = ZebraPrinterManager.printZpl(context, zpl, config)
+
+                val result = PrinterManager.printBadge(context, renderData)
 
                 isPrinting = false
                 when (result) {
-                    is ZebraPrinterManager.PrintResult.Success -> {
+                    is PrintResult.Success -> {
                         printSuccess = true
                         printMessage = strPrintOk
                     }
-                    is ZebraPrinterManager.PrintResult.PermissionRequested -> {
+                    is PrintResult.PermissionRequested -> {
                         printSuccess = false
                         printMessage = "USB permission requested. Tap Print again."
                     }
-                    is ZebraPrinterManager.PrintResult.Error -> {
+                    is PrintResult.Error -> {
                         printSuccess = false
                         printMessage = result.message
                     }

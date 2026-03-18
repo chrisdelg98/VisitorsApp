@@ -16,31 +16,40 @@ private val Context.printerDataStore by preferencesDataStore(name = "printer_con
  */
 object PrinterConfigRepository {
 
+    private val KEY_BRAND           = stringPreferencesKey("printer_brand")
     private val KEY_CONNECTION_TYPE = stringPreferencesKey("connection_type")
     private val KEY_NETWORK_HOST    = stringPreferencesKey("network_host")
     private val KEY_NETWORK_PORT    = intPreferencesKey("network_port")
+    private val KEY_BROTHER_MODEL   = stringPreferencesKey("brother_model")
 
     /** Returns a Flow that emits the current config (and subsequent updates). */
     fun getConfig(context: Context): Flow<PrinterConfig> =
         context.printerDataStore.data.map { prefs ->
             PrinterConfig(
+                brand = runCatching {
+                    PrinterConfig.PrinterBrand.valueOf(
+                        prefs[KEY_BRAND] ?: PrinterConfig.PrinterBrand.NONE.name
+                    )
+                }.getOrDefault(PrinterConfig.PrinterBrand.NONE),
                 connectionType = runCatching {
                     PrinterConfig.ConnectionType.valueOf(
                         prefs[KEY_CONNECTION_TYPE] ?: PrinterConfig.ConnectionType.USB.name
                     )
                 }.getOrDefault(PrinterConfig.ConnectionType.USB),
-                networkHost = prefs[KEY_NETWORK_HOST]?.ifBlank { null },
-                networkPort = prefs[KEY_NETWORK_PORT] ?: PrinterConfig.DEFAULT_PORT
+                networkHost  = prefs[KEY_NETWORK_HOST]?.ifBlank { null },
+                networkPort  = prefs[KEY_NETWORK_PORT] ?: PrinterConfig.DEFAULT_PORT,
+                brotherModel = prefs[KEY_BROTHER_MODEL] ?: PrinterConfig.BrotherModel.QL_810W.name
             )
         }
 
     /** Saves the config. Call from a coroutine scope. */
     suspend fun saveConfig(context: Context, config: PrinterConfig) {
         context.printerDataStore.edit { prefs ->
+            prefs[KEY_BRAND]           = config.brand.name
             prefs[KEY_CONNECTION_TYPE] = config.connectionType.name
             prefs[KEY_NETWORK_HOST]    = config.networkHost ?: ""
             prefs[KEY_NETWORK_PORT]    = config.networkPort
+            prefs[KEY_BROTHER_MODEL]   = config.brotherModel
         }
     }
 }
-

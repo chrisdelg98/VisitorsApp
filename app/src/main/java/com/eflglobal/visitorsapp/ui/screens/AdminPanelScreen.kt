@@ -35,6 +35,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eflglobal.visitorsapp.R
+import com.eflglobal.visitorsapp.core.printing.PrinterConfig
+import com.eflglobal.visitorsapp.core.printing.PrinterConfigRepository
+import com.eflglobal.visitorsapp.core.printing.PrinterManager
 import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
 import com.eflglobal.visitorsapp.ui.components.VisitorBadgeButton
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
@@ -1622,28 +1625,28 @@ private fun PrinterSettingsDialog(onDismiss: () -> Unit) {
     val context        = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    val configFlow = remember {
-        com.eflglobal.visitorsapp.core.printing.PrinterConfigRepository.getConfig(context)
-    }
-    val currentConfig by configFlow.collectAsState(
-        initial = com.eflglobal.visitorsapp.core.printing.PrinterConfig()
-    )
+    val configFlow    = remember { PrinterConfigRepository.getConfig(context) }
+    val currentConfig by configFlow.collectAsState(initial = PrinterConfig())
 
-    var selectedType by remember(currentConfig) { mutableStateOf(currentConfig.connectionType) }
-    var ipAddress    by remember(currentConfig) { mutableStateOf(currentConfig.networkHost ?: "") }
-    var port         by remember(currentConfig) { mutableStateOf(currentConfig.networkPort.toString()) }
-    var testResult   by remember { mutableStateOf<String?>(null) }
-    var isTesting    by remember { mutableStateOf(false) }
-    var isSaving     by remember { mutableStateOf(false) }
+    var selectedBrand  by remember(currentConfig) { mutableStateOf(currentConfig.brand) }
+    var selectedType   by remember(currentConfig) { mutableStateOf(currentConfig.connectionType) }
+    var ipAddress      by remember(currentConfig) { mutableStateOf(currentConfig.networkHost ?: "") }
+    var port           by remember(currentConfig) { mutableStateOf(currentConfig.networkPort.toString()) }
+    var brotherModel   by remember(currentConfig) { mutableStateOf(currentConfig.brotherModel) }
+    var showModelMenu  by remember { mutableStateOf(false) }
+    var testResult     by remember { mutableStateOf<String?>(null) }
+    var isTesting      by remember { mutableStateOf(false) }
+    var isSaving       by remember { mutableStateOf(false) }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Card(
-            modifier  = Modifier.fillMaxWidth(0.72f),
+            modifier  = Modifier.fillMaxWidth(0.76f),
             shape     = RoundedCornerShape(20.dp),
             elevation = CardDefaults.cardElevation(8.dp)
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
 
+                // ── Title ──────────────────────────────────────────────────
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Print, null, tint = SlatePrimary, modifier = Modifier.size(26.dp))
                     Spacer(Modifier.width(10.dp))
@@ -1653,47 +1656,111 @@ private fun PrinterSettingsDialog(onDismiss: () -> Unit) {
                         fontWeight = FontWeight.Bold, color = SlatePrimary
                     )
                 }
-
                 Spacer(Modifier.height(20.dp))
 
-                Text(stringResource(R.string.connection_type),
+                // ── Brand selector ─────────────────────────────────────────
+                Text(stringResource(R.string.printer_brand),
                     style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
                 Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf(
+                        PrinterConfig.PrinterBrand.NONE    to stringResource(R.string.printer_brand_none),
+                        PrinterConfig.PrinterBrand.ZEBRA   to stringResource(R.string.printer_brand_zebra),
+                        PrinterConfig.PrinterBrand.BROTHER to stringResource(R.string.printer_brand_brother)
+                    ).forEach { (brand, label) ->
+                        FilterChip(
+                            selected = selectedBrand == brand,
+                            onClick  = { selectedBrand = brand; testResult = null },
+                            label    = { Text(label, fontSize = 13.sp) },
+                            colors   = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = OrangePrimary,
+                                selectedLabelColor     = Color.White
+                            )
+                        )
+                    }
+                }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    com.eflglobal.visitorsapp.core.printing.PrinterConfig.ConnectionType.entries
-                        .forEach { type ->
-                            val label = if (type == com.eflglobal.visitorsapp.core.printing.PrinterConfig.ConnectionType.USB)
+                // ── Brand-specific options ─────────────────────────────────
+                if (selectedBrand != PrinterConfig.PrinterBrand.NONE) {
+                    Spacer(Modifier.height(16.dp))
+
+                    // Connection type
+                    Text(stringResource(R.string.connection_type),
+                        style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        PrinterConfig.ConnectionType.entries.forEach { type ->
+                            val label = if (type == PrinterConfig.ConnectionType.USB)
                                 stringResource(R.string.printer_usb)
                             else stringResource(R.string.printer_network)
                             FilterChip(
                                 selected = selectedType == type,
                                 onClick  = { selectedType = type },
-                                label    = { Text(label) },
+                                label    = { Text(label, fontSize = 13.sp) },
                                 colors   = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = OrangePrimary,
                                     selectedLabelColor     = Color.White
                                 )
                             )
                         }
+                    }
+
+                    // IP + port (NETWORK only)
+                    if (selectedType == PrinterConfig.ConnectionType.NETWORK) {
+                        Spacer(Modifier.height(14.dp))
+                        OutlinedTextField(
+                            value         = ipAddress,
+                            onValueChange = { ipAddress = it },
+                            label         = { Text(stringResource(R.string.printer_ip_address)) },
+                            singleLine    = true,
+                            modifier      = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value         = port,
+                            onValueChange = { port = it.filter { c -> c.isDigit() } },
+                            label         = { Text(stringResource(R.string.printer_port)) },
+                            singleLine    = true,
+                            modifier      = Modifier.fillMaxWidth(0.4f)
+                        )
+                    }
+
+                    // Brother model picker
+                    if (selectedBrand == PrinterConfig.PrinterBrand.BROTHER) {
+                        Spacer(Modifier.height(14.dp))
+                        Text(stringResource(R.string.brother_model),
+                            style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
+                        Spacer(Modifier.height(6.dp))
+                        Box {
+                            OutlinedButton(
+                                onClick  = { showModelMenu = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape    = RoundedCornerShape(8.dp)
+                            ) {
+                                val display = PrinterConfig.BrotherModel.entries
+                                    .firstOrNull { it.name == brotherModel }?.displayName ?: brotherModel
+                                Text(display, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(20.dp))
+                            }
+                            DropdownMenu(
+                                expanded         = showModelMenu,
+                                onDismissRequest = { showModelMenu = false }
+                            ) {
+                                PrinterConfig.BrotherModel.entries.forEach { model ->
+                                    DropdownMenuItem(
+                                        text    = { Text(model.displayName, fontSize = 13.sp) },
+                                        onClick = {
+                                            brotherModel  = model.name
+                                            showModelMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
-                if (selectedType == com.eflglobal.visitorsapp.core.printing.PrinterConfig.ConnectionType.NETWORK) {
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = ipAddress, onValueChange = { ipAddress = it },
-                        label = { Text(stringResource(R.string.printer_ip_address)) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = port,
-                        onValueChange = { port = it.filter { c -> c.isDigit() } },
-                        label = { Text(stringResource(R.string.printer_port)) },
-                        singleLine = true, modifier = Modifier.fillMaxWidth(0.4f)
-                    )
-                }
-
+                // ── Test result banner ─────────────────────────────────────
                 testResult?.let { msg ->
                     Spacer(Modifier.height(12.dp))
                     val ok = msg == "OK"
@@ -1705,7 +1772,7 @@ private fun PrinterSettingsDialog(onDismiss: () -> Unit) {
                         Text(
                             if (ok) "✓ ${stringResource(R.string.printer_connected)}" else "✗ $msg",
                             modifier = Modifier.padding(12.dp),
-                            color = if (ok) Color(0xFF2E7D32) else Color(0xFFC62828),
+                            color    = if (ok) Color(0xFF2E7D32) else Color(0xFFC62828),
                             fontSize = 13.sp
                         )
                     }
@@ -1713,23 +1780,28 @@ private fun PrinterSettingsDialog(onDismiss: () -> Unit) {
 
                 Spacer(Modifier.height(20.dp))
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                // ── Action buttons ─────────────────────────────────────────
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     OutlinedButton(
                         onClick = {
                             coroutineScope.launch {
                                 isTesting = true; testResult = null
-                                val cfg = com.eflglobal.visitorsapp.core.printing.PrinterConfig(
+                                val cfg = PrinterConfig(
+                                    brand          = selectedBrand,
                                     connectionType = selectedType,
                                     networkHost    = ipAddress.ifBlank { null },
-                                    networkPort    = port.toIntOrNull()
-                                        ?: com.eflglobal.visitorsapp.core.printing.PrinterConfig.DEFAULT_PORT
+                                    networkPort    = port.toIntOrNull() ?: PrinterConfig.DEFAULT_PORT,
+                                    brotherModel   = brotherModel
                                 )
-                                testResult = com.eflglobal.visitorsapp.core.printing.ZebraPrinterManager
-                                    .testConnection(context, cfg) ?: "OK"
+                                testResult = PrinterManager.testConnection(context, cfg) ?: "OK"
                                 isTesting = false
                             }
                         },
-                        modifier = Modifier.weight(1f), enabled = !isTesting && !isSaving
+                        modifier = Modifier.weight(1f),
+                        enabled  = !isTesting && !isSaving && selectedBrand != PrinterConfig.PrinterBrand.NONE
                     ) {
                         if (isTesting) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         else Text(stringResource(R.string.printer_test), fontSize = 13.sp)
@@ -1739,13 +1811,14 @@ private fun PrinterSettingsDialog(onDismiss: () -> Unit) {
                         onClick = {
                             coroutineScope.launch {
                                 isSaving = true
-                                com.eflglobal.visitorsapp.core.printing.PrinterConfigRepository.saveConfig(
+                                PrinterConfigRepository.saveConfig(
                                     context,
-                                    com.eflglobal.visitorsapp.core.printing.PrinterConfig(
+                                    PrinterConfig(
+                                        brand          = selectedBrand,
                                         connectionType = selectedType,
                                         networkHost    = ipAddress.ifBlank { null },
-                                        networkPort    = port.toIntOrNull()
-                                            ?: com.eflglobal.visitorsapp.core.printing.PrinterConfig.DEFAULT_PORT
+                                        networkPort    = port.toIntOrNull() ?: PrinterConfig.DEFAULT_PORT,
+                                        brotherModel   = brotherModel
                                     )
                                 )
                                 isSaving = false; onDismiss()
