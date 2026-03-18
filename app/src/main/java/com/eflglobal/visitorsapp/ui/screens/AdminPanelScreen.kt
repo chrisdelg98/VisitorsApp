@@ -37,7 +37,12 @@ import androidx.compose.ui.unit.sp
 import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.core.printing.PrinterConfig
 import com.eflglobal.visitorsapp.core.printing.PrinterConfigRepository
+import com.eflglobal.visitorsapp.core.printing.PrinterDiagnostics
+import com.eflglobal.visitorsapp.core.printing.DiagnosticItem
+import com.eflglobal.visitorsapp.core.printing.DiagStatus
 import com.eflglobal.visitorsapp.core.printing.PrinterManager
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
 import com.eflglobal.visitorsapp.ui.components.VisitorBadgeButton
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
@@ -88,7 +93,10 @@ fun AdminPanelScreen(
 
     // Printer settings dialog
     if (showPrinterSettings) {
-        PrinterSettingsDialog(onDismiss = { showPrinterSettings = false })
+        PrinterSettingsDialog(
+            onDismiss = { showPrinterSettings = false },
+            selectedLanguage = selectedLanguage
+        )
     }
 
     // Pre-resolver strings del diálogo de logout usando el contexto localizado.
@@ -1704,11 +1712,17 @@ private fun FilterDrawerContent(
 // ── Printer Settings Dialog ───────────────────────────────────────────────────
 
 @Composable
-private fun PrinterSettingsDialog(onDismiss: () -> Unit) {
-    val context        = LocalContext.current
+private fun PrinterSettingsDialog(
+    onDismiss: () -> Unit,
+    selectedLanguage: String = "es"
+) {
+    val rawContext     = LocalContext.current
+    val localizedContext = remember(selectedLanguage) {
+        LanguageManager.wrapContext(rawContext, selectedLanguage)
+    }
     val coroutineScope = rememberCoroutineScope()
 
-    val configFlow    = remember { PrinterConfigRepository.getConfig(context) }
+    val configFlow    = remember { PrinterConfigRepository.getConfig(rawContext) }
     val currentConfig by configFlow.collectAsState(initial = PrinterConfig())
 
     var selectedBrand  by remember(currentConfig) { mutableStateOf(currentConfig.brand) }
@@ -1717,205 +1731,427 @@ private fun PrinterSettingsDialog(onDismiss: () -> Unit) {
     var port           by remember(currentConfig) { mutableStateOf(currentConfig.networkPort.toString()) }
     var brotherModel   by remember(currentConfig) { mutableStateOf(currentConfig.brotherModel) }
     var showModelMenu  by remember { mutableStateOf(false) }
-    var testResult     by remember { mutableStateOf<String?>(null) }
     var isTesting      by remember { mutableStateOf(false) }
     var isSaving       by remember { mutableStateOf(false) }
 
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier  = Modifier.fillMaxWidth(0.76f),
-            shape     = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
+    // Diagnostics state
+    var diagnostics    by remember { mutableStateOf<PrinterDiagnostics?>(null) }
+    var diagError      by remember { mutableStateOf<String?>(null) }
 
-                // ── Title ──────────────────────────────────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Print, null, tint = SlatePrimary, modifier = Modifier.size(26.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        stringResource(R.string.printer_settings),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold, color = SlatePrimary
-                    )
-                }
-                Spacer(Modifier.height(20.dp))
+    fun buildConfig() = PrinterConfig(
+        brand          = selectedBrand,
+        connectionType = selectedType,
+        networkHost    = ipAddress.ifBlank { null },
+        networkPort    = port.toIntOrNull() ?: PrinterConfig.DEFAULT_PORT,
+        brotherModel   = brotherModel
+    )
 
-                // ── Brand selector ─────────────────────────────────────────
-                Text(stringResource(R.string.printer_brand),
-                    style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf(
-                        PrinterConfig.PrinterBrand.NONE    to stringResource(R.string.printer_brand_none),
-                        PrinterConfig.PrinterBrand.ZEBRA   to stringResource(R.string.printer_brand_zebra),
-                        PrinterConfig.PrinterBrand.BROTHER to stringResource(R.string.printer_brand_brother)
-                    ).forEach { (brand, label) ->
-                        FilterChip(
-                            selected = selectedBrand == brand,
-                            onClick  = { selectedBrand = brand; testResult = null },
-                            label    = { Text(label, fontSize = 13.sp) },
-                            colors   = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = OrangePrimary,
-                                selectedLabelColor     = Color.White
-                            )
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        CompositionLocalProvider(LocalContext provides localizedContext) {
+            Card(
+                modifier  = Modifier.fillMaxWidth(0.80f).fillMaxHeight(0.85f),
+                shape     = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(8.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+
+                    // ── Title ──────────────────────────────────────────────
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Print, null, tint = SlatePrimary, modifier = Modifier.size(26.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            stringResource(R.string.printer_settings),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold, color = SlatePrimary
                         )
-                    }
-                }
-
-                // ── Brand-specific options ─────────────────────────────────
-                if (selectedBrand != PrinterConfig.PrinterBrand.NONE) {
-                    Spacer(Modifier.height(16.dp))
-
-                    // Connection type
-                    Text(stringResource(R.string.connection_type),
-                        style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PrinterConfig.ConnectionType.entries.forEach { type ->
-                            val label = if (type == PrinterConfig.ConnectionType.USB)
-                                stringResource(R.string.printer_usb)
-                            else stringResource(R.string.printer_network)
-                            FilterChip(
-                                selected = selectedType == type,
-                                onClick  = { selectedType = type },
-                                label    = { Text(label, fontSize = 13.sp) },
-                                colors   = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = OrangePrimary,
-                                    selectedLabelColor     = Color.White
-                                )
-                            )
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
                         }
                     }
 
-                    // IP + port (NETWORK only)
-                    if (selectedType == PrinterConfig.ConnectionType.NETWORK) {
-                        Spacer(Modifier.height(14.dp))
-                        OutlinedTextField(
-                            value         = ipAddress,
-                            onValueChange = { ipAddress = it },
-                            label         = { Text(stringResource(R.string.printer_ip_address)) },
-                            singleLine    = true,
-                            modifier      = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        OutlinedTextField(
-                            value         = port,
-                            onValueChange = { port = it.filter { c -> c.isDigit() } },
-                            label         = { Text(stringResource(R.string.printer_port)) },
-                            singleLine    = true,
-                            modifier      = Modifier.fillMaxWidth(0.4f)
-                        )
-                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                    // Brother model picker
-                    if (selectedBrand == PrinterConfig.PrinterBrand.BROTHER) {
-                        Spacer(Modifier.height(14.dp))
-                        Text(stringResource(R.string.brother_model),
-                            style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
-                        Spacer(Modifier.height(6.dp))
-                        Box {
-                            OutlinedButton(
-                                onClick  = { showModelMenu = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape    = RoundedCornerShape(8.dp)
-                            ) {
-                                val display = PrinterConfig.BrotherModel.entries
-                                    .firstOrNull { it.name == brotherModel }?.displayName ?: brotherModel
-                                Text(display, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(20.dp))
-                            }
-                            DropdownMenu(
-                                expanded         = showModelMenu,
-                                onDismissRequest = { showModelMenu = false }
-                            ) {
-                                PrinterConfig.BrotherModel.entries.forEach { model ->
-                                    DropdownMenuItem(
-                                        text    = { Text(model.displayName, fontSize = 13.sp) },
-                                        onClick = {
-                                            brotherModel  = model.name
-                                            showModelMenu = false
-                                        }
+                    // ── Two-column body ────────────────────────────────────
+                    Row(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        // ═══════════════════════════════════════════════════
+                        //  LEFT COLUMN — Configuration
+                        // ═══════════════════════════════════════════════════
+                        Column(
+                            modifier = Modifier.weight(1f)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                stringResource(R.string.printer_configuration),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold, color = SlatePrimary
+                            )
+                            Spacer(Modifier.height(14.dp))
+
+                            // ── Brand selector ────────────────────────────
+                            Text(stringResource(R.string.printer_brand),
+                                style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                listOf(
+                                    PrinterConfig.PrinterBrand.NONE    to stringResource(R.string.printer_brand_none),
+                                    PrinterConfig.PrinterBrand.ZEBRA   to stringResource(R.string.printer_brand_zebra),
+                                    PrinterConfig.PrinterBrand.BROTHER to stringResource(R.string.printer_brand_brother)
+                                ).forEach { (brand, label) ->
+                                    FilterChip(
+                                        selected = selectedBrand == brand,
+                                        onClick  = { selectedBrand = brand; diagnostics = null; diagError = null },
+                                        label    = { Text(label, fontSize = 13.sp) },
+                                        colors   = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = OrangePrimary,
+                                            selectedLabelColor     = Color.White
+                                        )
                                     )
+                                }
+                            }
+
+                            // ── Brand-specific options ────────────────────
+                            if (selectedBrand != PrinterConfig.PrinterBrand.NONE) {
+                                Spacer(Modifier.height(16.dp))
+
+                                // Connection type
+                                Text(stringResource(R.string.connection_type),
+                                    style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
+                                Spacer(Modifier.height(8.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    PrinterConfig.ConnectionType.entries.forEach { type ->
+                                        val label = if (type == PrinterConfig.ConnectionType.USB)
+                                            stringResource(R.string.printer_usb)
+                                        else stringResource(R.string.printer_network)
+                                        FilterChip(
+                                            selected = selectedType == type,
+                                            onClick  = { selectedType = type },
+                                            label    = { Text(label, fontSize = 13.sp) },
+                                            colors   = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = OrangePrimary,
+                                                selectedLabelColor     = Color.White
+                                            )
+                                        )
+                                    }
+                                }
+
+                                // IP + port (NETWORK only)
+                                if (selectedType == PrinterConfig.ConnectionType.NETWORK) {
+                                    Spacer(Modifier.height(14.dp))
+                                    OutlinedTextField(
+                                        value         = ipAddress,
+                                        onValueChange = { ipAddress = it },
+                                        label         = { Text(stringResource(R.string.printer_ip_address)) },
+                                        singleLine    = true,
+                                        modifier      = Modifier.fillMaxWidth()
+                                    )
+                                    Spacer(Modifier.height(10.dp))
+                                    OutlinedTextField(
+                                        value         = port,
+                                        onValueChange = { port = it.filter { c -> c.isDigit() } },
+                                        label         = { Text(stringResource(R.string.printer_port)) },
+                                        singleLine    = true,
+                                        modifier      = Modifier.fillMaxWidth(0.5f)
+                                    )
+                                }
+
+                                // Brother model picker
+                                if (selectedBrand == PrinterConfig.PrinterBrand.BROTHER) {
+                                    Spacer(Modifier.height(14.dp))
+                                    Text(stringResource(R.string.brother_model),
+                                        style = MaterialTheme.typography.labelLarge, color = SlatePrimary)
+                                    Spacer(Modifier.height(6.dp))
+                                    Box {
+                                        OutlinedButton(
+                                            onClick  = { showModelMenu = true },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape    = RoundedCornerShape(8.dp)
+                                        ) {
+                                            val display = PrinterConfig.BrotherModel.entries
+                                                .firstOrNull { it.name == brotherModel }?.displayName ?: brotherModel
+                                            Text(display, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(20.dp))
+                                        }
+                                        DropdownMenu(
+                                            expanded         = showModelMenu,
+                                            onDismissRequest = { showModelMenu = false }
+                                        ) {
+                                            PrinterConfig.BrotherModel.entries.forEach { model ->
+                                                DropdownMenuItem(
+                                                    text    = { Text(model.displayName, fontSize = 13.sp) },
+                                                    onClick = {
+                                                        brotherModel  = model.name
+                                                        showModelMenu = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Vertical divider
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(1.dp)
+                                .background(Color.LightGray.copy(alpha = 0.5f))
+                        )
+
+                        // ═══════════════════════════════════════════════════
+                        //  RIGHT COLUMN — Diagnostics
+                        // ═══════════════════════════════════════════════════
+                        Column(
+                            modifier = Modifier.weight(1f)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                stringResource(R.string.printer_diag_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold, color = SlatePrimary
+                            )
+                            Spacer(Modifier.height(14.dp))
+
+                            when {
+                                isTesting -> {
+                                    // Running diagnostics animation
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 30.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            CircularProgressIndicator(
+                                                color = OrangePrimary,
+                                                modifier = Modifier.size(40.dp)
+                                            )
+                                            Spacer(Modifier.height(12.dp))
+                                            Text(
+                                                stringResource(R.string.printer_diag_running),
+                                                fontSize = 14.sp, color = Color.Gray
+                                            )
+                                        }
+                                    }
+                                }
+
+                                diagnostics != null -> {
+                                    val diag = diagnostics!!
+
+                                    // Summary card
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (diag.isConnected) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                if (diag.isConnected) Icons.Default.CheckCircle else Icons.Default.Error,
+                                                null,
+                                                tint = if (diag.isConnected) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(Modifier.width(10.dp))
+                                            Column {
+                                                Text(
+                                                    if (diag.isConnected) stringResource(R.string.printer_diag_connected)
+                                                    else stringResource(R.string.printer_diag_not_connected),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp,
+                                                    color = if (diag.isConnected) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                                )
+                                                Text(
+                                                    diag.summary,
+                                                    fontSize = 12.sp,
+                                                    color = Color.Gray
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(14.dp))
+
+                                    // Checks title
+                                    Text(
+                                        stringResource(R.string.printer_diag_checks),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = SlatePrimary
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+
+                                    // Check items — validation first, informational last
+                                    val sortedChecks = diag.checks.sortedBy { item ->
+                                        when (item.status) {
+                                            DiagStatus.ERROR   -> 0
+                                            DiagStatus.WARNING -> 1
+                                            DiagStatus.OK      -> 2
+                                            DiagStatus.INFO    -> 3
+                                        }
+                                    }
+                                    sortedChecks.forEach { item ->
+                                        DiagnosticCheckRow(item)
+                                        Spacer(Modifier.height(4.dp))
+                                    }
+                                }
+
+                                diagError != null -> {
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = Color(0xFFFFEBEE)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Error, null,
+                                                tint = Color(0xFFC62828),
+                                                modifier = Modifier.size(24.dp))
+                                            Spacer(Modifier.width(10.dp))
+                                            Text(diagError ?: "", fontSize = 13.sp, color = Color(0xFFC62828))
+                                        }
+                                    }
+                                }
+
+                                else -> {
+                                    // Idle state
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Icon(
+                                                Icons.Default.Info,
+                                                null,
+                                                tint = Color.LightGray,
+                                                modifier = Modifier.size(40.dp)
+                                            )
+                                            Spacer(Modifier.height(10.dp))
+                                            Text(
+                                                stringResource(R.string.printer_diag_idle),
+                                                fontSize = 13.sp,
+                                                color = Color.Gray,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // ── Test result banner ─────────────────────────────────────
-                testResult?.let { msg ->
-                    Spacer(Modifier.height(12.dp))
-                    val ok = msg == "OK"
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (ok) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                        ), shape = RoundedCornerShape(8.dp)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    // ── Action buttons ─────────────────────────────────────
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            if (ok) "✓ ${stringResource(R.string.printer_connected)}" else "✗ $msg",
-                            modifier = Modifier.padding(12.dp),
-                            color    = if (ok) Color(0xFF2E7D32) else Color(0xFFC62828),
-                            fontSize = 13.sp
-                        )
-                    }
-                }
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.cancel), fontSize = 13.sp)
+                        }
 
-                Spacer(Modifier.height(20.dp))
-
-                // ── Action buttons ─────────────────────────────────────────
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                isTesting = true; testResult = null
-                                val cfg = PrinterConfig(
-                                    brand          = selectedBrand,
-                                    connectionType = selectedType,
-                                    networkHost    = ipAddress.ifBlank { null },
-                                    networkPort    = port.toIntOrNull() ?: PrinterConfig.DEFAULT_PORT,
-                                    brotherModel   = brotherModel
-                                )
-                                testResult = PrinterManager.testConnection(context, cfg) ?: "OK"
-                                isTesting = false
+                        OutlinedButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    isTesting = true; diagnostics = null; diagError = null
+                                    try {
+                                        diagnostics = PrinterManager.diagnose(rawContext, buildConfig())
+                                    } catch (e: Exception) {
+                                        diagError = e.message ?: "Unknown error"
+                                    }
+                                    isTesting = false
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled  = !isTesting && !isSaving && selectedBrand != PrinterConfig.PrinterBrand.NONE
+                        ) {
+                            if (isTesting) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            else {
+                                Icon(Icons.Default.NetworkCheck, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.printer_test), fontSize = 13.sp)
                             }
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled  = !isTesting && !isSaving && selectedBrand != PrinterConfig.PrinterBrand.NONE
-                    ) {
-                        if (isTesting) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                        else Text(stringResource(R.string.printer_test), fontSize = 13.sp)
-                    }
+                        }
 
-                    Button(
-                        onClick = {
-                            coroutineScope.launch {
-                                isSaving = true
-                                PrinterConfigRepository.saveConfig(
-                                    context,
-                                    PrinterConfig(
-                                        brand          = selectedBrand,
-                                        connectionType = selectedType,
-                                        networkHost    = ipAddress.ifBlank { null },
-                                        networkPort    = port.toIntOrNull() ?: PrinterConfig.DEFAULT_PORT,
-                                        brotherModel   = brotherModel
-                                    )
-                                )
-                                isSaving = false; onDismiss()
+                        Button(
+                            onClick = {
+                                coroutineScope.launch {
+                                    isSaving = true
+                                    PrinterConfigRepository.saveConfig(rawContext, buildConfig())
+                                    isSaving = false; onDismiss()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors   = ButtonDefaults.buttonColors(containerColor = OrangePrimary),
+                            enabled  = !isTesting && !isSaving
+                        ) {
+                            if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                            else {
+                                Icon(Icons.Default.Save, null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.save), fontSize = 13.sp)
                             }
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors   = ButtonDefaults.buttonColors(containerColor = OrangePrimary),
-                        enabled  = !isTesting && !isSaving
-                    ) {
-                        if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                        else Text(stringResource(R.string.save), fontSize = 13.sp)
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+// ── Diagnostic check row item ─────────────────────────────────────────────────
+
+@Composable
+private fun DiagnosticCheckRow(item: DiagnosticItem) {
+    val (icon, iconColor) = when (item.status) {
+        DiagStatus.OK      -> Icons.Default.CheckCircle to Color(0xFF2E7D32)
+        DiagStatus.WARNING -> Icons.Default.Warning to Color(0xFFF57F17)
+        DiagStatus.ERROR   -> Icons.Default.Cancel to Color(0xFFC62828)
+        DiagStatus.INFO    -> Icons.Default.Info to Color(0xFF1565C0)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                when (item.status) {
+                    DiagStatus.OK      -> Color(0xFFE8F5E9)
+                    DiagStatus.WARNING -> Color(0xFFFFF8E1)
+                    DiagStatus.ERROR   -> Color(0xFFFFEBEE)
+                    DiagStatus.INFO    -> Color(0xFFE3F2FD)
+                },
+                RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = iconColor, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = SlatePrimary)
+            Text(item.value, fontSize = 11.sp, color = Color.Gray)
         }
     }
 }

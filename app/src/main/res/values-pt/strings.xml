@@ -267,4 +267,15 @@
     <string name="printing">Imprimindo...</string>
     <string name="print_success">Crachá impresso com sucesso</string>
     <string name="save">Salvar</string>
+
+    <!-- Printer Diagnostics -->
+    <string name="printer_diagnostics">Diagnóstico</string>
+    <string name="printer_diag_title">Diagnóstico da Impressora</string>
+    <string name="printer_diag_idle">Pressione \"Testar Conexão\" para iniciar o diagnóstico</string>
+    <string name="printer_diag_running">Executando diagnóstico…</string>
+    <string name="printer_diag_summary">Resumo</string>
+    <string name="printer_diag_checks">Verificações</string>
+    <string name="printer_diag_connected">Conectada</string>
+    <string name="printer_diag_not_connected">Não conectada</string>
+    <string name="printer_configuration">Configuração</string>
 </resources>

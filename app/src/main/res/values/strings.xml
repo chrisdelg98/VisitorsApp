@@ -267,4 +267,15 @@
     <string name="printing">Imprimiendo…</string>
     <string name="print_success">Carnet impreso exitosamente</string>
     <string name="save">Guardar</string>
+
+    <!-- Printer Diagnostics -->
+    <string name="printer_diagnostics">Diagnóstico</string>
+    <string name="printer_diag_title">Diagnóstico de la Impresora</string>
+    <string name="printer_diag_idle">Presione \"Probar Conexión\" para iniciar el diagnóstico</string>
+    <string name="printer_diag_running">Ejecutando diagnóstico…</string>
+    <string name="printer_diag_summary">Resumen</string>
+    <string name="printer_diag_checks">Verificaciones</string>
+    <string name="printer_diag_connected">Conectada</string>
+    <string name="printer_diag_not_connected">No conectada</string>
+    <string name="printer_configuration">Configuración</string>
 </resources>

@@ -15,13 +15,14 @@ import java.util.Locale
 /**
  * Renders the visitor badge as an Android [Bitmap] using the native Canvas API.
  *
- * Target size : 812 × 609 px  ≡  4 × 3 inch at 203 DPI (Zebra ZT230 native resolution).
- * Brother printers will scale this bitmap to fit their loaded media automatically.
+ * Target size : 696 × 480 px — optimised for Brother 62 mm continuous roll at 300 DPI
+ * (696 px ≈ 58.9 mm ≤ 62 mm printable width).
+ * Zebra ZT230 (203 DPI) also fits: 696/203 = 3.43 in × 480/203 = 2.36 in (within 4 × 3 in label).
  *
- * ┌─ HEADER (h=82) ──────────────────────────────────────────────┐
+ * ┌─ HEADER (h=70) ──────────────────────────────────────────────┐
  * │  EFL Global [logo accent]              VISITOR BADGE         │
  * ├──────────────────────────────────────────────────────────────┤
- * │ [Photo 160×220]  VISITOR NAME (bold)          [QR 158×158]  │
+ * │ [Photo 137×185]  VISITOR NAME (bold)          [QR 136×136]  │
  * │                  Company: …                                  │
  * │                  Visiting: …                                 │
  * │                  Date: dd/MM/yyyy                            │
@@ -30,16 +31,16 @@ import java.util.Locale
  * ├──────────────────────────────────────────────────────────────┤
  * │  Printed: dd/MM/yyyy HH:mm                                   │
  * ├──────────────────────────────────────────────────────────────┤
- * │  ▓▓▓▓▓▓▓▓▓▓▓▓▓  ORANGE FOOTER BAR (h=14)  ▓▓▓▓▓▓▓▓▓▓▓▓▓   │
+ * │  ▓▓▓▓▓▓▓▓▓▓▓▓▓  ORANGE FOOTER BAR (h=10)  ▓▓▓▓▓▓▓▓▓▓▓▓▓   │
  * └──────────────────────────────────────────────────────────────┘
  */
 object BadgeBitmapRenderer {
 
-    /** Width in pixels (4 in @ 203 DPI). */
-    const val BADGE_W = 812
+    /** Width in pixels — fits 62 mm roll at 300 DPI with small margin. */
+    const val BADGE_W = 696
 
-    /** Height in pixels (3 in @ 203 DPI). */
-    const val BADGE_H = 609
+    /** Height in pixels — compact layout, no excess dead space. */
+    const val BADGE_H = 480
 
     // ── Colors ─────────────────────────────────────────────────────────────
     private val CLR_HEADER   = Color.parseColor("#273647")   // Slate
@@ -51,21 +52,20 @@ object BadgeBitmapRenderer {
     private val CLR_PHOTO_BG = Color.parseColor("#EEEEEE")   // Photo placeholder
 
     // ── Layout constants ───────────────────────────────────────────────────
-    private const val HEADER_H   = 82f
-    private const val PHOTO_X    = 18f
-    private const val PHOTO_Y    = 92f
-    private const val PHOTO_W    = 160f
-    private const val PHOTO_H    = 220f
-    private const val TEXT_X     = 192f
-    private const val QR_SIZE    = 158f
-    private const val QR_X       = BADGE_W - QR_SIZE - 16f   // 638f
-    private const val QR_Y       = 92f
-    private const val DIVIDER1_Y = 326f
-    private const val PILL_Y     = 338f
-    private const val DIVIDER2_Y = 398f
-    private const val NOTE_Y     = 418f
-    private const val PRINTED_Y  = 444f
-    private const val FOOTER_Y   = BADGE_H - 14f
+    private const val HEADER_H   = 70f
+    private const val PHOTO_X    = 15f
+    private const val PHOTO_Y    = 78f
+    private const val PHOTO_W    = 137f
+    private const val PHOTO_H    = 185f
+    private const val TEXT_X     = 162f
+    private const val QR_SIZE    = 136f
+    private const val QR_X       = BADGE_W - QR_SIZE - 15f   // 545f
+    private const val QR_Y       = 78f
+    private const val DIVIDER1_Y = 270f
+    private const val PILL_Y     = 280f
+    private const val DIVIDER2_Y = 324f
+    private const val PRINTED_Y  = 340f
+    private const val FOOTER_Y   = BADGE_H - 12f             // 468f
 
     // ── Data model ─────────────────────────────────────────────────────────
 
@@ -118,10 +118,10 @@ object BadgeBitmapRenderer {
         // "EFL Global" on the left (orange accent)
         canvas.drawText(
             "EFL Global",
-            20f, HEADER_H - 24f,
+            16f, HEADER_H - 20f,
             paint {
                 color     = CLR_ORANGE
-                textSize  = 26f
+                textSize  = 24f
                 typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 isAntiAlias = true
             }
@@ -130,10 +130,10 @@ object BadgeBitmapRenderer {
         // Badge title on the right (white)
         canvas.drawText(
             title.uppercase(Locale.getDefault()),
-            BADGE_W - 20f, HEADER_H - 24f,
+            BADGE_W - 16f, HEADER_H - 20f,
             paint {
                 color     = Color.WHITE
-                textSize  = 24f
+                textSize  = 22f
                 typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.RIGHT
                 isAntiAlias = true
@@ -185,20 +185,20 @@ object BadgeBitmapRenderer {
     }
 
     private fun drawTextBlock(canvas: Canvas, data: RenderData) {
-        val maxTextWidth = QR_X - TEXT_X - 12f   // don't overlap QR code
+        val maxTextWidth = QR_X - TEXT_X - 10f   // don't overlap QR code
 
-        var y = 130f
+        var y = 114f
 
         // ── Visitor name ─────────────────────────────────────────────────
         val namePaint = paint {
             color    = CLR_TEXT
-            textSize = 36f
+            textSize = 32f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
         val nameStr = data.visitorName.uppercase(Locale.getDefault())
-        y = drawWrappedText(canvas, nameStr, TEXT_X, y, maxTextWidth, namePaint, lineSpacing = 40f)
-        y += 14f
+        y = drawWrappedText(canvas, nameStr, TEXT_X, y, maxTextWidth, namePaint, lineSpacing = 36f)
+        y += 10f
 
         // ── Company ──────────────────────────────────────────────────────
         if (!data.company.isNullOrBlank()) {
@@ -234,8 +234,8 @@ object BadgeBitmapRenderer {
 
         val text      = typeLabel.uppercase(Locale.getDefault())
         val textWidth = textPaint.measureText(text)
-        val pillH     = 44f
-        val pillLeft  = 20f
+        val pillH     = 38f
+        val pillLeft  = 16f
         val pillRight = pillLeft + textWidth + 30f
         val pillRect  = RectF(pillLeft, PILL_Y, pillRight, PILL_Y + pillH)
         canvas.drawRoundRect(pillRect, 22f, 22f, pillPaint)
@@ -252,15 +252,14 @@ object BadgeBitmapRenderer {
     }
 
     private fun drawDivider(canvas: Canvas, y: Float) {
-        canvas.drawLine(20f, y, BADGE_W - 20f, y,
+        canvas.drawLine(16f, y, BADGE_W - 16f, y,
             paint { color = CLR_DIVIDER; strokeWidth = 1.5f })
     }
 
     private fun drawFooterText(canvas: Canvas, printedLabel: String, entryDate: Long) {
-        val entryFmt = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         canvas.drawText(
             "$printedLabel ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}",
-            20f, PRINTED_Y,
+            16f, PRINTED_Y,
             paint { color = CLR_GRAY; textSize = 18f; isAntiAlias = true }
         )
     }

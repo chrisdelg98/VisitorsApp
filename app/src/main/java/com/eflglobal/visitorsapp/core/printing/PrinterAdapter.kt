@@ -42,5 +42,34 @@ interface PrinterAdapter {
         context: Context,
         config: PrinterConfig
     ): String?
+
+    /**
+     * Full diagnostic probe: connects, queries status, and returns structured
+     * [PrinterDiagnostics] with individual check items.
+     * Default implementation falls back to [testConnection] with minimal info.
+     */
+    suspend fun diagnose(
+        context: Context,
+        config: PrinterConfig
+    ): PrinterDiagnostics {
+        val err = testConnection(context, config)
+        return if (err == null) {
+            PrinterDiagnostics(
+                isConnected = true,
+                summary = "Connected",
+                checks = listOf(
+                    DiagnosticItem("Connection", "OK", DiagStatus.OK)
+                )
+            )
+        } else {
+            PrinterDiagnostics(
+                isConnected = false,
+                summary = err,
+                checks = listOf(
+                    DiagnosticItem("Connection", err, DiagStatus.ERROR)
+                )
+            )
+        }
+    }
 }
 

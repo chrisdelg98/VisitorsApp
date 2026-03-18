@@ -266,6 +266,17 @@
     <string name="printing">Impression…</string>
     <string name="print_success">Badge imprimé avec succès</string>
     <string name="save">Enregistrer</string>
+
+    <!-- Printer Diagnostics -->
+    <string name="printer_diagnostics">Diagnostic</string>
+    <string name="printer_diag_title">Diagnostic de l\'Imprimante</string>
+    <string name="printer_diag_idle">Appuyez sur \"Tester la Connexion\" pour lancer le diagnostic</string>
+    <string name="printer_diag_running">Diagnostic en cours…</string>
+    <string name="printer_diag_summary">Résumé</string>
+    <string name="printer_diag_checks">Vérifications</string>
+    <string name="printer_diag_connected">Connectée</string>
+    <string name="printer_diag_not_connected">Non connectée</string>
+    <string name="printer_configuration">Configuration</string>
 </resources>
 
 

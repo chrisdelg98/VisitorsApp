@@ -72,5 +72,26 @@ object PrinterManager {
             PrinterConfig.PrinterBrand.NONE    -> "No printer brand selected"
         }
     }
+
+    /**
+     * Full diagnostic probe: connects, queries status, and returns structured
+     * [PrinterDiagnostics] with individual check items for the UI panel.
+     */
+    suspend fun diagnose(
+        context: Context,
+        config: PrinterConfig
+    ): PrinterDiagnostics = withContext(Dispatchers.IO) {
+        when (config.brand) {
+            PrinterConfig.PrinterBrand.ZEBRA   -> ZebraPrinterAdapter.diagnose(context, config)
+            PrinterConfig.PrinterBrand.BROTHER -> BrotherPrinterAdapter.diagnose(context, config)
+            PrinterConfig.PrinterBrand.NONE    -> PrinterDiagnostics(
+                isConnected = false,
+                summary = "No printer brand selected",
+                checks = listOf(
+                    DiagnosticItem("Brand", "Not configured", DiagStatus.ERROR)
+                )
+            )
+        }
+    }
 }
 

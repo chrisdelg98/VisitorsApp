@@ -267,5 +267,16 @@
     <string name="printing">Printing...</string>
     <string name="print_success">Badge printed successfully</string>
     <string name="save">Save</string>
+
+    <!-- Printer Diagnostics -->
+    <string name="printer_diagnostics">Diagnostics</string>
+    <string name="printer_diag_title">Printer Diagnostics</string>
+    <string name="printer_diag_idle">Press \"Test Connection\" to run diagnostics</string>
+    <string name="printer_diag_running">Running diagnostics…</string>
+    <string name="printer_diag_summary">Summary</string>
+    <string name="printer_diag_checks">Checks</string>
+    <string name="printer_diag_connected">Connected</string>
+    <string name="printer_diag_not_connected">Not connected</string>
+    <string name="printer_configuration">Configuration</string>
 </resources>
 
