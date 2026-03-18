@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Portuguese (Brazil) translations / Traduções em Português -->
 <resources>
-    <string name="app_name">VisitorsApp</string>
+    <string name="app_name">EFL Visitor App</string>
 
     <!-- HomeScreen -->
     <string name="welcome">Bem-vindo</string>
