@@ -61,6 +61,13 @@ fun AdminPanelScreen(
     var selectedVisit by remember { mutableStateOf<VisitWithPersonInfo?>(null) }
     var showPrinterSettings by remember { mutableStateOf(false) }
 
+    // Localized context para que los diálogos (que abren nueva ventana Compose)
+    // respeten el idioma seleccionado y no el locale del dispositivo.
+    val rawContext = LocalContext.current
+    val localizedContext = remember(selectedLanguage) {
+        LanguageManager.wrapContext(rawContext, selectedLanguage)
+    }
+
     // Estados de filtros
     var filterStatus by remember { mutableStateOf<Set<VisitFilterStatus>>(emptySet()) }
     var filterVisitorType by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -84,38 +91,37 @@ fun AdminPanelScreen(
         PrinterSettingsDialog(onDismiss = { showPrinterSettings = false })
     }
 
+    // Pre-resolver strings del diálogo de logout usando el contexto localizado.
+    // AlertDialog crea un AndroidView propio que NO hereda LocalContext de Compose,
+    // por lo que hay que resolver los textos aquí, fuera del diálogo.
+    val logoutTitle        = localizedContext.getString(R.string.logout)
+    val logoutMessage      = localizedContext.getString(R.string.logout_confirmation)
+    val logoutYes          = localizedContext.getString(R.string.yes)
+    val logoutNo           = localizedContext.getString(R.string.no)
+
     // Diálogo de confirmación de logout
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = {
-                Text(
-                    text = stringResource(R.string.logout),
-                    fontWeight = FontWeight.Bold
-                )
+                Text(text = logoutTitle, fontWeight = FontWeight.Bold)
             },
             text = {
-                Text(text = stringResource(R.string.logout_confirmation))
+                Text(text = logoutMessage)
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showLogoutDialog = false
-                        viewModel.logout {
-                            onLogout()
-                        }
+                        viewModel.logout { onLogout() }
                     }
                 ) {
-                    Text(
-                        text = stringResource(R.string.yes),
-                        color = OrangePrimary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(text = logoutYes, color = OrangePrimary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
-                    Text(text = stringResource(R.string.no))
+                    Text(text = logoutNo)
                 }
             }
         )
@@ -147,32 +153,7 @@ fun AdminPanelScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(onClick = { showPrinterSettings = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Print,
-                            contentDescription = stringResource(R.string.printer_settings)
-                        )
-                    }
-                    IconButton(onClick = { showFiltersPanel = true }) {
-                        Icon(
-                            imageVector = Icons.Default.FilterList,
-                            contentDescription = "Filtros"
-                        )
-                    }
-                    IconButton(onClick = { viewModel.refresh() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh"
-                        )
-                    }
-                    IconButton(onClick = { showLogoutDialog = true }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = stringResource(R.string.logout)
-                        )
-                    }
-                },
+                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = SlatePrimary,
                     titleContentColor = Color.White,
@@ -202,6 +183,9 @@ fun AdminPanelScreen(
                     AdminPanelContent(
                         state = state,
                         onRefresh = { viewModel.refresh() },
+                        onOpenPrinterSettings = { showPrinterSettings = true },
+                        onOpenFilters = { showFiltersPanel = true },
+                        onLogout = { showLogoutDialog = true },
                         selectedLanguage = selectedLanguage,
                         filterStatus = filterStatus,
                         filterVisitorType = filterVisitorType,
@@ -314,6 +298,9 @@ fun AdminPanelScreen(
 private fun AdminPanelContent(
     state: AdminPanelUiState.Success,
     onRefresh: () -> Unit,
+    onOpenPrinterSettings: () -> Unit,
+    onOpenFilters: () -> Unit,
+    onLogout: () -> Unit,
     selectedLanguage: String,
     filterStatus: Set<VisitFilterStatus>,
     filterVisitorType: Set<String>,
@@ -383,9 +370,40 @@ private fun AdminPanelContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header: Información de la estación
+        // ── Fila de acciones principales (arriba de todo) ──
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onOpenPrinterSettings,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SlatePrimary),
+                    border = BorderStroke(1.dp, SlatePrimary.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.printer_settings), maxLines = 1, style = MaterialTheme.typography.labelMedium)
+                }
+                OutlinedButton(
+                    onClick = onLogout,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SlatePrimary),
+                    border = BorderStroke(1.dp, SlatePrimary.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.logout), maxLines = 1, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        // ── Card de estación ──
         item {
             StationInfoCard(
                 stationName = state.station.stationName,
@@ -394,42 +412,34 @@ private fun AdminPanelContent(
             )
         }
 
-        // Estadísticas en cards
+        // ── Estadísticas compactas en 4 columnas ──
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                StatCard(
+                CompactStatCard(
                     title = stringResource(R.string.total_visits),
                     value = state.totalVisits.toString(),
                     icon = Icons.Default.People,
                     color = SlatePrimary,
                     modifier = Modifier.weight(1f)
                 )
-                StatCard(
+                CompactStatCard(
                     title = stringResource(R.string.active_visits),
                     value = state.activeVisits.toString(),
                     icon = Icons.Default.Person,
                     color = OrangePrimary,
                     modifier = Modifier.weight(1f)
                 )
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                StatCard(
+                CompactStatCard(
                     title = stringResource(R.string.today_visits),
                     value = state.todayVisits.toString(),
                     icon = Icons.Default.Today,
                     color = Color(0xFF4CAF50),
                     modifier = Modifier.weight(1f)
                 )
-                StatCard(
+                CompactStatCard(
                     title = stringResource(R.string.month_visits),
                     value = state.thisMonthVisits.toString(),
                     icon = Icons.Default.CalendarMonth,
@@ -439,32 +449,63 @@ private fun AdminPanelContent(
             }
         }
 
-        // Título de visitas recientes
+        // ── Título "Visitas Recientes" + Filtros + Refresh ──
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(R.string.recent_visits),
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
-                    fontWeight = FontWeight.Bold,
-                    color = SlatePrimary,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-                if (filterStatus.isNotEmpty() ||
-                    filterVisitorType.isNotEmpty() ||
-                    filterFirstName.isNotBlank() ||
-                    filterLastName.isNotBlank() ||
-                    filterVisitingPerson.isNotBlank()) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "${filteredVisits.size} ${stringResource(R.string.visits).lowercase()}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OrangePrimary,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 16.dp)
+                        text = stringResource(R.string.recent_visits),
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                        fontWeight = FontWeight.Bold,
+                        color = SlatePrimary
                     )
+                    if (filterStatus.isNotEmpty() ||
+                        filterVisitorType.isNotEmpty() ||
+                        filterFirstName.isNotBlank() ||
+                        filterLastName.isNotBlank() ||
+                        filterVisitingPerson.isNotBlank()) {
+                        Surface(
+                            color = OrangePrimary.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Text(
+                                text = "${filteredVisits.size}",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = OrangePrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onRefresh,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SlatePrimary),
+                        border = BorderStroke(1.dp, SlatePrimary.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.visits), style = MaterialTheme.typography.labelSmall)
+                    }
+                    Button(
+                        onClick = onOpenFilters,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = OrangePrimary),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.filters), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -595,6 +636,48 @@ private fun StationInfoCard(
                 contentDescription = null,
                 tint = SlatePrimary.copy(alpha = 0.3f),
                 modifier = Modifier.size(48.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactStatCard(
+    title: String,
+    value: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.10f)),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 26.sp),
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
+                maxLines = 2
             )
         }
     }
