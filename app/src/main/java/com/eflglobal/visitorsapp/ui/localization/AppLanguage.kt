@@ -20,7 +20,7 @@ enum class AppLanguage(
         fun fromTag(tag: String): AppLanguage =
             entries.firstOrNull { it.tag == tag } ?: SPANISH
 
-        val default: AppLanguage get() = SPANISH
+        val default: AppLanguage get() = ENGLISH
     }
 }
 

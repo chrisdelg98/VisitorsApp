@@ -155,6 +155,9 @@
     <string name="configure_station">Configure Station</string>
     <string name="invalid_pin">Invalid PIN. Please try again.</string>
     <string name="setup_instructions">This is the initial station setup. Enter the PIN provided by your administrator.</string>
+    <string name="activate_station">Activate Station</string>
+    <string name="station_note_title">One-time device registration</string>
+    <string name="station_note_body">This setup is performed only once per device. Once activated, this tablet will be registered as a control station. Contact your administrator if you need the activation PIN.</string>
 
     <!-- OCR extraction banner -->
     <string name="ocr_auto_filled">Data automatically detected from document</string>

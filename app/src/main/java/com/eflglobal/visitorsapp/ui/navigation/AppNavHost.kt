@@ -77,7 +77,8 @@ fun AppNavHost(
             StationSetupScreen(
                 onActivate = { navController.navigate(Routes.Home) },
                 onBack = { navController.popBackStack() },
-                selectedLanguage = selectedLanguage
+                selectedLanguage = selectedLanguage,
+                languageViewModel = languageViewModel
             )
         }
         composable(Routes.DocumentScan) {
