@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
@@ -19,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +30,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eflglobal.visitorsapp.R
+import com.eflglobal.visitorsapp.core.printing.BadgeBitmapRenderer
+import com.eflglobal.visitorsapp.core.printing.PrintResult
+import com.eflglobal.visitorsapp.core.printing.PrinterManager
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.core.utils.QRCodeGenerator
 import com.eflglobal.visitorsapp.ui.components.VisitorBadgeButton
@@ -58,13 +63,44 @@ fun ConfirmScreen(
     var showSuccessDialog by remember { mutableStateOf(false) }
     var qrSaved by remember { mutableStateOf(false) }
 
+    // ── Print status (dynamic) ────────────────────────────────────────────
+    var isPrinting   by remember { mutableStateOf(false) }
+    var printStatusMsg by remember { mutableStateOf<String?>(null) }
+    var printSuccess   by remember { mutableStateOf(false) }
+
     // Pre-resolve dialog strings here where LocalContext has the correct locale.
-    // AlertDialog creates a new window that breaks the CompositionLocalProvider
-    // locale chain, so we must capture the strings before entering the dialog.
     val strRegistrationSuccess       = stringResource(R.string.registration_success)
     val strVisitorRegisteredCorrectly = stringResource(R.string.visitor_registered_correctly)
     val strNoPrinterFound            = stringResource(R.string.no_printer_found)
+    val strPrintingBadge             = stringResource(R.string.printing_badge)
+    val strBadgePrintedAndRegistered = stringResource(R.string.badge_printed_and_registered)
     val strFinish                    = stringResource(R.string.finish)
+
+    // Badge label strings for printing
+    val strBadgeTitle   = stringResource(R.string.visitor_badge_title)
+    val strCompanyLabel = stringResource(R.string.company_colon)
+    val strVisitingLabel = stringResource(R.string.visiting_colon2)
+    val strValidLabel   = stringResource(R.string.valid_colon)
+    val strBadgeNote    = stringResource(R.string.badge_note)
+    val strPrintedLabel = stringResource(R.string.printed_colon)
+
+    val strVisitorTypeLabel = when (visitorType) {
+        "VISITOR"         -> stringResource(R.string.visitor_type)
+        "CONTRACTOR"      -> stringResource(R.string.contractor)
+        "VENDOR"          -> stringResource(R.string.vendor)
+        "DELIVERY"        -> stringResource(R.string.delivery)
+        "DRIVER"          -> stringResource(R.string.driver)
+        "TEMPORARY_STAFF" -> stringResource(R.string.temporary_staff)
+        "OTHER"           -> stringResource(R.string.other)
+        else              -> stringResource(R.string.visitor_type)
+    }
+
+    // Logo for badge printing
+    val logoBitmap: Bitmap? = remember {
+        try {
+            android.graphics.BitmapFactory.decodeResource(context.resources, R.drawable.logo)
+        } catch (_: Exception) { null }
+    }
 
     val qrBitmap: Bitmap? = remember(qrCode) {
         qrCode?.let {
@@ -165,7 +201,55 @@ fun ConfirmScreen(
                     Column(modifier = Modifier.fillMaxWidth(0.95f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         // Botón Confirmar (primero, más prominente)
                         Button(
-                            onClick = { showSuccessDialog = true },
+                            onClick = {
+                                showSuccessDialog = true
+                                isPrinting = true
+                                printStatusMsg = strPrintingBadge
+                                printSuccess = false
+
+                                // Auto-print the badge
+                                coroutineScope.launch {
+                                    try {
+                                        val renderData = BadgeBitmapRenderer.RenderData(
+                                            firstName        = firstName ?: personName?.substringBefore(" ") ?: "",
+                                            lastName         = lastName ?: personName?.substringAfter(" ", "") ?: "",
+                                            company          = company,
+                                            visitingPerson   = visitingPerson ?: "",
+                                            visitorTypeLabel = strVisitorTypeLabel,
+                                            entryDate        = System.currentTimeMillis(),
+                                            profileBitmap    = profileBitmap,
+                                            qrBitmap         = qrBitmap,
+                                            logoBitmap       = logoBitmap,
+                                            labelBadgeTitle  = strBadgeTitle,
+                                            labelCompany     = strCompanyLabel,
+                                            labelVisiting    = strVisitingLabel,
+                                            labelValid       = strValidLabel,
+                                            labelValidFor    = strBadgeNote,
+                                            labelPrinted     = strPrintedLabel
+                                        )
+                                        val result = PrinterManager.printBadge(context, renderData)
+                                        isPrinting = false
+                                        when (result) {
+                                            is PrintResult.Success -> {
+                                                printSuccess = true
+                                                printStatusMsg = strBadgePrintedAndRegistered
+                                            }
+                                            is PrintResult.PermissionRequested -> {
+                                                printSuccess = false
+                                                printStatusMsg = "USB permission requested."
+                                            }
+                                            is PrintResult.Error -> {
+                                                printSuccess = false
+                                                printStatusMsg = result.message
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        isPrinting = false
+                                        printSuccess = false
+                                        printStatusMsg = strNoPrinterFound
+                                    }
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth().height(60.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = OrangePrimary),
                             shape = RoundedCornerShape(16.dp),
@@ -301,6 +385,16 @@ fun ConfirmScreen(
 
             // ── Diálogo de éxito ──
             if (showSuccessDialog) {
+
+                // Auto-redirect 5 seconds after printing finishes
+                LaunchedEffect(isPrinting, printStatusMsg) {
+                    if (!isPrinting && printStatusMsg != null) {
+                        kotlinx.coroutines.delay(5_000)
+                        showSuccessDialog = false
+                        onConfirm()
+                    }
+                }
+
                 AlertDialog(
                     onDismissRequest = { },
                     icon = {
@@ -316,16 +410,57 @@ fun ConfirmScreen(
                             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                     },
                     text = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text(strVisitorRegisteredCorrectly,
                                 style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
 
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(20.dp))
 
-                            Text(strNoPrinterFound,
-                                style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                            // ── Print status indicator ──
+                            if (isPrinting) {
+                                // Printing in progress
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = OrangePrimary
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(printStatusMsg ?: strPrintingBadge,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                }
+                            } else if (printStatusMsg != null) {
+                                // Result: success or error
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = if (printSuccess) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                        contentDescription = null,
+                                        tint = if (printSuccess) Color(0xFF4CAF50) else Color(0xFFE53935),
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = printStatusMsg!!,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                                    )
+                                }
+                            }
                         }
                     },
                     confirmButton = {

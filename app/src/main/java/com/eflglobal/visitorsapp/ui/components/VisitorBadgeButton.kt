@@ -111,6 +111,13 @@ fun VisitorBadgeButton(
     }
 
     // ── "Print" action ────────────────────────────────────────────────────────
+    // Load logo bitmap once for printing
+    val logoBitmap: Bitmap? = remember {
+        try {
+            android.graphics.BitmapFactory.decodeResource(context.resources, R.drawable.logo)
+        } catch (_: Exception) { null }
+    }
+
     val onPrintClicked: () -> Unit = {
         if (!isPrinting) {
             coroutineScope.launch {
@@ -124,8 +131,9 @@ fun VisitorBadgeButton(
                     visitingPerson   = visitingPerson,
                     visitorTypeLabel = strVisitorTypeLabel,
                     entryDate        = visitDate,
-                    profileBitmap    = profileBitmap,  // renderer handles grayscale internally
+                    profileBitmap    = profileBitmap,
                     qrBitmap         = qrBitmap,
+                    logoBitmap       = logoBitmap,
                     labelBadgeTitle  = strBadgeTitle,
                     labelCompany     = strCompany,
                     labelVisiting    = strVisiting,
@@ -323,36 +331,60 @@ private fun VisitorBadgeCard(
                     HorizontalDivider(color = Color(0xFFBDBDBD), thickness = 1.dp)
                     Spacer(Modifier.height(12.dp))
 
-                    // ── Main row: Photo | Data ───────────────────────────────
+                    // ── Main content: Left column (Photo + QR) | Right column (Data) ──
                     Row(
                         modifier              = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalAlignment     = Alignment.Top
                     ) {
-                        // Photo (grayscale square)
-                        Box(
-                            modifier = Modifier
-                                .size(110.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(8.dp))
-                                .background(Color(0xFFEEEEEE)),
-                            contentAlignment = Alignment.Center
+                        // Left column: Photo + QR stacked
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            if (grayscaleBitmap != null) {
-                                Image(
-                                    bitmap       = grayscaleBitmap.asImageBitmap(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier     = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                Icon(Icons.Default.Person, null,
-                                    tint     = Color.Gray,
-                                    modifier = Modifier.size(44.dp))
+                            // Photo (grayscale square)
+                            Box(
+                                modifier = Modifier
+                                    .size(110.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFEEEEEE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (grayscaleBitmap != null) {
+                                    Image(
+                                        bitmap       = grayscaleBitmap.asImageBitmap(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier     = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Person, null,
+                                        tint     = Color.Gray,
+                                        modifier = Modifier.size(44.dp))
+                                }
+                            }
+
+                            // QR code (same width as photo)
+                            if (qrBitmap != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(110.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(6.dp))
+                                        .background(Color.White)
+                                        .padding(4.dp)
+                                ) {
+                                    Image(
+                                        bitmap             = qrBitmap.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier           = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                         }
 
-                        // Data column
+                        // Right column: Data (starts from top) + visitor type pill at bottom
                         Column(
                             modifier              = Modifier.weight(1f),
                             verticalArrangement   = Arrangement.spacedBy(6.dp)
@@ -379,7 +411,7 @@ private fun VisitorBadgeCard(
                                 overflow   = TextOverflow.Ellipsis
                             )
 
-                            // Company — always visible, label is fully translatable
+                            // Company
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(strCompany, fontSize = 11.sp, color = Color(0xFF9E9E9E))
                                 Spacer(Modifier.width(4.dp))
@@ -407,7 +439,6 @@ private fun VisitorBadgeCard(
                                 )
                             }
 
-
                             // Valid until
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(strValid, fontSize = 10.sp, color = Color(0xFF9E9E9E))
@@ -426,48 +457,26 @@ private fun VisitorBadgeCard(
                                 fontSize = 9.sp,
                                 color    = Color(0xFF9E9E9E)
                             )
-                        }
-                    }
 
-                    Spacer(Modifier.height(12.dp))
-                    HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
-                    Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.weight(1f))
 
-                    // ── Footer: Visitor type chip | QR ───────────────────────
-                    Row(
-                        modifier              = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment     = Alignment.CenterVertically
-                    ) {
-                        // Visitor type pill
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFFEEEEEE), RoundedCornerShape(50.dp))
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text       = visitorTypeLabel,
-                                fontSize   = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color      = Color(0xFF424242)
-                            )
-                        }
-
-                        // QR code
-                        if (qrBitmap != null) {
-                            Box(
-                                modifier = Modifier
-                                    .size(76.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(6.dp))
-                                    .background(Color.White)
-                                    .padding(3.dp)
+                            // Visitor type pill (bottom-right)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
                             ) {
-                                Image(
-                                    bitmap             = qrBitmap.asImageBitmap(),
-                                    contentDescription = null,
-                                    modifier           = Modifier.fillMaxSize()
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFFEEEEEE), RoundedCornerShape(50.dp))
+                                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                                ) {
+                                    Text(
+                                        text       = visitorTypeLabel,
+                                        fontSize   = 10.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color      = Color(0xFF424242)
+                                    )
+                                }
                             }
                         }
                     }

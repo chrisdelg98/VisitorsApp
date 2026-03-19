@@ -121,6 +121,9 @@
     <string name="visit_qr_code">QR Code de visite</string>
     <string name="printing_qr">Impression du QR code...</string>
     <string name="no_printer_found">Aucune imprimante trouvée. Enregistrement terminé avec succès.</string>
+    <string name="printing_badge">Impression du badge visiteur…</string>
+    <string name="badge_printed_and_registered">Visiteur enregistré et badge imprimé avec succès.</string>
+    <string name="print_error_but_registered">Visiteur enregistré avec succès.\nErreur d\'impression : %1$s</string>
 
     <!-- ── CheckoutQrScreen ───────────────────────────── -->
     <string name="end_visit_title">Terminer la visite</string>

@@ -15,23 +15,21 @@ import java.util.Locale
 /**
  * Renders the visitor badge as an Android [Bitmap] using the native Canvas API.
  *
- * The layout replicates the Compose UI preview card exactly:
- *
  * Target size : 696 × 480 px — optimised for Brother 62 mm continuous roll at 300 DPI.
  *
+ * NEW LAYOUT (no bottom divider):
  * ┌──────────────────────────────────────────────────────────────┐
- * │  EFL Global (logo)              VISITOR BADGE (title)       │
+ * │  EFL Global                         VISITOR BADGE           │
  * ├──────────────────────────────────────────────────────────────┤
- * │ ┌─────────┐  FIRST NAME (bold)                              │
- * │ │  PHOTO  │  LAST NAME  (bold)                              │
- * │ │ (square)│  Company: EFL                                   │
- * │ │ grayscl │  Visiting: John Doe                             │
- * │ └─────────┘  Valid: 18/03/2026                              │
- * │              Printed: 18/03/2026 10:30                       │
- * ├──────────────────────────────────────────────────────────────┤
- * │  [ VISITOR ]                                   ┌──────┐     │
- * │  Valid for 24 hours from entry                  │  QR  │     │
- * │                                                 └──────┘     │
+ * │ ┌─────────┐  FIRST NAME               [ VISITOR TYPE ]     │
+ * │ │  PHOTO  │  LAST NAME                                      │
+ * │ │(dithered)│  Company: EFL                                   │
+ * │ │         │  Visiting: John Doe                              │
+ * │ └─────────┘  Valid: 18/03/2026                               │
+ * │ ┌─────────┐  Printed: 18/03/2026 10:30                      │
+ * │ │   QR    │                                                  │
+ * │ │  CODE   │                                                  │
+ * │ └─────────┘                                                  │
  * └──────────────────────────────────────────────────────────────┘
  */
 object BadgeBitmapRenderer {
@@ -43,13 +41,11 @@ object BadgeBitmapRenderer {
     const val BADGE_H = 480
 
     // ── Colors — optimised for 1-bit thermal printing ──────────────────────
-    // The Brother QL thermal printer converts to black/white at luma < 128.
-    // ALL text & lines MUST have luma < 128 to be visible on the printout.
-    private val CLR_TEXT     = Color.parseColor("#000000")   // Pure black (luma 0)
-    private val CLR_GRAY     = Color.parseColor("#333333")   // Dark gray (luma ~51)
-    private val CLR_LABEL    = Color.parseColor("#555555")   // Label gray (luma ~85) — visible on thermal
-    private val CLR_DIVIDER  = Color.parseColor("#666666")   // Divider (luma ~102) — visible on thermal
-    private val CLR_CHIP_BG  = Color.parseColor("#D0D0D0")   // Pill bg — light on screen, border on print
+    private val CLR_TEXT     = Color.parseColor("#000000")   // Pure black
+    private val CLR_GRAY     = Color.parseColor("#333333")   // Dark gray
+    private val CLR_LABEL    = Color.parseColor("#555555")   // Label gray
+    private val CLR_DIVIDER  = Color.parseColor("#666666")   // Divider
+    private val CLR_CHIP_BG  = Color.parseColor("#D0D0D0")   // Pill bg
     private val CLR_PHOTO_BG = Color.parseColor("#E0E0E0")   // Photo placeholder
 
     // ── Margins ────────────────────────────────────────────────────────────
@@ -66,7 +62,7 @@ object BadgeBitmapRenderer {
         val entryDate: Long,
         val profileBitmap: Bitmap?  = null,
         val qrBitmap: Bitmap?       = null,
-        // Localized labels — populated from stringResource before calling render()
+        val logoBitmap: Bitmap?     = null,
         val labelBadgeTitle: String = "VISITOR BADGE",
         val labelCompany: String    = "Company:",
         val labelVisiting: String   = "Visiting:",
@@ -86,59 +82,94 @@ object BadgeBitmapRenderer {
         val canvas = Canvas(bmp)
         canvas.drawColor(Color.WHITE)
 
-        val headerBottom = drawHeader(canvas, data.labelBadgeTitle)
+        // Header (logo + title)
+        val headerBottom = drawHeader(canvas, data.labelBadgeTitle, data.logoBitmap)
         drawDivider(canvas, headerBottom + 4f)
 
         val contentTop = headerBottom + 12f
-        val photoSize  = 160f
+        val photoSize  = 150f
+
+        // Photo (left, dithered for thermal)
         drawPhoto(canvas, data.profileBitmap, M, contentTop, photoSize)
 
+        // Visitor type pill (top-right, next to name area)
+        drawVisitorTypePill(canvas, data.visitorTypeLabel, contentTop + 10f)
+
+        // Data column (right of photo) — texts start from top
         val textX = M + photoSize + 16f
-        val dataBottom = drawDataColumn(canvas, data, textX, contentTop)
+        drawDataColumn(canvas, data, textX, contentTop)
 
-        // Place divider below whichever is taller: photo or data column
-        val sectionBottom = maxOf(contentTop + photoSize, dataBottom) + 14f
-        drawDivider(canvas, sectionBottom)
 
-        val footerTop = sectionBottom + 10f
-        drawFooter(canvas, data, footerTop)
+        // QR code below photo, same size as photo
+        val qrTop = contentTop + photoSize + 10f
+        drawQrCode(canvas, data.qrBitmap, M, qrTop, photoSize)
 
         return bmp
     }
 
     // ── Section renderers ─────────────────────────────────────────────────
 
-    /** Draws header: "EFL Global" left + badge title right. Returns bottom Y. */
-    private fun drawHeader(canvas: Canvas, title: String): Float {
+    /** Draws header: logo/text left + badge title right. Returns bottom Y. */
+    private fun drawHeader(canvas: Canvas, title: String, logoBitmap: Bitmap? = null): Float {
         val y = M + 28f
+        val logoH = 32f
 
-        // "EFL Global" on the left
-        canvas.drawText(
-            "EFL Global", M, y,
-            paint {
-                color     = CLR_TEXT
-                textSize  = 26f
-                typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                isAntiAlias = true
-            }
-        )
+        if (logoBitmap != null) {
+            // Draw the actual logo image (grayscale)
+            val aspect = logoBitmap.width.toFloat() / logoBitmap.height.toFloat()
+            val logoW  = logoH * aspect
+            val grayLogo = Bitmap.createBitmap(logoW.toInt(), logoH.toInt(), Bitmap.Config.ARGB_8888)
+            val logoCanvas = Canvas(grayLogo)
+            val src = Bitmap.createScaledBitmap(logoBitmap, logoW.toInt(), logoH.toInt(), true)
+            logoCanvas.drawBitmap(src, 0f, 0f, Paint().apply {
+                colorFilter = ColorMatrixColorFilter(ColorMatrix().also { it.setSaturation(0f) })
+            })
+            src.recycle()
+            canvas.drawBitmap(grayLogo, M, y - logoH + 4f, null)
+            grayLogo.recycle()
 
-        // Badge title on the right
-        canvas.drawText(
-            title, BADGE_W - M, y,
-            paint {
-                color     = CLR_GRAY
-                textSize  = 22f
-                typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                textAlign = Paint.Align.RIGHT
-                isAntiAlias = true
-            }
-        )
+            // Badge title right of logo
+            canvas.drawText(
+                title, M + logoW + 10f, y,
+                paint {
+                    color     = CLR_TEXT
+                    textSize  = 24f
+                    typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    isAntiAlias = true
+                }
+            )
+        } else {
+            // Fallback: text-only "EFL Global"
+            canvas.drawText(
+                "EFL Global", M, y,
+                paint {
+                    color     = CLR_TEXT
+                    textSize  = 26f
+                    typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    isAntiAlias = true
+                }
+            )
+
+            // Badge title on the right
+            canvas.drawText(
+                title, BADGE_W - M, y,
+                paint {
+                    color     = CLR_GRAY
+                    textSize  = 22f
+                    typeface  = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                    textAlign = Paint.Align.RIGHT
+                    isAntiAlias = true
+                }
+            )
+        }
 
         return y + 10f
     }
 
-    /** Draws grayscale square photo with border. */
+    /**
+     * Draws the photo with Floyd-Steinberg dithering for optimal thermal print quality.
+     * Enhances brightness and contrast before dithering so facial features are preserved.
+     */
     private fun drawPhoto(canvas: Canvas, src: Bitmap?, x: Float, y: Float, size: Float) {
         val rect = RectF(x, y, x + size, y + size)
 
@@ -146,11 +177,9 @@ object BadgeBitmapRenderer {
         canvas.drawRoundRect(rect, 8f, 8f, paint { color = CLR_PHOTO_BG; isAntiAlias = true })
 
         if (src != null) {
-            val gs     = toSquareGrayscale(src)
-            val scaled = Bitmap.createScaledBitmap(gs, size.toInt(), size.toInt(), true)
-            canvas.drawBitmap(scaled, x, y, null)
-            if (gs !== src) gs.recycle()
-            if (scaled !== src) scaled.recycle()
+            val dithered = toThermalOptimizedPhoto(src, size.toInt())
+            canvas.drawBitmap(dithered, x, y, null)
+            dithered.recycle()
         } else {
             // Placeholder "N/A"
             canvas.drawText(
@@ -174,7 +203,7 @@ object BadgeBitmapRenderer {
         val maxW = BADGE_W - x - M
         var y = startY + 24f
 
-        // ── First name ───────────────────────────────────────────────────
+        // ── First name
         val namePaint = paint {
             color    = CLR_TEXT
             textSize = 28f
@@ -184,28 +213,28 @@ object BadgeBitmapRenderer {
         val firstName = data.firstName.uppercase(Locale.getDefault())
         y = drawWrappedText(canvas, firstName, x, y, maxW, namePaint, 32f)
 
-        // ── Last name ────────────────────────────────────────────────────
+        // ── Last name
         val lastName = data.lastName.uppercase(Locale.getDefault())
         y = drawWrappedText(canvas, lastName, x, y, maxW, namePaint, 32f)
         y += 8f
 
-        // ── Company ──────────────────────────────────────────────────────
+        // ── Company
         if (!data.company.isNullOrBlank()) {
             y = drawLabelValue(canvas, data.labelCompany, data.company.take(30), x, y)
             y += 4f
         }
 
-        // ── Visiting ─────────────────────────────────────────────────────
+        // ── Visiting
         y = drawLabelValue(canvas, data.labelVisiting, data.visitingPerson.take(28), x, y)
         y += 10f
 
-        // ── Valid ────────────────────────────────────────────────────────
+        // ── Valid
         val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             .format(Date(data.entryDate))
         y = drawLabelValue(canvas, data.labelValid, dateStr, x, y)
         y += 4f
 
-        // ── Printed ──────────────────────────────────────────────────────
+        // ── Printed
         val printedStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
             .format(Date())
         canvas.drawText(
@@ -217,48 +246,47 @@ object BadgeBitmapRenderer {
         return y
     }
 
-    /** Draws footer: visitor type pill (left) + QR code (right) + note. */
-    private fun drawFooter(canvas: Canvas, data: RenderData, top: Float) {
-        // ── Visitor type pill ────────────────────────────────────────────
-        val pillText  = data.visitorTypeLabel.uppercase(Locale.getDefault())
+    /** Draws the visitor type pill right-aligned at the bottom of the badge. */
+    private fun drawVisitorTypePill(canvas: Canvas, typeLabel: String, bottomY: Float) {
+        val pillText  = typeLabel.uppercase(Locale.getDefault())
         val pillPaint = paint {
-            color = Color.BLACK; textSize = 20f
+            color = Color.BLACK; textSize = 18f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true
         }
         val pillTextW = pillPaint.measureText(pillText)
-        val pillH     = 34f
-        val pillW     = pillTextW + 28f
-        val pillRect  = RectF(M, top, M + pillW, top + pillH)
+        val pillH     = 30f
+        val pillW     = pillTextW + 24f
+        val pillX     = BADGE_W - M - pillW
+        val pillY     = bottomY
+        val pillRect  = RectF(pillX, pillY, pillX + pillW, pillY + pillH)
         canvas.drawRoundRect(pillRect, 50f, 50f, paint { color = CLR_CHIP_BG; isAntiAlias = true })
-        // Dark border so pill outline is visible on thermal print
         canvas.drawRoundRect(pillRect, 50f, 50f, paint {
             color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 2f; isAntiAlias = true
         })
-        canvas.drawText(pillText, M + 14f, top + pillH - 9f, pillPaint)
+        canvas.drawText(pillText, pillX + 12f, pillY + pillH - 8f, pillPaint)
+    }
 
-        // ── QR code (bottom-right) ───────────────────────────────────────
-        if (data.qrBitmap != null) {
-            val qrSize = 100f
-            val qrX    = BADGE_W - M - qrSize
-            val qrY    = top
-            val qrRect = RectF(qrX, qrY, qrX + qrSize, qrY + qrSize)
+    /** Draws QR code at the given position with the specified size. */
+    private fun drawQrCode(canvas: Canvas, qrBitmap: Bitmap?, x: Float, y: Float, size: Float) {
+        if (qrBitmap == null) return
 
-            // White background + border
-            canvas.drawRoundRect(qrRect, 6f, 6f, paint { color = Color.WHITE; isAntiAlias = true })
-            canvas.drawRoundRect(qrRect, 6f, 6f, paint {
-                color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 1.5f; isAntiAlias = true
-            })
+        val rect = RectF(x, y, x + size, y + size)
 
-            val padding = 4f
-            val scaled = Bitmap.createScaledBitmap(
-                data.qrBitmap,
-                (qrSize - padding * 2).toInt(),
-                (qrSize - padding * 2).toInt(),
-                true
-            )
-            canvas.drawBitmap(scaled, qrX + padding, qrY + padding, null)
-            scaled.recycle()
-        }
+        // White background + border
+        canvas.drawRoundRect(rect, 6f, 6f, paint { color = Color.WHITE; isAntiAlias = true })
+        canvas.drawRoundRect(rect, 6f, 6f, paint {
+            color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 1.5f; isAntiAlias = true
+        })
+
+        val padding = 6f
+        val scaled = Bitmap.createScaledBitmap(
+            qrBitmap,
+            (size - padding * 2).toInt(),
+            (size - padding * 2).toInt(),
+            false  // nearest-neighbor for crisp QR
+        )
+        canvas.drawBitmap(scaled, x + padding, y + padding, null)
+        scaled.recycle()
     }
 
     // ── Drawing helpers ──────────────────────────────────────────────────
@@ -314,8 +342,80 @@ object BadgeBitmapRenderer {
     // ── Bitmap utilities ──────────────────────────────────────────────────
 
     /**
+     * Creates a thermal-print-optimized photo using:
+     * 1. Square center crop
+     * 2. Grayscale conversion with enhanced brightness/contrast
+     * 3. Floyd-Steinberg dithering for 1-bit rendering
+     *
+     * This produces MUCH better results than simple threshold on thermal printers
+     * because it simulates gray tones through dot density patterns.
+     */
+    private fun toThermalOptimizedPhoto(src: Bitmap, targetSize: Int): Bitmap {
+        // Step 1: Square center crop
+        val size = minOf(src.width, src.height)
+        val xOff = (src.width  - size) / 2
+        val yOff = (src.height - size) / 2
+        val cropped = if (xOff == 0 && yOff == 0 && src.width == src.height) src
+        else Bitmap.createBitmap(src, xOff, yOff, size, size)
+
+        // Step 2: Scale to target size
+        val scaled = Bitmap.createScaledBitmap(cropped, targetSize, targetSize, true)
+        if (cropped !== src) cropped.recycle()
+
+        // Step 3: Convert to grayscale with brightness/contrast enhancement
+        val w = scaled.width
+        val h = scaled.height
+        val pixels = FloatArray(w * h) // luminance 0..255
+
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val px = scaled.getPixel(x, y)
+                val r = (px shr 16) and 0xFF
+                val g = (px shr 8)  and 0xFF
+                val b =  px         and 0xFF
+                // Standard luminance
+                var luma = (0.299f * r + 0.587f * g + 0.114f * b)
+
+                // Enhance brightness (+30) and contrast (×1.4) for thermal printing
+                luma = ((luma - 128f) * 1.4f + 128f + 30f).coerceIn(0f, 255f)
+
+                pixels[y * w + x] = luma
+            }
+        }
+        scaled.recycle()
+
+        // Step 4: Floyd-Steinberg dithering
+        val result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val idx = y * w + x
+                val oldVal = pixels[idx]
+                val newVal = if (oldVal < 128f) 0f else 255f
+                val error  = oldVal - newVal
+
+                // Set pixel
+                val c = if (newVal < 128f) Color.BLACK else Color.WHITE
+                result.setPixel(x, y, c)
+
+                // Distribute error to neighbours
+                if (x + 1 < w)
+                    pixels[idx + 1]     += error * 7f / 16f
+                if (y + 1 < h) {
+                    if (x - 1 >= 0)
+                        pixels[(y + 1) * w + (x - 1)] += error * 3f / 16f
+                    pixels[(y + 1) * w + x]            += error * 5f / 16f
+                    if (x + 1 < w)
+                        pixels[(y + 1) * w + (x + 1)]  += error * 1f / 16f
+                }
+            }
+        }
+
+        return result
+    }
+
+    /**
      * Converts a Bitmap to a square, grayscale crop centered on the image.
-     * The returned bitmap may be the same instance as [src] if already matching.
+     * Used by the UI preview (not printing). Kept for backward compatibility.
      */
     fun toSquareGrayscale(src: Bitmap): Bitmap {
         val size  = minOf(src.width, src.height)

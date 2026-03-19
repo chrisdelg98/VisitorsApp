@@ -26,7 +26,7 @@ object QRCodeGenerator {
         size: Int = 512
     ): Bitmap {
         val hints = hashMapOf<EncodeHintType, Any>().apply {
-            put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H)
+            put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.L) // L = simpler, less dense QR
             put(EncodeHintType.CHARACTER_SET, "UTF-8")
             put(EncodeHintType.MARGIN, 1)
         }
