@@ -70,7 +70,6 @@ fun ConfirmScreen(
 
     // Pre-resolve dialog strings here where LocalContext has the correct locale.
     val strRegistrationSuccess       = stringResource(R.string.registration_success)
-    val strVisitorRegisteredCorrectly = stringResource(R.string.visitor_registered_correctly)
     val strNoPrinterFound            = stringResource(R.string.no_printer_found)
     val strPrintingBadge             = stringResource(R.string.printing_badge)
     val strBadgePrintedAndRegistered = stringResource(R.string.badge_printed_and_registered)
@@ -414,12 +413,6 @@ fun ConfirmScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(strVisitorRegisteredCorrectly,
-                                style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-
-                            Spacer(Modifier.height(20.dp))
-
                             // ── Print status indicator ──
                             if (isPrinting) {
                                 // Printing in progress
@@ -440,22 +433,22 @@ fun ConfirmScreen(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                                 }
                             } else if (printStatusMsg != null) {
-                                // Result: success or error
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                // Result: success or error — inline icon + message
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Icon(
                                         imageVector = if (printSuccess) Icons.Default.CheckCircle else Icons.Default.Cancel,
                                         contentDescription = null,
                                         tint = if (printSuccess) Color(0xFF4CAF50) else Color(0xFFE53935),
-                                        modifier = Modifier.size(32.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
-                                    Spacer(Modifier.height(8.dp))
+                                    Spacer(Modifier.width(10.dp))
                                     Text(
                                         text = printStatusMsg!!,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        textAlign = TextAlign.Center,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
                                     )
