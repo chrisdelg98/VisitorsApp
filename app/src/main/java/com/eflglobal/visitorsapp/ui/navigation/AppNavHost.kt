@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.eflglobal.visitorsapp.ui.screens.CheckoutQrScreen
@@ -26,6 +27,32 @@ import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.navigation.animation.composable
+
+// ── Safe navigation helpers — prevent double-tap / mid-animation crashes ─────
+
+/** Only navigate if the current entry is fully RESUMED (not mid-transition). */
+private fun NavHostController.safeNavigate(route: String) {
+    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        navigate(route)
+    }
+}
+
+/** Only navigate (with builder) if the current entry is fully RESUMED. */
+private fun NavHostController.safeNavigate(
+    route: String,
+    builder: androidx.navigation.NavOptionsBuilder.() -> Unit
+) {
+    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        navigate(route, builder)
+    }
+}
+
+/** Only pop back if the current entry is fully RESUMED. */
+private fun NavHostController.safePopBackStack() {
+    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        popBackStack()
+    }
+}
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -64,37 +91,37 @@ fun AppNavHost(
         // ── Home ─────────────────────────────────────────────────────────────────
         composable(Routes.Home) {
             HomeScreen(
-                onNewVisit = { navController.navigate(Routes.DocumentScan) },
-                onRecurrentVisit = { navController.navigate(Routes.RecurrentSearch) },
-                onCheckout = { navController.navigate(Routes.CheckoutQr) },
-                onStationSetup = { navController.navigate(Routes.StationSetup) },
-                onAdminAccess = { navController.navigate(Routes.AdminPanel) },
+                onNewVisit = { navController.safeNavigate(Routes.DocumentScan) },
+                onRecurrentVisit = { navController.safeNavigate(Routes.RecurrentSearch) },
+                onCheckout = { navController.safeNavigate(Routes.CheckoutQr) },
+                onStationSetup = { navController.safeNavigate(Routes.StationSetup) },
+                onAdminAccess = { navController.safeNavigate(Routes.AdminPanel) },
                 languageViewModel = languageViewModel,
                 selectedLanguage = selectedLanguage
             )
         }
         composable(Routes.StationSetup) {
             StationSetupScreen(
-                onActivate = { navController.navigate(Routes.Home) },
-                onBack = { navController.popBackStack() },
+                onActivate = { navController.safeNavigate(Routes.Home) },
+                onBack = { navController.safePopBackStack() },
                 selectedLanguage = selectedLanguage,
                 languageViewModel = languageViewModel
             )
         }
         composable(Routes.DocumentScan) {
             DocumentScanScreen(
-                onContinue = { navController.navigate(Routes.PersonData) },
-                onBack = { navController.popBackStack() },
+                onContinue = { navController.safeNavigate(Routes.PersonData) },
+                onBack = { navController.safePopBackStack() },
                 selectedLanguage = selectedLanguage,
                 viewModel = newVisitViewModel
             )
         }
         composable(Routes.RecurrentSearch) {
             RecurrentSearchScreen(
-                onPersonSelected = { navController.navigate(Routes.RecurrentDocumentScan) },
+                onPersonSelected = { navController.safeNavigate(Routes.RecurrentDocumentScan) },
                 onBack = {
                     recurrentVisitViewModel.resetState()
-                    navController.popBackStack()
+                    navController.safePopBackStack()
                 },
                 selectedLanguage = selectedLanguage,
                 searchViewModel = recurrentSearchViewModel,
@@ -103,10 +130,10 @@ fun AppNavHost(
         }
         composable(Routes.RecurrentDocumentScan) {
             RecurrentDocumentScanScreen(
-                onContinue       = { navController.navigate(Routes.RecurrentVisitData) },
+                onContinue       = { navController.safeNavigate(Routes.RecurrentVisitData) },
                 onBack           = {
                     recurrentVisitViewModel.resetDocuments()
-                    navController.popBackStack()
+                    navController.safePopBackStack()
                 },
                 selectedLanguage = selectedLanguage,
                 viewModel        = recurrentVisitViewModel
@@ -116,10 +143,10 @@ fun AppNavHost(
             val person = recurrentVisitViewModel.getSelectedPerson()
             RecurrentVisitDataScreen(
                 visitorName = person?.fullName ?: "",
-                onContinue = { navController.navigate(Routes.Confirm) },
+                onContinue = { navController.safeNavigate(Routes.Confirm) },
                 onBack = {
                     recurrentVisitViewModel.resetDocuments()
-                    navController.popBackStack()
+                    navController.safePopBackStack()
                 },
                 selectedLanguage = selectedLanguage,
                 viewModel = recurrentVisitViewModel
@@ -127,10 +154,10 @@ fun AppNavHost(
         }
         composable(Routes.PersonData) {
             PersonDataScreen(
-                onContinue = { navController.navigate(Routes.Confirm) },
+                onContinue = { navController.safeNavigate(Routes.Confirm) },
                 onBack = {
                     newVisitViewModel.resetDocuments()
-                    navController.popBackStack()
+                    navController.safePopBackStack()
                 },
                 selectedLanguage = selectedLanguage,
                 viewModel = newVisitViewModel
@@ -193,7 +220,7 @@ fun AppNavHost(
                 onConfirm = {
                     newVisitViewModel.resetState()
                     recurrentVisitViewModel.resetState()
-                    navController.navigate(Routes.Home) {
+                    navController.safeNavigate(Routes.Home) {
                         popUpTo(Routes.Home) { inclusive = false }
                     }
                 },
@@ -202,7 +229,7 @@ fun AppNavHost(
                     // immediately navigate forward again when it recomposes
                     newVisitViewModel.resetToEditing()
                     recurrentVisitViewModel.resetToEditing()
-                    navController.popBackStack()
+                    navController.safePopBackStack()
                 },
                 selectedLanguage = selectedLanguage,
                 qrCode           = qrCode,
@@ -217,8 +244,8 @@ fun AppNavHost(
         }
         composable(Routes.CheckoutQr) {
             CheckoutQrScreen(
-                onFinish = { navController.navigate(Routes.Home) },
-                onBack = { navController.popBackStack() },
+                onFinish = { navController.safeNavigate(Routes.Home) },
+                onBack = { navController.safePopBackStack() },
                 viewModel = endVisitViewModel,
                 selectedLanguage = selectedLanguage
             )
@@ -226,10 +253,10 @@ fun AppNavHost(
         composable(Routes.AdminPanel) {
             val adminPanelViewModel: com.eflglobal.visitorsapp.ui.viewmodel.AdminPanelViewModel = viewModel(factory = factory)
             com.eflglobal.visitorsapp.ui.screens.AdminPanelScreen(
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safePopBackStack() },
                 onLogout = {
                     // Navegar a StationSetup y limpiar el back stack
-                    navController.navigate(Routes.StationSetup) {
+                    navController.safeNavigate(Routes.StationSetup) {
                         popUpTo(Routes.Home) { inclusive = true }
                     }
                 },
