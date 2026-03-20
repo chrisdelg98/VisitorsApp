@@ -99,6 +99,15 @@
     <string name="look_at_camera">Mire a la cámara y sonría</string>
     <string name="photo_will_be_taken">La foto se tomará automáticamente</string>
     <string name="position_face">Posicione su rostro en el óvalo</string>
+    <string name="detecting_face">Detectando rostro…</string>
+    <string name="no_face_detected">No se detectó un rostro. Intente de nuevo.</string>
+    <string name="face_detected">¡Rostro detectado!</string>
+    <string name="retrying_capture">Reintentando captura…</string>
+    <string name="face_partial">Rostro parcialmente visible. Centre su rostro completo.</string>
+    <string name="face_too_small">Rostro muy lejos. Acérquese a la cámara.</string>
+    <string name="face_off_center">Centre su rostro en la pantalla.</string>
+    <string name="skip_face_detection">Tomar foto sin detección</string>
+    <string name="taking_photo_no_detection">Tomando foto sin detección…</string>
 
     <!-- ── ConfirmScreen ──────────────────────────────────────── -->
     <string name="confirmation">Confirmación</string>

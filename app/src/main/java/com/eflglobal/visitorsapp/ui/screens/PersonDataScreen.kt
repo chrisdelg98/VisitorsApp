@@ -9,6 +9,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
+import com.eflglobal.visitorsapp.core.utils.FaceDetectionHelper
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.data.local.AppDatabase
 import com.eflglobal.visitorsapp.data.local.mapper.toDomain
@@ -141,6 +144,13 @@ fun PersonDataScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
+                },
+                actions = {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "EFL Global",
+                        modifier = Modifier.padding(end = 12.dp).size(32.dp)
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
@@ -492,31 +502,31 @@ fun PersonDataScreen(
                     color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
         } // end outer Column
+    } // end Scaffold
 
-        // ── Selfie capture modal ──────────────────────────────────────────────
-        if (isCapturing) {
-            SelfieCaptureModal(
-                onDismiss       = { isCapturing = false },
-                onPhotoCaptured = { bitmap ->
-                    coroutineScope.launch {
-                        try {
-                            val savedPath = withContext(Dispatchers.IO) {
-                                ImageSaver.saveImageForVisit(
-                                    context   = context,
-                                    bitmap    = bitmap,
-                                    visitId   = viewModel.getVisitId(),
-                                    imageType = ImageSaver.ImageType.PROFILE
-                                )
-                            }
-                            capturedBitmap   = bitmap
-                            profilePhotoPath = savedPath
-                            photoTaken       = true
-                            isCapturing      = false
-                        } catch (e: Exception) { e.printStackTrace() }
-                    }
+    // ── Selfie capture modal — OUTSIDE Scaffold to cover full screen ─────────
+    if (isCapturing) {
+        SelfieCaptureModal(
+            onDismiss       = { isCapturing = false },
+            onPhotoCaptured = { bitmap ->
+                coroutineScope.launch {
+                    try {
+                        val savedPath = withContext(Dispatchers.IO) {
+                            ImageSaver.saveImageForVisit(
+                                context   = context,
+                                bitmap    = bitmap,
+                                visitId   = viewModel.getVisitId(),
+                                imageType = ImageSaver.ImageType.PROFILE
+                            )
+                        }
+                        capturedBitmap   = bitmap
+                        profilePhotoPath = savedPath
+                        photoTaken       = true
+                        isCapturing      = false
+                    } catch (e: Exception) { e.printStackTrace() }
                 }
-            )
-        }
+            }
+        )
     }
 }
 
@@ -583,23 +593,74 @@ private fun FieldWithOcrHint(
     )
 }
 
-// ── Selfie capture modal — AUTO countdown, no manual button ──────────────────
+// ── Selfie capture modal — face-detection gated countdown ────────────────────
 @Composable
 private fun SelfieCaptureModal(
     onDismiss: () -> Unit,
     onPhotoCaptured: (Bitmap) -> Unit
 ) {
-    var countdown     by remember { mutableStateOf(5) }   // starts immediately
-    var shouldCapture by remember { mutableStateOf(false) }
-    var isProcessing  by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
-    // Auto-countdown starts as soon as the modal opens
-    LaunchedEffect(Unit) {
-        while (countdown > 0) {
-            delay(1000)
-            countdown--
+    // States: DETECTING → COUNTDOWN → CAPTURING → VALIDATING → (SUCCESS | REJECTED)
+    //         SKIP_COUNTDOWN → CAPTURING (bypass validation)
+    var phase          by remember { mutableStateOf("DETECTING") }
+    var countdown      by remember { mutableStateOf(5) }
+    var shouldCapture  by remember { mutableStateOf(false) }
+    var retryCount     by remember { mutableStateOf(0) }
+    var faceDetected   by remember { mutableStateOf(false) }
+    var lastResult     by remember { mutableStateOf(FaceDetectionHelper.FaceResult.NO_FACE) }
+    var showSkipButton by remember { mutableStateOf(false) }
+    var skipValidation by remember { mutableStateOf(false) }
+    // Guard to prevent double-capture
+    var captureInFlight by remember { mutableStateOf(false) }
+
+    // When face detected → start 5-second countdown
+    LaunchedEffect(faceDetected) {
+        if (faceDetected && phase == "DETECTING") {
+            phase = "COUNTDOWN"
+            countdown = 5
+            while (countdown > 0) {
+                delay(1000)
+                // Abort if phase changed (e.g. skip button pressed)
+                if (phase != "COUNTDOWN") return@LaunchedEffect
+                countdown--
+            }
+            if (phase == "COUNTDOWN" && !captureInFlight) {
+                captureInFlight = true
+                phase = "CAPTURING"
+                shouldCapture = true
+            }
         }
-        shouldCapture = true
+    }
+
+    // Skip-mode countdown — separate LaunchedEffect keyed on skipValidation
+    LaunchedEffect(skipValidation) {
+        if (skipValidation && phase == "SKIP_COUNTDOWN") {
+            countdown = 5
+            while (countdown > 0) {
+                delay(1000)
+                if (phase != "SKIP_COUNTDOWN") return@LaunchedEffect
+                countdown--
+            }
+            if (phase == "SKIP_COUNTDOWN" && !captureInFlight) {
+                captureInFlight = true
+                phase = "CAPTURING"
+                shouldCapture = true
+            }
+        }
+    }
+
+    // Auto-retry after rejection
+    LaunchedEffect(phase) {
+        if (phase == "REJECTED") {
+            delay(2500)
+            faceDetected    = false
+            shouldCapture   = false
+            captureInFlight = false
+            retryCount++
+            if (retryCount >= 2) showSkipButton = true
+            phase = "DETECTING"
+        }
     }
 
     Box(
@@ -609,8 +670,33 @@ private fun SelfieCaptureModal(
     ) {
         CameraPermissionHandler(onPermissionGranted = {}, onPermissionDenied = { onDismiss() }) {
             CameraPreviewComposable(
-                onImageCaptured   = { bitmap -> isProcessing = true; onPhotoCaptured(bitmap) },
-                onError           = { onDismiss() },
+                onImageCaptured   = { bitmap ->
+                    try {
+                        if (skipValidation) {
+                            onPhotoCaptured(bitmap)
+                        } else if (phase == "CAPTURING" || phase == "VALIDATING") {
+                            phase = "VALIDATING"
+                            coroutineScope.launch {
+                                try {
+                                    val result = FaceDetectionHelper.validateFace(bitmap)
+                                    lastResult = result
+                                    if (result == FaceDetectionHelper.FaceResult.OK) {
+                                        onPhotoCaptured(bitmap)
+                                    } else {
+                                        phase = "REJECTED"
+                                    }
+                                } catch (_: Exception) {
+                                    // Safety net — accept on validation crash
+                                    onPhotoCaptured(bitmap)
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Absolute safety net
+                        try { onPhotoCaptured(bitmap) } catch (_: Exception) {}
+                    }
+                },
+                onError           = { /* swallow — don't crash */ },
                 lensFacing        = CameraSelector.LENS_FACING_FRONT,
                 modifier          = Modifier.fillMaxSize(),
                 shouldCapture     = shouldCapture,
@@ -618,86 +704,174 @@ private fun SelfieCaptureModal(
             )
         }
 
-        // Top bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            Text(
-                text       = stringResource(R.string.personal_photo),
-                style      = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color      = androidx.compose.ui.graphics.Color.White,
-                modifier   = Modifier
-                    .background(
-                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
-                        RoundedCornerShape(10.dp)
+        // Face-detection warmup
+        if (phase == "DETECTING") {
+            LaunchedEffect(retryCount) {
+                delay(1500)
+                faceDetected = true
+            }
+        }
+
+        // ── Close button — top-right corner ──────────────────────────────────
+        if (phase != "VALIDATING" && phase != "CAPTURING") {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                IconButton(
+                    onClick  = onDismiss,
+                    modifier = Modifier
+                        .background(
+                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(R.string.cancel),
+                        tint = androidx.compose.ui.graphics.Color.White
                     )
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
-            )
-            if (!isProcessing) {
-                IconButton(onClick = onDismiss, modifier = Modifier.background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f), CircleShape)) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel), tint = androidx.compose.ui.graphics.Color.White)
                 }
             }
         }
 
-        // Face guide + countdown
+        // ── Face guide + countdown + status ──────────────────────────────────
         Column(
             modifier            = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Small centered label badge
+            Text(
+                text     = stringResource(R.string.personal_photo),
+                style    = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                color    = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
+                modifier = Modifier
+                    .background(
+                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f),
+                        RoundedCornerShape(20.dp)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            // Guide circle with color feedback
+            val guideColor = when (phase) {
+                "REJECTED"       -> androidx.compose.ui.graphics.Color(0xFFE53935)
+                "COUNTDOWN"      -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                "SKIP_COUNTDOWN" -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                "VALIDATING"     -> OrangePrimary
+                else             -> OrangePrimary
+            }
+
             Box(
-                modifier         = Modifier
-                    .size(240.dp)
-                    .border(4.dp, OrangePrimary, CircleShape),
+                modifier         = Modifier.size(240.dp).border(4.dp, guideColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(color = OrangePrimary, modifier = Modifier.size(56.dp))
-                } else if (countdown > 0) {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .background(
-                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text      = countdown.toString(),
-                            style     = MaterialTheme.typography.displayLarge,
-                            fontWeight = FontWeight.Bold,
-                            color     = OrangePrimary,
-                            fontSize  = 64.sp
-                        )
+                when (phase) {
+                    "VALIDATING" -> {
+                        CircularProgressIndicator(color = OrangePrimary, modifier = Modifier.size(56.dp))
                     }
+                    "COUNTDOWN", "SKIP_COUNTDOWN" -> {
+                        if (countdown > 0) {
+                            Box(
+                                modifier         = Modifier.size(120.dp)
+                                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text       = countdown.toString(),
+                                    style      = MaterialTheme.typography.displayLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = OrangePrimary,
+                                    fontSize   = 64.sp
+                                )
+                            }
+                        }
+                    }
+                    "REJECTED" -> {
+                        Box(
+                            modifier         = Modifier.size(120.dp)
+                                .background(androidx.compose.ui.graphics.Color(0xFFE53935).copy(alpha = 0.25f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = null,
+                                tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(64.dp))
+                        }
+                    }
+                    else -> { /* DETECTING — user sees camera through circle */ }
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
+
+            // Status message
+            val statusText = when (phase) {
+                "DETECTING"      -> stringResource(R.string.detecting_face)
+                "COUNTDOWN"      -> if (countdown > 0) stringResource(R.string.position_face)
+                                    else stringResource(R.string.look_at_camera)
+                "SKIP_COUNTDOWN" -> stringResource(R.string.taking_photo_no_detection)
+                "VALIDATING"     -> stringResource(R.string.verifying)
+                "REJECTED"       -> when (lastResult) {
+                    FaceDetectionHelper.FaceResult.NO_FACE      -> stringResource(R.string.no_face_detected)
+                    FaceDetectionHelper.FaceResult.PARTIAL_FACE -> stringResource(R.string.face_partial)
+                    FaceDetectionHelper.FaceResult.TOO_SMALL    -> stringResource(R.string.face_too_small)
+                    FaceDetectionHelper.FaceResult.OFF_CENTER   -> stringResource(R.string.face_off_center)
+                    else -> stringResource(R.string.no_face_detected)
+                }
+                "CAPTURING"      -> stringResource(
+                    if (skipValidation) R.string.taking_photo_no_detection
+                    else R.string.look_at_camera
+                )
+                else             -> stringResource(R.string.position_face)
+            }
+            val isError = phase == "REJECTED"
 
             Text(
-                text = when {
-                    isProcessing  -> stringResource(R.string.verifying)
-                    countdown > 0 -> stringResource(R.string.position_face)
-                    else          -> stringResource(R.string.look_at_camera)
-                },
-                style     = MaterialTheme.typography.titleMedium,
-                color     = androidx.compose.ui.graphics.Color.White,
+                text      = statusText,
+                style     = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                color     = if (isError) androidx.compose.ui.graphics.Color(0xFFE53935)
+                            else androidx.compose.ui.graphics.Color.White,
                 textAlign = TextAlign.Center,
                 modifier  = Modifier
                     .background(
                         androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
                         RoundedCornerShape(12.dp)
                     )
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
             )
+        }
+
+        // ── Manual override — fixed at bottom, stays visible once enabled ────
+        if (showSkipButton && phase != "VALIDATING" && phase != "CAPTURING" && phase != "SKIP_COUNTDOWN") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 36.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text     = stringResource(R.string.skip_face_detection),
+                    style    = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color    = androidx.compose.ui.graphics.Color.White,
+                    modifier = Modifier
+                        .background(
+                            androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .clickable {
+                            // Cancel any in-flight normal countdown
+                            faceDetected    = false
+                            shouldCapture   = false
+                            captureInFlight = false
+                            skipValidation  = true
+                            phase           = "SKIP_COUNTDOWN"
+                        }
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                )
+            }
         }
     }
 }

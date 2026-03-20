@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
@@ -112,6 +113,13 @@ fun DocumentScanScreen(
                             contentDescription = stringResource(R.string.back)
                         )
                     }
+                },
+                actions = {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "EFL Global",
+                        modifier = Modifier.padding(end = 12.dp).size(32.dp)
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )

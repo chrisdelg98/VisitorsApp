@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -130,6 +131,13 @@ fun ConfirmScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.confirmation), fontSize = 18.sp) },
+                actions = {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "EFL Global",
+                        modifier = Modifier.padding(end = 12.dp).size(32.dp)
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }

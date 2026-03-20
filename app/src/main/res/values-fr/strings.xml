@@ -99,6 +99,15 @@
     <string name="look_at_camera">Regardez la caméra et souriez</string>
     <string name="photo_will_be_taken">La photo sera prise automatiquement</string>
     <string name="position_face">Placez votre visage dans l\'ovale</string>
+    <string name="detecting_face">Détection du visage…</string>
+    <string name="no_face_detected">Aucun visage détecté. Veuillez réessayer.</string>
+    <string name="face_detected">Visage détecté !</string>
+    <string name="retrying_capture">Nouvelle tentative de capture…</string>
+    <string name="face_partial">Visage partiellement visible. Centrez votre visage entier.</string>
+    <string name="face_too_small">Visage trop loin. Rapprochez-vous de la caméra.</string>
+    <string name="face_off_center">Centrez votre visage sur l\'écran.</string>
+    <string name="skip_face_detection">Prendre la photo sans détection</string>
+    <string name="taking_photo_no_detection">Prise de photo sans détection…</string>
 
     <!-- ── ConfirmScreen ──────────────────────────────── -->
     <string name="confirmation">Confirmation</string>

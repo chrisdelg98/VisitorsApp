@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.DialogProperties
 import com.eflglobal.visitorsapp.ui.localization.LanguageManager
@@ -161,7 +162,13 @@ fun AdminPanelScreen(
                         )
                     }
                 },
-                actions = {},
+                actions = {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "EFL Global",
+                        modifier = Modifier.padding(end = 12.dp).size(32.dp)
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = SlatePrimary,
                     titleContentColor = Color.White,

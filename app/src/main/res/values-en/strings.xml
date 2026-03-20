@@ -99,6 +99,15 @@
     <string name="look_at_camera">Look at the camera and smile</string>
     <string name="photo_will_be_taken">Photo will be taken automatically</string>
     <string name="position_face">Position your face in the oval</string>
+    <string name="detecting_face">Detecting face…</string>
+    <string name="no_face_detected">No face detected. Please try again.</string>
+    <string name="face_detected">Face detected!</string>
+    <string name="retrying_capture">Retrying capture…</string>
+    <string name="face_partial">Face partially visible. Center your full face.</string>
+    <string name="face_too_small">Face too far. Move closer to the camera.</string>
+    <string name="face_off_center">Center your face on the screen.</string>
+    <string name="skip_face_detection">Take photo without detection</string>
+    <string name="taking_photo_no_detection">Taking photo without detection…</string>
 
     <!-- ConfirmScreen -->
     <string name="confirmation">Confirmation</string>

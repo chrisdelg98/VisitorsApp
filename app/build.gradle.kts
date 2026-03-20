@@ -90,6 +90,7 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
 
     // CameraX
     val cameraxVersion = "1.3.1"
@@ -103,6 +104,9 @@ dependencies {
 
     // ML Kit Entity Extraction (on-device — person names, dates, etc.)
     implementation("com.google.mlkit:entity-extraction:16.0.0-beta5")
+
+    // ML Kit Face Detection (on-device — selfie validation)
+    implementation("com.google.mlkit:face-detection:16.1.7")
 
     // ZXing for QR Code generation and scanning
     implementation("com.google.zxing:core:3.5.3")
