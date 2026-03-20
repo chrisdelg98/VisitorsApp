@@ -70,8 +70,16 @@ fun RecurrentDocumentScanScreen(
     val backScanned     = viewModel?.documentBackPath  != null
     var showFrontCamera by remember { mutableStateOf(false) }
     var showBackCamera  by remember { mutableStateOf(false) }
-    var frontBitmap     by remember(viewModel?.documentFrontPath) { mutableStateOf<Bitmap?>(null) }
-    var backBitmap      by remember(viewModel?.documentBackPath)  { mutableStateOf<Bitmap?>(null) }
+    var frontBitmap     by remember { mutableStateOf<Bitmap?>(null) }
+    var backBitmap      by remember { mutableStateOf<Bitmap?>(null) }
+
+    // Clear bitmaps when documents are explicitly cleared (path set to null)
+    LaunchedEffect(viewModel?.documentFrontPath) {
+        if (viewModel?.documentFrontPath == null) frontBitmap = null
+    }
+    LaunchedEffect(viewModel?.documentBackPath) {
+        if (viewModel?.documentBackPath == null) backBitmap = null
+    }
 
     val person = viewModel?.getSelectedPerson()
 

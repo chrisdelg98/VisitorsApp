@@ -30,10 +30,20 @@ class RecurrentSearchViewModel(
         viewModelScope.launch {
             try {
                 val results = searchPersonsUseCase(query)
-                if (results.isEmpty()) {
+
+                // ── Deduplicate by full name ────────────────────────────────
+                // The DAO already returns results ordered by most recent visit
+                // (ORDER BY MAX(v.entryDate) DESC), so the first occurrence of
+                // each name is guaranteed to be the latest record.
+                // We normalise to lowercase+trimmed to treat "Christian Arevalo"
+                // and "christian arevalo" as the same person.
+                val distinctByName = results
+                    .distinctBy { "${it.firstName.trim()} ${it.lastName.trim()}".lowercase() }
+
+                if (distinctByName.isEmpty()) {
                     _uiState.value = RecurrentSearchUiState.NoResults
                 } else {
-                    _uiState.value = RecurrentSearchUiState.Success(results)
+                    _uiState.value = RecurrentSearchUiState.Success(distinctByName)
                 }
             } catch (e: Exception) {
                 _uiState.value = RecurrentSearchUiState.Error(
