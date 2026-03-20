@@ -1,5 +1,8 @@
 package com.eflglobal.visitorsapp.ui.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eflglobal.visitorsapp.domain.model.Person
@@ -40,9 +43,9 @@ class RecurrentVisitViewModel(
     private var visitReason: String = VisitReasonKeys.VISITOR
     private var visitReasonCustom: String? = null
 
-    // Document scan paths — mirrors NewVisitViewModel
-    var documentFrontPath: String? = null; private set
-    var documentBackPath:  String? = null; private set
+    // Document scan paths — mirrors NewVisitViewModel (observable for Compose)
+    var documentFrontPath: String? by mutableStateOf(null); private set
+    var documentBackPath:  String? by mutableStateOf(null); private set
 
     // Profile photo taken on this visit (may differ from person.profilePhotoPath)
     var profilePhotoPath: String? = null; private set

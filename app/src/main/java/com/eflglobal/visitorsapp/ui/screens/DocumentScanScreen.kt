@@ -46,6 +46,7 @@ import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.ViewModelFactory
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -82,12 +83,13 @@ fun DocumentScanScreen(
     LaunchedEffect(selectedDocType)       { viewModel.setDocumentType(selectedDocType) }
     LaunchedEffect(selectedVisitorOption) { viewModel.setVisitorType(selectedVisitorOption.first) }
 
-    var frontScanned        by remember { mutableStateOf(false) }
-    var backScanned         by remember { mutableStateOf(false) }
+    // Scan state — derived from ViewModel so it resets when documents are cleared
+    val frontScanned    = viewModel.documentFrontPath != null
+    val backScanned     = viewModel.documentBackPath  != null
     var showFrontCamera     by remember { mutableStateOf(false) }
     var showBackCamera      by remember { mutableStateOf(false) }
-    var frontBitmap         by remember { mutableStateOf<Bitmap?>(null) }
-    var backBitmap          by remember { mutableStateOf<Bitmap?>(null) }
+    var frontBitmap         by remember(viewModel.documentFrontPath) { mutableStateOf<Bitmap?>(null) }
+    var backBitmap          by remember(viewModel.documentBackPath)  { mutableStateOf<Bitmap?>(null) }
 
     Scaffold(
         topBar = {
@@ -283,12 +285,10 @@ fun DocumentScanScreen(
                                     confidence = ocrData?.extractionConfidence
                                         ?: DocumentDataExtractor.Confidence.NONE
                                 )
-                                frontScanned    = true
                                 showFrontCamera = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
                                 viewModel.setDocumentFront(path = "")
-                                frontScanned    = true
                                 showFrontCamera = false
                             }
                         }
@@ -316,11 +316,9 @@ fun DocumentScanScreen(
                                     imageType = ImageSaver.ImageType.DOCUMENT_BACK
                                 )
                                 viewModel.setDocumentBack(path)
-                                backScanned   = true
                                 showBackCamera = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                backScanned   = true
                                 showBackCamera = false
                             }
                         }
@@ -560,7 +558,11 @@ internal fun DocumentCameraModal(
         kotlinx.coroutines.CoroutineScope(validationJob + kotlinx.coroutines.Dispatchers.Main)
     }
     DisposableEffect(Unit) {
-        onDispose { validationJob.cancel() }
+        onDispose {
+            isCancelled.set(true)
+            validationJob.cancelChildren()
+            validationJob.cancel()
+        }
     }
 
     // ── Localised validation messages — resolved here so stringResource is on the right thread ──
@@ -663,16 +665,20 @@ internal fun DocumentCameraModal(
                                 }
                             }
                         } catch (e: kotlinx.coroutines.CancellationException) {
-                            // Composable was dismissed while validating — safe to ignore
-                        } catch (e: Exception) {
+                            // Coroutine was cancelled (user pressed cancel or composable disposed) — safe to ignore
+                            throw e   // re-throw so structured concurrency propagates correctly
+                        } catch (_: Exception) {
+                            // Guard: if composable is disposed or state update fails, ignore silently
                             if (!isCancelled.get()) {
-                                state = ScanState.Error(validationMessages.notRecognised)
-                                delay(ERROR_DISPLAY_MS)
-                                if (!isCancelled.get() && state is ScanState.Error) {
-                                    resetToWaiting()
-                                    delay(RETRY_COOLDOWN_MS)
-                                    if (!isCancelled.get()) retryReady.set(true)
-                                }
+                                try {
+                                    state = ScanState.Error(validationMessages.notRecognised)
+                                    delay(ERROR_DISPLAY_MS)
+                                    if (!isCancelled.get() && state is ScanState.Error) {
+                                        resetToWaiting()
+                                        delay(RETRY_COOLDOWN_MS)
+                                        if (!isCancelled.get()) retryReady.set(true)
+                                    }
+                                } catch (_: Exception) { /* disposed — nothing to do */ }
                             }
                         }
                     }
@@ -915,17 +921,30 @@ internal fun DocumentCameraModal(
 
         // ── Cancel button — bottom of screen ─────────────────────────────────
         if (state !is ScanState.Success) {
+            val isBusy = state is ScanState.Processing || state is ScanState.Capturing
             OutlinedButton(
                 onClick  = {
+                    // 1. Signal cancellation to any running validation coroutine
                     isCancelled.set(true)
-                    state = ScanState.Waiting
+                    // 2. Cancel in-flight validation children gracefully (without killing the scope itself)
+                    validationJob.cancelChildren()
+                    // 3. Reset state safely
+                    try { state = ScanState.Waiting } catch (_: Exception) { /* already disposed */ }
+                    // 4. Dismiss the modal
                     onDismiss()
                 },
+                enabled  = !isBusy,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 18.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.65f)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor         = Color.White,
+                    disabledContentColor = Color.White.copy(alpha = 0.4f)
+                ),
+                border = BorderStroke(
+                    1.5.dp,
+                    if (isBusy) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.65f)
+                ),
                 shape  = RoundedCornerShape(8.dp)
             ) {
                 Text(

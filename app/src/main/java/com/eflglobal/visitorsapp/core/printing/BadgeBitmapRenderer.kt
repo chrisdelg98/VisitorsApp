@@ -278,7 +278,7 @@ object BadgeBitmapRenderer {
             color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 1.5f; isAntiAlias = true
         })
 
-        val padding = 6f
+        val padding = 3f
         val scaled = Bitmap.createScaledBitmap(
             qrBitmap,
             (size - padding * 2).toInt(),

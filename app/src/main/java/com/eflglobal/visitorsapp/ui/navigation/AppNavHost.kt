@@ -117,7 +117,10 @@ fun AppNavHost(
             RecurrentVisitDataScreen(
                 visitorName = person?.fullName ?: "",
                 onContinue = { navController.navigate(Routes.Confirm) },
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    recurrentVisitViewModel.resetDocuments()
+                    navController.popBackStack()
+                },
                 selectedLanguage = selectedLanguage,
                 viewModel = recurrentVisitViewModel
             )
@@ -125,7 +128,10 @@ fun AppNavHost(
         composable(Routes.PersonData) {
             PersonDataScreen(
                 onContinue = { navController.navigate(Routes.Confirm) },
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    newVisitViewModel.resetDocuments()
+                    navController.popBackStack()
+                },
                 selectedLanguage = selectedLanguage,
                 viewModel = newVisitViewModel
             )

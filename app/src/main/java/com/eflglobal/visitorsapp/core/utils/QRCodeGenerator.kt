@@ -28,7 +28,7 @@ object QRCodeGenerator {
         val hints = hashMapOf<EncodeHintType, Any>().apply {
             put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.L) // L = simpler, less dense QR
             put(EncodeHintType.CHARACTER_SET, "UTF-8")
-            put(EncodeHintType.MARGIN, 1)
+            put(EncodeHintType.MARGIN, 0) // No internal quiet zone — badge already has its own border
         }
 
         val writer = QRCodeWriter()
@@ -67,7 +67,7 @@ object QRCodeGenerator {
         val hints = hashMapOf<EncodeHintType, Any>().apply {
             put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H)
             put(EncodeHintType.CHARACTER_SET, "UTF-8")
-            put(EncodeHintType.MARGIN, 1)
+            put(EncodeHintType.MARGIN, 0) // No internal quiet zone — badge already has its own border
         }
 
         val writer = QRCodeWriter()

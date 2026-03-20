@@ -1122,18 +1122,10 @@ private fun VisitDetailsContent(
                             visitDate      = visit.entryDate,
                             printedDate    = System.currentTimeMillis(),
                             qrBitmap       = remember {
-                                com.google.zxing.BarcodeFormat.QR_CODE.let { format ->
-                                    val writer    = com.google.zxing.qrcode.QRCodeWriter()
-                                    val bitMatrix = writer.encode(visit.qrCodeValue, format, 512, 512)
-                                    val w = bitMatrix.width; val h = bitMatrix.height
-                                    val pixels = IntArray(w * h)
-                                    for (y in 0 until h) for (x in 0 until w)
-                                        pixels[y * w + x] = if (bitMatrix.get(x, y))
-                                            android.graphics.Color.BLACK else android.graphics.Color.WHITE
-                                    android.graphics.Bitmap.createBitmap(w, h,
-                                        android.graphics.Bitmap.Config.ARGB_8888)
-                                        .apply { setPixels(pixels, 0, w, 0, 0, w, h) }
-                                }
+                                try {
+                                    com.eflglobal.visitorsapp.core.utils.QRCodeGenerator
+                                        .generateQRCode(visit.qrCodeValue, 512)
+                                } catch (_: Exception) { null }
                             },
                             profileBitmap  = remember(visitWithInfo.personProfilePhotoPath) {
                                 visitWithInfo.personProfilePhotoPath

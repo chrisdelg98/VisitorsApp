@@ -373,7 +373,7 @@ private fun VisitorBadgeCard(
                                         .clip(RoundedCornerShape(6.dp))
                                         .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(6.dp))
                                         .background(Color.White)
-                                        .padding(4.dp)
+                                        .padding(2.dp)
                                 ) {
                                     Image(
                                         bitmap             = qrBitmap.asImageBitmap(),
@@ -384,11 +384,33 @@ private fun VisitorBadgeCard(
                             }
                         }
 
-                        // Right column: Data (starts from top) + visitor type pill at bottom
+                        // Right column: Visitor type pill (top-right) → Data below
                         Column(
                             modifier              = Modifier.weight(1f),
-                            verticalArrangement   = Arrangement.spacedBy(6.dp)
+                            verticalArrangement   = Arrangement.spacedBy(4.dp)
                         ) {
+                            // Visitor type pill (top-right, matches print layout)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(50.dp))
+                                        .background(Color(0xFFEEEEEE), RoundedCornerShape(50.dp))
+                                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                                ) {
+                                    Text(
+                                        text       = visitorTypeLabel.uppercase(),
+                                        fontSize   = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color      = Color(0xFF424242)
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(2.dp))
+
                             // First name (bold)
                             Text(
                                 text       = firstName.uppercase(),
@@ -410,6 +432,8 @@ private fun VisitorBadgeCard(
                                 maxLines   = 1,
                                 overflow   = TextOverflow.Ellipsis
                             )
+
+                            Spacer(Modifier.height(2.dp))
 
                             // Company
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -439,6 +463,8 @@ private fun VisitorBadgeCard(
                                 )
                             }
 
+                            Spacer(Modifier.height(4.dp))
+
                             // Valid until
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(strValid, fontSize = 10.sp, color = Color(0xFF9E9E9E))
@@ -457,27 +483,6 @@ private fun VisitorBadgeCard(
                                 fontSize = 9.sp,
                                 color    = Color(0xFF9E9E9E)
                             )
-
-                            Spacer(Modifier.weight(1f))
-
-                            // Visitor type pill (bottom-right)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(Color(0xFFEEEEEE), RoundedCornerShape(50.dp))
-                                        .padding(horizontal = 14.dp, vertical = 5.dp)
-                                ) {
-                                    Text(
-                                        text       = visitorTypeLabel,
-                                        fontSize   = 10.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color      = Color(0xFF424242)
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -497,4 +502,3 @@ private fun VisitorBadgeCard(
         }
     }
 }
-

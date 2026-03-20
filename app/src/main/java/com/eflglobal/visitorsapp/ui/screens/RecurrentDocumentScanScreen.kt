@@ -65,13 +65,13 @@ fun RecurrentDocumentScanScreen(
     LaunchedEffect(selectedDocType)       { viewModel?.setDocumentType(selectedDocType) }
     LaunchedEffect(selectedVisitorOption) { viewModel?.setVisitorType(selectedVisitorOption.first) }
 
-    // ── Scan state ────────────────────────────────────────────────────────────
-    var frontScanned    by remember { mutableStateOf(viewModel?.documentFrontPath != null) }
-    var backScanned     by remember { mutableStateOf(viewModel?.documentBackPath  != null) }
+    // ── Scan state — derived from ViewModel so it resets when documents are cleared
+    val frontScanned    = viewModel?.documentFrontPath != null
+    val backScanned     = viewModel?.documentBackPath  != null
     var showFrontCamera by remember { mutableStateOf(false) }
     var showBackCamera  by remember { mutableStateOf(false) }
-    var frontBitmap     by remember { mutableStateOf<Bitmap?>(null) }
-    var backBitmap      by remember { mutableStateOf<Bitmap?>(null) }
+    var frontBitmap     by remember(viewModel?.documentFrontPath) { mutableStateOf<Bitmap?>(null) }
+    var backBitmap      by remember(viewModel?.documentBackPath)  { mutableStateOf<Bitmap?>(null) }
 
     val person = viewModel?.getSelectedPerson()
 
@@ -266,12 +266,10 @@ fun RecurrentDocumentScanScreen(
                                     imageType = ImageSaver.ImageType.DOCUMENT_FRONT
                                 )
                                 viewModel?.setDocumentFront(path)
-                                frontScanned    = true
                                 showFrontCamera = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
                                 viewModel?.setDocumentFront("")
-                                frontScanned    = true
                                 showFrontCamera = false
                             }
                         }
@@ -299,11 +297,9 @@ fun RecurrentDocumentScanScreen(
                                     imageType = ImageSaver.ImageType.DOCUMENT_BACK
                                 )
                                 viewModel?.setDocumentBack(path)
-                                backScanned    = true
                                 showBackCamera = false
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                backScanned    = true
                                 showBackCamera = false
                             }
                         }

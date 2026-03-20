@@ -1,5 +1,8 @@
 package com.eflglobal.visitorsapp.ui.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
@@ -44,8 +47,8 @@ class NewVisitViewModel(
     /** Free-text description — only used when visitReason == "OTHER". */
     private var visitReasonCustom: String? = null
 
-    private var documentFrontPath: String? = null
-    private var documentBackPath: String? = null
+    var documentFrontPath: String? by mutableStateOf(null); private set
+    var documentBackPath:  String? by mutableStateOf(null); private set
 
     /** First name detected by OCR (from document front). */
     private var detectedFirstName: String? = null
@@ -235,6 +238,23 @@ class NewVisitViewModel(
      */
     fun resetToEditing() {
         _uiState.value = NewVisitUiState.Idle
+    }
+
+    /**
+     * Resets document scan state only.
+     * Called when user navigates back from PersonDataScreen to DocumentScanScreen.
+     * Clears paths + OCR data so scan cards show as "not scanned" and user must re-scan.
+     * Also resets visitId so photos are saved under a fresh visitId on retry.
+     */
+    fun resetDocuments() {
+        documentFrontPath    = null
+        documentBackPath     = null
+        detectedFirstName    = null
+        detectedLastName     = null
+        documentNumber       = null
+        extractionSource     = DocumentDataExtractor.ExtractionSource.NONE
+        extractionConfidence = DocumentDataExtractor.Confidence.NONE
+        visitId              = null
     }
 }
 
