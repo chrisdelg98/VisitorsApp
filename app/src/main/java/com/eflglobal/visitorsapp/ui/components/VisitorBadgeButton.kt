@@ -345,7 +345,7 @@ private fun VisitorBadgeCard(
                             // Photo (grayscale square)
                             Box(
                                 modifier = Modifier
-                                    .size(110.dp)
+                                    .size(120.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(8.dp))
                                     .background(Color(0xFFEEEEEE)),
@@ -369,7 +369,7 @@ private fun VisitorBadgeCard(
                             if (qrBitmap != null) {
                                 Box(
                                     modifier = Modifier
-                                        .size(110.dp)
+                                        .size(120.dp)
                                         .clip(RoundedCornerShape(6.dp))
                                         .border(1.dp, Color(0xFFBDBDBD), RoundedCornerShape(6.dp))
                                         .background(Color.White)
@@ -414,10 +414,10 @@ private fun VisitorBadgeCard(
                             // First name (bold)
                             Text(
                                 text       = firstName.uppercase(),
-                                fontSize   = 13.sp,
+                                fontSize   = 14.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color      = Color(0xFF212121),
-                                lineHeight = 16.sp,
+                                lineHeight = 17.sp,
                                 maxLines   = 1,
                                 overflow   = TextOverflow.Ellipsis
                             )
@@ -425,23 +425,23 @@ private fun VisitorBadgeCard(
                             // Last name (bold)
                             Text(
                                 text       = lastName.uppercase(),
-                                fontSize   = 13.sp,
+                                fontSize   = 14.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color      = Color(0xFF212121),
-                                lineHeight = 16.sp,
+                                lineHeight = 17.sp,
                                 maxLines   = 1,
                                 overflow   = TextOverflow.Ellipsis
                             )
 
-                            Spacer(Modifier.height(2.dp))
+                            Spacer(Modifier.height(4.dp))
 
                             // Company
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(strCompany, fontSize = 11.sp, color = Color(0xFF9E9E9E))
+                                Text(strCompany, fontSize = 12.sp, color = Color(0xFF9E9E9E))
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     text       = if (!company.isNullOrBlank()) company else "—",
-                                    fontSize   = 11.sp,
+                                    fontSize   = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color      = Color(0xFF424242),
                                     maxLines   = 1,
@@ -451,11 +451,11 @@ private fun VisitorBadgeCard(
 
                             // Visiting
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(strVisiting, fontSize = 11.sp, color = Color(0xFF9E9E9E))
+                                Text(strVisiting, fontSize = 12.sp, color = Color(0xFF9E9E9E))
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     text       = visitingPerson,
-                                    fontSize   = 11.sp,
+                                    fontSize   = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color      = Color(0xFF212121),
                                     maxLines   = 1,
@@ -463,15 +463,15 @@ private fun VisitorBadgeCard(
                                 )
                             }
 
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(6.dp))
 
                             // Valid until
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(strValid, fontSize = 10.sp, color = Color(0xFF9E9E9E))
+                                Text(strValid, fontSize = 11.sp, color = Color(0xFF9E9E9E))
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     text       = dateFormat.format(Date(visitDate)),
-                                    fontSize   = 10.sp,
+                                    fontSize   = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color      = Color(0xFF212121)
                                 )
@@ -480,7 +480,7 @@ private fun VisitorBadgeCard(
                             // Printed on
                             Text(
                                 text     = "${strPrinted} ${dateTimeFormat.format(Date(printedDate))}",
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 color    = Color(0xFF9E9E9E)
                             )
                         }

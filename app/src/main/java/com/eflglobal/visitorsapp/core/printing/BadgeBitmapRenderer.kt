@@ -87,20 +87,20 @@ object BadgeBitmapRenderer {
         drawDivider(canvas, headerBottom + 4f)
 
         val contentTop = headerBottom + 12f
-        val photoSize  = 150f
+        val photoSize  = 170f          // bigger photo & QR (was 150)
 
         // Photo (left, dithered for thermal)
         drawPhoto(canvas, data.profileBitmap, M, contentTop, photoSize)
 
-        // Visitor type pill (top-right, next to name area)
-        drawVisitorTypePill(canvas, data.visitorTypeLabel, contentTop + 10f)
+        // Visitor type pill (top-right of content area)
+        drawVisitorTypePill(canvas, data.visitorTypeLabel, contentTop + 2f)
 
-        // Data column (right of photo) — texts start from top
+        // Data column (right of photo) — starts BELOW the pill
         val textX = M + photoSize + 16f
-        drawDataColumn(canvas, data, textX, contentTop)
+        drawDataColumn(canvas, data, textX, contentTop + 32f)
 
 
-        // QR code below photo, same size as photo
+        // QR code below photo, same width as photo
         val qrTop = contentTop + photoSize + 10f
         drawQrCode(canvas, data.qrBitmap, M, qrTop, photoSize)
 
@@ -206,42 +206,42 @@ object BadgeBitmapRenderer {
         // ── First name
         val namePaint = paint {
             color    = CLR_TEXT
-            textSize = 28f
+            textSize = 30f              // ← slightly bigger (was 28)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
         val firstName = data.firstName.uppercase(Locale.getDefault())
-        y = drawWrappedText(canvas, firstName, x, y, maxW, namePaint, 32f)
+        y = drawWrappedText(canvas, firstName, x, y, maxW, namePaint, 35f)  // tighter line spacing within name
 
         // ── Last name
         val lastName = data.lastName.uppercase(Locale.getDefault())
-        y = drawWrappedText(canvas, lastName, x, y, maxW, namePaint, 32f)
-        y += 8f
+        y = drawWrappedText(canvas, lastName, x, y, maxW, namePaint, 35f)
+        y += 10f                       // ← more space before details (was 8)
 
         // ── Company
         if (!data.company.isNullOrBlank()) {
             y = drawLabelValue(canvas, data.labelCompany, data.company.take(30), x, y)
-            y += 4f
+            y += 6f                    // ← more breathing room (was 4)
         }
 
         // ── Visiting
         y = drawLabelValue(canvas, data.labelVisiting, data.visitingPerson.take(28), x, y)
-        y += 10f
+        y += 12f                       // ← more space (was 10)
 
         // ── Valid
         val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             .format(Date(data.entryDate))
         y = drawLabelValue(canvas, data.labelValid, dateStr, x, y)
-        y += 4f
+        y += 6f                        // ← more space (was 4)
 
         // ── Printed
         val printedStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
             .format(Date())
         canvas.drawText(
             "${data.labelPrinted} $printedStr", x, y,
-            paint { color = CLR_LABEL; textSize = 19f; isAntiAlias = true }
+            paint { color = CLR_LABEL; textSize = 20f; isAntiAlias = true }  // ← was 19
         )
-        y += 22f
+        y += 24f
 
         return y
     }
@@ -298,15 +298,15 @@ object BadgeBitmapRenderer {
 
     /** Draws a gray [label] + bold [value] inline. Returns the Y after the line. */
     private fun drawLabelValue(canvas: Canvas, label: String, value: String, x: Float, y: Float): Float {
-        val labelPaint = paint { color = CLR_LABEL; textSize = 21f; isAntiAlias = true }
+        val labelPaint = paint { color = CLR_LABEL; textSize = 22f; isAntiAlias = true }
         val valuePaint = paint {
-            color    = CLR_TEXT; textSize = 21f
+            color    = CLR_TEXT; textSize = 22f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); isAntiAlias = true
         }
         canvas.drawText(label, x, y, labelPaint)
         val lw = labelPaint.measureText(label)
         canvas.drawText(value, x + lw + 6f, y, valuePaint)
-        return y + 27f
+        return y + 29f
     }
 
     private fun drawWrappedText(

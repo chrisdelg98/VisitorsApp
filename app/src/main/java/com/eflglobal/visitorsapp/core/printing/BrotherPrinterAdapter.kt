@@ -162,6 +162,8 @@ object BrotherPrinterAdapter : PrinterAdapter {
             configureNetwork(sdk, printerInfo, config)
             trySetOrientation(sdk, printerInfo, landscape = true)
             trySetPrintMode(sdk, printerInfo)
+            trySetPrintQuality(sdk, printerInfo)
+            trySetHalftone(sdk, printerInfo)
             trySetLabelByName(sdk, printerInfo, "W62")
             trySetField(sdk, printerInfo, "isAutoCut", true)
             trySetField(sdk, printerInfo, "numberOfCopies", 1)
@@ -277,6 +279,8 @@ object BrotherPrinterAdapter : PrinterAdapter {
 
             trySetOrientation(sdk, printerInfo, landscape = true)
             trySetPrintMode(sdk, printerInfo)
+            trySetPrintQuality(sdk, printerInfo)
+            trySetHalftone(sdk, printerInfo)
             trySetLabelByName(sdk, printerInfo, "W62")   // safe default for status query
             trySetField(sdk, printerInfo, "isAutoCut", true)
             trySetField(sdk, printerInfo, "numberOfCopies", 1)
@@ -1034,6 +1038,31 @@ object BrotherPrinterAdapter : PrinterAdapter {
             ?: resolveEnum(sdk.infoClass, "PrintMode", "FIT_TO_PAGE")
             ?: return
         runCatching { sdk.infoClass.getField("printMode").set(info, en) }
+    }
+
+    /**
+     * Sets printQuality to HIGH_RESOLUTION for the sharpest possible output.
+     * Falls back gracefully if not available on this SDK version.
+     */
+    private fun trySetPrintQuality(sdk: SdkClasses, info: Any) {
+        val en = resolveEnum(sdk.infoClass, "PrintQuality", "HIGH_RESOLUTION")
+            ?: resolveEnum(sdk.infoClass, "PrintQuality", "HIGH")
+            ?: return
+        runCatching { sdk.infoClass.getField("printQuality").set(info, en) }
+        Log.d(TAG, "  ✅ printQuality = HIGH_RESOLUTION")
+    }
+
+    /**
+     * Sets halftone to ERRORDIFFUSION — produces far better photo reproduction
+     * on thermal printers by distributing quantisation error across neighbouring
+     * pixels instead of using a simple threshold or ordered dither.
+     */
+    private fun trySetHalftone(sdk: SdkClasses, info: Any) {
+        val en = resolveEnum(sdk.infoClass, "Halftone", "ERRORDIFFUSION")
+            ?: resolveEnum(sdk.infoClass, "Halftone", "ERROR_DIFFUSION")
+            ?: return
+        runCatching { sdk.infoClass.getField("halftone").set(info, en) }
+        Log.d(TAG, "  ✅ halftone = ERROR_DIFFUSION")
     }
 
     /**

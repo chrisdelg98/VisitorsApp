@@ -193,11 +193,19 @@ object ZebraPrinterAdapter : PrinterAdapter {
     // ── ZPL builder ────────────────────────────────────────────────────────
 
     /**
-     * Builds a ZPL II string that prints [bitmap] as a full-label graphic.
+     * Builds a ZPL II string that prints [bitmap] as a full-label graphic
+     * with maximum print quality settings.
+     *
+     * Quality commands:
+     *  ~SD30   — max darkness / print density (range 0–30)
+     *  ^MNN    — non-continuous media (if applicable)
+     *  ^PMN    — normal print mode
+     *  ^PR2,2  — slower print speed for better resolution
      *
      * ^PW / ^LL set the physical label dimensions.
      * ^FO 0,0 positions the graphic at the top-left corner.
-     * ^GFA encodes the bitmap in ASCII hex, 1 bit per pixel (dark=ink).
+     * ^GFA encodes the bitmap in ASCII hex, 1 bit per pixel (dark=ink)
+     * using Floyd-Steinberg error diffusion for optimal photo reproduction.
      */
     private fun buildZpl(bitmap: Bitmap): String {
         val w   = BadgeBitmapRenderer.BADGE_W
@@ -206,6 +214,8 @@ object ZebraPrinterAdapter : PrinterAdapter {
 
         return buildString {
             append("^XA")
+            append("~SD30")        // Max darkness / density for best contrast
+            append("^PR2,2,2")     // Slower print speed → higher quality
             append("^PW$w")
             append("^LL$h")
             append("^CI28")        // UTF-8
@@ -219,12 +229,14 @@ object ZebraPrinterAdapter : PrinterAdapter {
     // ── Bitmap → ZPL hex encoder ──────────────────────────────────────────
 
     /**
-     * Converts [src] to the ZPL ^GFA command string.
+     * Converts [src] to the ZPL ^GFA command string with Floyd-Steinberg
+     * error-diffusion dithering for the best possible photo reproduction
+     * on a 1-bit thermal printer.
      *
      * Algorithm:
      *  1. Scale bitmap to [targetW] × [targetH].
      *  2. Convert each pixel to perceived luminance (BT.601).
-     *  3. Threshold at 128 → 1-bit (1 = black ink, 0 = white / no ink).
+     *  3. Apply Floyd-Steinberg error diffusion → 1-bit.
      *  4. Pack 8 pixels per byte, MSB first.
      *  5. Encode each byte as 2-char uppercase hex.
      */
@@ -232,25 +244,52 @@ object ZebraPrinterAdapter : PrinterAdapter {
         val scaled      = Bitmap.createScaledBitmap(src, targetW, targetH, true)
         val bytesPerRow = (targetW + 7) / 8
         val totalBytes  = bytesPerRow * targetH
-        val hex         = StringBuilder(totalBytes * 2)
 
+        // ── Step 1: Build grayscale float buffer ──
+        val grayBuf = FloatArray(targetW * targetH)
+        for (y in 0 until targetH) {
+            for (x in 0 until targetW) {
+                val px = scaled.getPixel(x, y)
+                val r = (px shr 16) and 0xFF
+                val g = (px shr 8)  and 0xFF
+                val b =  px         and 0xFF
+                grayBuf[y * targetW + x] = (0.299f * r + 0.587f * g + 0.114f * b)
+            }
+        }
+
+        // ── Step 2: Floyd-Steinberg error diffusion ──
+        for (y in 0 until targetH) {
+            for (x in 0 until targetW) {
+                val idx = y * targetW + x
+                val oldVal = grayBuf[idx]
+                val newVal = if (oldVal < 128f) 0f else 255f
+                grayBuf[idx] = newVal
+                val err = oldVal - newVal
+                if (x + 1 < targetW)
+                    grayBuf[idx + 1] += err * 7f / 16f
+                if (y + 1 < targetH) {
+                    if (x - 1 >= 0)
+                        grayBuf[(y + 1) * targetW + (x - 1)] += err * 3f / 16f
+                    grayBuf[(y + 1) * targetW + x] += err * 5f / 16f
+                    if (x + 1 < targetW)
+                        grayBuf[(y + 1) * targetW + (x + 1)] += err * 1f / 16f
+                }
+            }
+        }
+
+        // ── Step 3: Pack dithered 1-bit pixels into hex string ──
+        val hex = StringBuilder(totalBytes * 2)
         for (y in 0 until targetH) {
             var byteVal  = 0
             var bitCount = 0
             for (x in 0 until targetW) {
-                val px   = scaled.getPixel(x, y)
-                val r    = (px shr 16) and 0xFF
-                val g    = (px shr 8)  and 0xFF
-                val b    =  px         and 0xFF
-                val luma = (0.299 * r + 0.587 * g + 0.114 * b).toInt()
-                val bit  = if (luma < 128) 1 else 0   // dark = print ink
-                byteVal  = (byteVal shl 1) or bit
+                val bit = if (grayBuf[y * targetW + x] < 128f) 1 else 0  // dark = ink
+                byteVal = (byteVal shl 1) or bit
                 if (++bitCount == 8) {
                     hex.append(byteVal.toString(16).padStart(2, '0').uppercase())
                     byteVal = 0; bitCount = 0
                 }
             }
-            // Flush partial byte at end of row
             if (bitCount > 0) {
                 byteVal = byteVal shl (8 - bitCount)
                 hex.append(byteVal.toString(16).padStart(2, '0').uppercase())
