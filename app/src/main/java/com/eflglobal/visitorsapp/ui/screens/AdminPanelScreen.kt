@@ -1375,14 +1375,24 @@ private fun getVisitorTypeLabel(type: String, language: String): String {
 @Composable
 private fun getVisitReasonLabel(reason: String, language: String): String {
     return when (reason) {
-        "VISITOR" -> stringResource(R.string.visitor)
-        "CONTRACTOR" -> stringResource(R.string.contractor)
-        "VENDOR" -> stringResource(R.string.vendor)
-        "DELIVERY" -> stringResource(R.string.delivery)
-        "DRIVER" -> stringResource(R.string.driver)
-        "TEMPORARY_STAFF" -> stringResource(R.string.temporary_staff)
-        "OTHER" -> stringResource(R.string.other)
-        else -> reason
+        // New purpose-based reasons
+        "MEETING"           -> stringResource(R.string.reason_meeting)
+        "INTERVIEW"         -> stringResource(R.string.reason_interview)
+        "DELIVERY"          -> stringResource(R.string.reason_delivery)
+        "PICKUP"            -> stringResource(R.string.reason_pickup)
+        "MAINTENANCE"       -> stringResource(R.string.reason_maintenance)
+        "TRAINING"          -> stringResource(R.string.reason_training)
+        "AUDIT"             -> stringResource(R.string.reason_audit)
+        "TECHNICAL_SERVICE" -> stringResource(R.string.reason_technical_service)
+        "ONSITE_WORK"       -> stringResource(R.string.reason_onsite_work)
+        "OTHER"             -> stringResource(R.string.other)
+        // Legacy keys (from visits created before v6 migration)
+        "VISITOR"           -> stringResource(R.string.visitor)
+        "CONTRACTOR"        -> stringResource(R.string.contractor)
+        "VENDOR"            -> stringResource(R.string.vendor)
+        "DRIVER"            -> stringResource(R.string.driver)
+        "TEMPORARY_STAFF"   -> stringResource(R.string.temporary_staff)
+        else                -> reason
     }
 }
 

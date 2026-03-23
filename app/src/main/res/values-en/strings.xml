@@ -89,10 +89,22 @@
     <string name="retake_photo">Retake Photo</string>
     <string name="photo_taken_successfully">Photo taken successfully</string>
     <string name="detected_from_document">Automatically detected from document</string>
+    <string name="visit_and_purpose">Visit &amp; Purpose</string>
     <string name="visit_reason">Visit Reason</string>
     <string name="select_visit_reason">Select a reason</string>
     <string name="other_specify">Specify the reason</string>
     <string name="document_number">Document Number</string>
+
+    <!-- Visit Reason Labels -->
+    <string name="reason_meeting">Meeting</string>
+    <string name="reason_interview">Interview</string>
+    <string name="reason_delivery">Delivery</string>
+    <string name="reason_pickup">Pickup</string>
+    <string name="reason_maintenance">Maintenance</string>
+    <string name="reason_training">Training</string>
+    <string name="reason_audit">Audit</string>
+    <string name="reason_technical_service">Technical Service</string>
+    <string name="reason_onsite_work">On-Site Work</string>
 
     <!-- Photo Capture Modal -->
     <string name="get_ready">Get Ready!</string>

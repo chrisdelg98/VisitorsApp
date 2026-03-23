@@ -52,11 +52,21 @@ data class VisitReason(
 
 /** All standard visit reason keys as constants for safe comparisons. */
 object VisitReasonKeys {
+    const val MEETING           = "MEETING"
+    const val INTERVIEW         = "INTERVIEW"
+    const val DELIVERY          = "DELIVERY"
+    const val PICKUP            = "PICKUP"
+    const val MAINTENANCE       = "MAINTENANCE"
+    const val TRAINING          = "TRAINING"
+    const val AUDIT             = "AUDIT"
+    const val TECHNICAL_SERVICE = "TECHNICAL_SERVICE"
+    const val ONSITE_WORK       = "ONSITE_WORK"
+    const val OTHER             = "OTHER"
+
+    // Legacy keys — kept for backward compatibility with existing visit records
     const val VISITOR         = "VISITOR"
     const val DRIVER          = "DRIVER"
     const val CONTRACTOR      = "CONTRACTOR"
     const val TEMPORARY_STAFF = "TEMPORARY_STAFF"
-    const val DELIVERY        = "DELIVERY"
     const val VENDOR          = "VENDOR"
-    const val OTHER           = "OTHER"
 }

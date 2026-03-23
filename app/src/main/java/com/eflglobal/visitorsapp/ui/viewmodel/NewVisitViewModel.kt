@@ -42,7 +42,7 @@ class NewVisitViewModel(
     private var visitorType: String = VisitReasonKeys.VISITOR
 
     /** "Motivo de visita" — WHY they are visiting (from PersonDataScreen) */
-    private var visitReason: String = VisitReasonKeys.VISITOR
+    private var visitReason: String = VisitReasonKeys.MEETING
 
     /** Free-text description — only used when visitReason == "OTHER". */
     private var visitReasonCustom: String? = null
@@ -218,7 +218,7 @@ class NewVisitViewModel(
         _uiState.value       = NewVisitUiState.Idle
         documentType         = ""
         visitorType          = VisitReasonKeys.VISITOR
-        visitReason          = VisitReasonKeys.VISITOR
+        visitReason          = VisitReasonKeys.MEETING
         visitReasonCustom    = null
         documentFrontPath    = null
         documentBackPath     = null

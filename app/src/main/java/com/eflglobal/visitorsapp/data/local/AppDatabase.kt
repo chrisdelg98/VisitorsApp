@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
         VisitReasonEntity::class,
         OcrMetricEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,26 +42,50 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         private const val DATABASE_NAME = "visitors_app_database"
 
-        /** Standard visit reason seed data (language-neutral keys). */
+        /** Standard visit reason seed data — real visit purposes. */
         val DEFAULT_VISIT_REASONS = listOf(
-            VisitReasonEntity("VISITOR",        "Visitante",        "Visitor",        1),
-            VisitReasonEntity("DRIVER",         "Conductor",        "Driver",         2),
-            VisitReasonEntity("CONTRACTOR",     "Contratista",      "Contractor",     3),
-            VisitReasonEntity("TEMPORARY_STAFF","Personal Temporal","Temporary Staff",4),
-            VisitReasonEntity("DELIVERY",       "Entrega",          "Delivery",       5),
-            VisitReasonEntity("VENDOR",         "Proveedor",        "Vendor",         6),
-            VisitReasonEntity("OTHER",          "Otro",             "Other",          7)
+            VisitReasonEntity("MEETING",           "Reunión",          "Meeting",           1),
+            VisitReasonEntity("INTERVIEW",         "Entrevista",       "Interview",         2),
+            VisitReasonEntity("DELIVERY",          "Entrega",          "Delivery",          3),
+            VisitReasonEntity("PICKUP",            "Recolecta",        "Pickup",            4),
+            VisitReasonEntity("MAINTENANCE",       "Mantenimiento",    "Maintenance",       5),
+            VisitReasonEntity("TRAINING",          "Capacitación",     "Training",          6),
+            VisitReasonEntity("AUDIT",             "Auditoría",        "Audit",             7),
+            VisitReasonEntity("TECHNICAL_SERVICE", "Servicio Técnico", "Technical Service", 8),
+            VisitReasonEntity("ONSITE_WORK",       "Trabajo en Sitio", "On-Site Work",      9),
+            VisitReasonEntity("OTHER",             "Otro",             "Other",            10)
         )
 
         /**
          * Migration 4 → 5: adds per-visit photo snapshot columns to the visits table.
-         * All existing rows get NULL values (no data loss).
          */
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE visits ADD COLUMN visitProfilePhotoPath TEXT")
                 db.execSQL("ALTER TABLE visits ADD COLUMN visitDocumentFrontPath TEXT")
                 db.execSQL("ALTER TABLE visits ADD COLUMN visitDocumentBackPath TEXT")
+            }
+        }
+
+        /**
+         * Migration 5 → 6: replaces visit_reasons seed data with real visit purposes.
+         * Old reason keys in existing visits are preserved (display falls back gracefully).
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Remove old person-type reasons
+                db.execSQL("DELETE FROM visit_reasons")
+                // Insert new purpose-based reasons
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('MEETING',           'Reunión',          'Meeting',            1, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('INTERVIEW',         'Entrevista',       'Interview',          2, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('DELIVERY',          'Entrega',          'Delivery',           3, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('PICKUP',            'Recolecta',        'Pickup',             4, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('MAINTENANCE',       'Mantenimiento',    'Maintenance',        5, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('TRAINING',          'Capacitación',     'Training',           6, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('AUDIT',             'Auditoría',        'Audit',              7, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('TECHNICAL_SERVICE', 'Servicio Técnico', 'Technical Service',  8, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('ONSITE_WORK',      'Trabajo en Sitio', 'On-Site Work',       9, 1)")
+                db.execSQL("INSERT OR IGNORE INTO visit_reasons (reasonKey, labelEs, labelEn, sortOrder, isActive) VALUES ('OTHER',             'Otro',             'Other',             10, 1)")
             }
         }
 
@@ -75,7 +99,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                    .addMigrations(MIGRATION_4_5)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigration()
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {

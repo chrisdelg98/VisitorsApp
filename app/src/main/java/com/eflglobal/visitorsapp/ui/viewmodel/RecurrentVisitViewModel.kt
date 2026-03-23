@@ -40,7 +40,7 @@ class RecurrentVisitViewModel(
     var documentType: String = "DUI"; private set
 
     private var visitorType: String = VisitReasonKeys.VISITOR
-    private var visitReason: String = VisitReasonKeys.VISITOR
+    private var visitReason: String = VisitReasonKeys.MEETING
     private var visitReasonCustom: String? = null
 
     // Document scan paths — mirrors NewVisitViewModel (observable for Compose)
@@ -233,7 +233,7 @@ class RecurrentVisitViewModel(
         lastVisit               = null
         documentType            = "DUI"
         visitorType          = VisitReasonKeys.VISITOR
-        visitReason          = VisitReasonKeys.VISITOR
+        visitReason          = VisitReasonKeys.MEETING
         visitReasonCustom    = null
         documentFrontPath    = null
         documentBackPath     = null

@@ -381,6 +381,15 @@ fun RecurrentVisitDataScreen(
                 // ════════════════════════════════════════════
                 Column(modifier = Modifier.weight(1f)) {
 
+                    // ── Unified section header ────────────────────────────────
+                    Text(
+                        text       = stringResource(R.string.visit_and_purpose),
+                        style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
+                        fontWeight = FontWeight.SemiBold,
+                        color      = SlatePrimary,
+                        modifier   = Modifier.padding(bottom = 12.dp)
+                    )
+
                     // ── Who are you visiting ──────────────────────────────────
                     OutlinedTextField(
                         value         = visitingPerson,
@@ -399,17 +408,9 @@ fun RecurrentVisitDataScreen(
                         textStyle   = LocalTextStyle.current.copy(fontSize = 13.sp)
                     )
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
 
-                    // ── Visit Reason ──────────────────────────────────────────
-                    Text(
-                        text       = stringResource(R.string.visit_reason),
-                        style      = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
-                        fontWeight = FontWeight.SemiBold,
-                        color      = SlatePrimary,
-                        modifier   = Modifier.padding(bottom = 12.dp)
-                    )
-
+                    // ── Visit Reason (dropdown, no separate header) ───────────
                     if (visitReasons.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = OrangePrimary, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
@@ -575,7 +576,7 @@ fun RecurrentVisitDataScreen(
                         visitReasonCustom = if (isOtherSelected) customReasonText else null
                     )
                     viewModel?.setVisitReason(
-                        selectedReason?.reasonKey ?: VisitReasonKeys.VISITOR,
+                        selectedReason?.reasonKey ?: VisitReasonKeys.MEETING,
                         if (isOtherSelected) customReasonText else null
                     )
                     viewModel?.createVisit(
