@@ -1137,8 +1137,12 @@ private fun VisitDetailsContent(
                                         .generateQRCode(visit.qrCodeValue, 512)
                                 } catch (_: Exception) { null }
                             },
-                            profileBitmap  = remember(visitWithInfo.personProfilePhotoPath) {
+                            profileBitmap  = remember(
+                                visitWithInfo.visitProfilePhotoPath,
                                 visitWithInfo.personProfilePhotoPath
+                            ) {
+                                (visitWithInfo.visitProfilePhotoPath
+                                    ?: visitWithInfo.personProfilePhotoPath)
                                     ?.let { java.io.File(it) }
                                     ?.takeIf { it.exists() }
                                     ?.let { android.graphics.BitmapFactory.decodeFile(it.absolutePath) }

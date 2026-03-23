@@ -95,9 +95,9 @@ object BadgeBitmapRenderer {
         // Visitor type pill (top-right of content area)
         drawVisitorTypePill(canvas, data.visitorTypeLabel, contentTop + 2f)
 
-        // Data column (right of photo) — starts BELOW the pill
+        // Data column (right of photo) — starts at pill top, spacing handled inside
         val textX = M + photoSize + 16f
-        drawDataColumn(canvas, data, textX, contentTop + 32f)
+        drawDataColumn(canvas, data, textX, contentTop + 2f)
 
 
         // QR code below photo, same width as photo
@@ -201,52 +201,56 @@ object BadgeBitmapRenderer {
     /** Draws the data column: first name, last name, company, visiting, valid, printed. Returns bottom Y. */
     private fun drawDataColumn(canvas: Canvas, data: RenderData, x: Float, startY: Float): Float {
         val maxW = BADGE_W - x - M
-        var y = startY + 24f
+        val detailGap = 10f            // consistent gap between detail lines
+        val sectionGap = 18f           // gap pill→name AND name→details (equal)
+
+        // Start below the pill with consistent gap
+        var y = startY + 30f + sectionGap   // 30 = pill height, then gap
 
         // ── First name
         val namePaint = paint {
             color    = CLR_TEXT
-            textSize = 30f              // ← slightly bigger (was 28)
+            textSize = 30f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             isAntiAlias = true
         }
         val firstName = data.firstName.uppercase(Locale.getDefault())
-        y = drawWrappedText(canvas, firstName, x, y, maxW, namePaint, 35f)  // tighter line spacing within name
+        y = drawWrappedText(canvas, firstName, x, y, maxW, namePaint, 35f)
 
         // ── Last name
         val lastName = data.lastName.uppercase(Locale.getDefault())
         y = drawWrappedText(canvas, lastName, x, y, maxW, namePaint, 35f)
-        y += 10f                       // ← more space before details (was 8)
+        y += sectionGap                // same gap as pill→name
 
         // ── Company
         if (!data.company.isNullOrBlank()) {
             y = drawLabelValue(canvas, data.labelCompany, data.company.take(30), x, y)
-            y += 6f                    // ← more breathing room (was 4)
+            y += detailGap
         }
 
         // ── Visiting
         y = drawLabelValue(canvas, data.labelVisiting, data.visitingPerson.take(28), x, y)
-        y += 12f                       // ← more space (was 10)
+        y += detailGap
 
         // ── Valid
         val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             .format(Date(data.entryDate))
         y = drawLabelValue(canvas, data.labelValid, dateStr, x, y)
-        y += 6f                        // ← more space (was 4)
+        y += detailGap
 
         // ── Printed
         val printedStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
             .format(Date())
         canvas.drawText(
             "${data.labelPrinted} $printedStr", x, y,
-            paint { color = CLR_LABEL; textSize = 20f; isAntiAlias = true }  // ← was 19
+            paint { color = CLR_LABEL; textSize = 20f; isAntiAlias = true }
         )
         y += 24f
 
         return y
     }
 
-    /** Draws the visitor type pill right-aligned at the bottom of the badge. */
+    /** Draws the visitor type pill right-aligned — outline only, no fill. */
     private fun drawVisitorTypePill(canvas: Canvas, typeLabel: String, bottomY: Float) {
         val pillText  = typeLabel.uppercase(Locale.getDefault())
         val pillPaint = paint {
@@ -259,9 +263,9 @@ object BadgeBitmapRenderer {
         val pillX     = BADGE_W - M - pillW
         val pillY     = bottomY
         val pillRect  = RectF(pillX, pillY, pillX + pillW, pillY + pillH)
-        canvas.drawRoundRect(pillRect, 50f, 50f, paint { color = CLR_CHIP_BG; isAntiAlias = true })
+        // Outline only — no filled background
         canvas.drawRoundRect(pillRect, 50f, 50f, paint {
-            color = CLR_DIVIDER; style = Paint.Style.STROKE; strokeWidth = 2f; isAntiAlias = true
+            color = Color.BLACK; style = Paint.Style.STROKE; strokeWidth = 2.5f; isAntiAlias = true
         })
         canvas.drawText(pillText, pillX + 12f, pillY + pillH - 8f, pillPaint)
     }
@@ -342,13 +346,17 @@ object BadgeBitmapRenderer {
     // ── Bitmap utilities ──────────────────────────────────────────────────
 
     /**
-     * Creates a thermal-print-optimized photo using:
+     * Creates a thermal-print-optimized photo using advanced image processing:
      * 1. Square center crop
-     * 2. Grayscale conversion with enhanced brightness/contrast
-     * 3. Floyd-Steinberg dithering for 1-bit rendering
-     *
-     * This produces MUCH better results than simple threshold on thermal printers
-     * because it simulates gray tones through dot density patterns.
+     * 2. Up-scale to 2× for better detail retention
+     * 3. Grayscale conversion
+     * 4. Adaptive histogram analysis (auto-detects dark/light photos)
+     * 5. Histogram equalization — spreads tonal range
+     * 6. Gamma correction — lifts shadows without blowing highlights
+     * 7. Adaptive contrast + brightness
+     * 8. Unsharp masking — sharpens edges for better facial definition
+     * 9. Floyd-Steinberg dithering at 2× resolution
+     * 10. Down-scale to final size (supersampled dithering = smoother dots)
      */
     private fun toThermalOptimizedPhoto(src: Bitmap, targetSize: Int): Bitmap {
         // Step 1: Square center crop
@@ -358,57 +366,135 @@ object BadgeBitmapRenderer {
         val cropped = if (xOff == 0 && yOff == 0 && src.width == src.height) src
         else Bitmap.createBitmap(src, xOff, yOff, size, size)
 
-        // Step 2: Scale to target size
-        val scaled = Bitmap.createScaledBitmap(cropped, targetSize, targetSize, true)
+        // Step 2: Scale to 2× target for supersampled processing
+        val processSize = targetSize * 2
+        val scaled = Bitmap.createScaledBitmap(cropped, processSize, processSize, true)
         if (cropped !== src) cropped.recycle()
 
-        // Step 3: Convert to grayscale with brightness/contrast enhancement
+        // Step 3: Convert to grayscale luminance array
         val w = scaled.width
         val h = scaled.height
-        val pixels = FloatArray(w * h) // luminance 0..255
+        val pixels = FloatArray(w * h)
 
-        for (y in 0 until h) {
-            for (x in 0 until w) {
-                val px = scaled.getPixel(x, y)
-                val r = (px shr 16) and 0xFF
-                val g = (px shr 8)  and 0xFF
-                val b =  px         and 0xFF
-                // Standard luminance
-                var luma = (0.299f * r + 0.587f * g + 0.114f * b)
-
-                // Enhance brightness (+30) and contrast (×1.4) for thermal printing
-                luma = ((luma - 128f) * 1.4f + 128f + 30f).coerceIn(0f, 255f)
-
-                pixels[y * w + x] = luma
+        for (py in 0 until h) {
+            for (px in 0 until w) {
+                val c = scaled.getPixel(px, py)
+                val r = (c shr 16) and 0xFF
+                val g = (c shr 8)  and 0xFF
+                val b =  c         and 0xFF
+                pixels[py * w + px] = 0.299f * r + 0.587f * g + 0.114f * b
             }
         }
         scaled.recycle()
 
-        // Step 4: Floyd-Steinberg dithering
-        val result = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        for (y in 0 until h) {
-            for (x in 0 until w) {
-                val idx = y * w + x
-                val oldVal = pixels[idx]
+        // Step 4: Analyse histogram — adaptive parameters
+        val histogram = IntArray(256)
+        var sumLuma = 0f
+        var minLuma = 255f
+        var maxLuma = 0f
+        for (v in pixels) {
+            val bin = v.toInt().coerceIn(0, 255)
+            histogram[bin]++
+            sumLuma += v
+            if (v < minLuma) minLuma = v
+            if (v > maxLuma) maxLuma = v
+        }
+        val meanLuma = sumLuma / pixels.size
+
+        // Step 5: Histogram equalization — spread tonal range
+        val cdf = IntArray(256)
+        cdf[0] = histogram[0]
+        for (i in 1..255) cdf[i] = cdf[i - 1] + histogram[i]
+        val cdfMin = cdf.first { it > 0 }
+        val totalPx = pixels.size
+        val eqLut = FloatArray(256) { i ->
+            ((cdf[i] - cdfMin).toFloat() / (totalPx - cdfMin).toFloat() * 255f).coerceIn(0f, 255f)
+        }
+        // Blend: 60% equalized + 40% original for natural look
+        for (i in pixels.indices) {
+            val orig = pixels[i]
+            val eq   = eqLut[orig.toInt().coerceIn(0, 255)]
+            pixels[i] = orig * 0.4f + eq * 0.6f
+        }
+
+        // Step 6: Adaptive gamma correction — lift dark images
+        // Dark photo (mean < 100): stronger gamma (0.65). Normal: mild (0.85). Bright: none (1.0)
+        val gamma = when {
+            meanLuma < 70f  -> 0.55f   // very dark
+            meanLuma < 100f -> 0.65f   // dark
+            meanLuma < 130f -> 0.80f   // slightly dark
+            meanLuma < 170f -> 0.90f   // normal
+            else            -> 1.0f    // bright — no correction
+        }
+        if (gamma != 1.0f) {
+            val gammaLut = FloatArray(256) { i ->
+                (255f * Math.pow((i / 255.0), gamma.toDouble()).toFloat()).coerceIn(0f, 255f)
+            }
+            for (i in pixels.indices) {
+                pixels[i] = gammaLut[pixels[i].toInt().coerceIn(0, 255)]
+            }
+        }
+
+        // Step 7: Adaptive contrast + brightness boost
+        // Re-compute mean after equalization + gamma
+        var newMean = 0f
+        for (v in pixels) newMean += v
+        newMean /= pixels.size
+        // Target mean ~155 for thermal (lighter is better on white paper)
+        val brightShift = (155f - newMean).coerceIn(-10f, 50f)
+        val contrast = 1.3f
+        for (i in pixels.indices) {
+            pixels[i] = ((pixels[i] - 128f) * contrast + 128f + brightShift).coerceIn(0f, 255f)
+        }
+
+        // Step 8: Unsharp mask — sharpen edges for facial definition
+        // Simple 3×3 kernel: sharpened = original + strength × (original - blurred)
+        val strength = 0.6f
+        val sharpened = FloatArray(pixels.size)
+        for (py in 0 until h) {
+            for (px in 0 until w) {
+                val idx = py * w + px
+                if (px == 0 || px == w - 1 || py == 0 || py == h - 1) {
+                    sharpened[idx] = pixels[idx]
+                    continue
+                }
+                // 3×3 box blur of neighbours
+                val blur = (
+                    pixels[(py-1)*w + (px-1)] + pixels[(py-1)*w + px] + pixels[(py-1)*w + (px+1)] +
+                    pixels[ py   *w + (px-1)] + pixels[ py   *w + px] + pixels[ py   *w + (px+1)] +
+                    pixels[(py+1)*w + (px-1)] + pixels[(py+1)*w + px] + pixels[(py+1)*w + (px+1)]
+                ) / 9f
+                sharpened[idx] = (pixels[idx] + strength * (pixels[idx] - blur)).coerceIn(0f, 255f)
+            }
+        }
+
+        // Step 9: Floyd-Steinberg dithering at 2× resolution
+        val dithered = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        for (py in 0 until h) {
+            for (px in 0 until w) {
+                val idx = py * w + px
+                val oldVal = sharpened[idx]
                 val newVal = if (oldVal < 128f) 0f else 255f
                 val error  = oldVal - newVal
 
-                // Set pixel
-                val c = if (newVal < 128f) Color.BLACK else Color.WHITE
-                result.setPixel(x, y, c)
+                dithered.setPixel(px, py, if (newVal < 128f) Color.BLACK else Color.WHITE)
 
                 // Distribute error to neighbours
-                if (x + 1 < w)
-                    pixels[idx + 1]     += error * 7f / 16f
-                if (y + 1 < h) {
-                    if (x - 1 >= 0)
-                        pixels[(y + 1) * w + (x - 1)] += error * 3f / 16f
-                    pixels[(y + 1) * w + x]            += error * 5f / 16f
-                    if (x + 1 < w)
-                        pixels[(y + 1) * w + (x + 1)]  += error * 1f / 16f
+                if (px + 1 < w)
+                    sharpened[idx + 1]     += error * 7f / 16f
+                if (py + 1 < h) {
+                    if (px - 1 >= 0)
+                        sharpened[(py+1) * w + (px-1)] += error * 3f / 16f
+                    sharpened[(py+1) * w + px]         += error * 5f / 16f
+                    if (px + 1 < w)
+                        sharpened[(py+1) * w + (px+1)] += error * 1f / 16f
                 }
             }
         }
+
+        // Step 10: Down-scale from 2× to target size (supersampled = smoother)
+        val result = Bitmap.createScaledBitmap(dithered, targetSize, targetSize, true)
+        if (result !== dithered) dithered.recycle()
 
         return result
     }
