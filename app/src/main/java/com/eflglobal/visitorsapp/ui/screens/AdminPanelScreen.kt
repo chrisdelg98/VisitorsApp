@@ -998,7 +998,7 @@ private fun VisitDetailsContent(
             Row(
                 modifier              = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment     = Alignment.CenterVertically
             ) {
@@ -1008,8 +1008,61 @@ private fun VisitDetailsContent(
                     fontWeight = FontWeight.Bold,
                     color      = SlatePrimary
                 )
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Status pill
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (visit.exitDate == null)
+                            OrangePrimary.copy(alpha = 0.12f)
+                        else
+                            Color.Gray.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = if (visit.exitDate == null)
+                                stringResource(R.string.active)
+                            else
+                                stringResource(R.string.completed),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (visit.exitDate == null) OrangePrimary else Color.Gray
+                        )
+                    }
+
+                    // Toggle button
+                    OutlinedButton(
+                        onClick = { onToggleStatus(visit.visitId) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (visit.exitDate == null) Color.Gray else OrangePrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SwapHoriz,
+                            contentDescription = "Toggle status",
+                            modifier = Modifier.size(16.dp),
+                            tint = if (visit.exitDate == null) Color.Gray else OrangePrimary
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = if (visit.exitDate == null)
+                                stringResource(R.string.completed)
+                            else
+                                stringResource(R.string.active),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (visit.exitDate == null) Color.Gray else OrangePrimary
+                        )
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close))
+                    }
                 }
             }
 
@@ -1030,48 +1083,6 @@ private fun VisitDetailsContent(
                         .fillMaxHeight(),
                     verticalArrangement   = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Status with toggle button
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            DetailRow(
-                                label      = stringResource(R.string.status),
-                                value      = if (visit.exitDate == null)
-                                                 stringResource(R.string.active)
-                                             else
-                                                 stringResource(R.string.completed),
-                                valueColor = if (visit.exitDate == null) OrangePrimary else Color.Gray
-                            )
-                            OutlinedButton(
-                                onClick = { onToggleStatus(visit.visitId) },
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (visit.exitDate == null) Color.Gray else OrangePrimary
-                                ),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.SwapHoriz,
-                                    contentDescription = "Toggle status",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = if (visit.exitDate == null) Color.Gray else OrangePrimary
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = if (visit.exitDate == null) stringResource(R.string.completed) else stringResource(R.string.active),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (visit.exitDate == null) Color.Gray else OrangePrimary
-                                )
-                            }
-                        }
-                    }
-
-                    item { HorizontalDivider() }
-
                     // Visitor information section
                     item {
                         Text(

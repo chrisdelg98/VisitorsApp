@@ -57,6 +57,12 @@ fun CheckoutQrScreen(
     var successVisitorName by remember { mutableStateOf("") }
     var showQRScanner by remember { mutableStateOf(false) }
 
+    // Pre-resolve dialog strings here where LocalContext has the correct locale.
+    // AlertDialog creates its own AndroidView that does NOT inherit Compose's LocalContext.
+    val strCheckoutSuccess     = stringResource(R.string.checkout_success)
+    val strCheckoutRegistered  = stringResource(R.string.checkout_registered_for)
+    val strAccept              = stringResource(R.string.accept)
+
     // Persist search results so they stay visible even when state changes to Error/Loading
     var lastSearchResults by remember { mutableStateOf<List<com.eflglobal.visitorsapp.domain.model.ActiveVisit>>(emptyList()) }
 
@@ -529,6 +535,15 @@ fun CheckoutQrScreen(
 
             // Diálogo de éxito al finalizar
             if (showSuccessDialog) {
+
+                // Auto-redirect 5 seconds after showing
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(5_000)
+                    showSuccessDialog = false
+                    actualViewModel.resetState()
+                    onFinish()
+                }
+
                 AlertDialog(
                     onDismissRequest = { },
                     icon = {
@@ -536,8 +551,8 @@ fun CheckoutQrScreen(
                             modifier = Modifier
                                 .size(80.dp)
                                 .background(
-                                    color = OrangePrimary.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(40.dp)
+                                    OrangePrimary.copy(alpha = 0.1f),
+                                    androidx.compose.foundation.shape.CircleShape
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
@@ -551,17 +566,20 @@ fun CheckoutQrScreen(
                     },
                     title = {
                         Text(
-                            text = stringResource(R.string.checkout_success),
+                            text = strCheckoutSuccess,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = SlatePrimary,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     },
                     text = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text(
-                                text = stringResource(R.string.checkout_registered_for),
+                                text = strCheckoutRegistered,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 textAlign = TextAlign.Center
@@ -583,14 +601,22 @@ fun CheckoutQrScreen(
                                 actualViewModel.resetState()
                                 onFinish()
                             },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = OrangePrimary
                             ),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(stringResource(R.string.accept))
+                            Text(
+                                strAccept,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(24.dp)
                 )
             }
         }

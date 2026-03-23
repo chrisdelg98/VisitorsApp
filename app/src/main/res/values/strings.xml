@@ -213,7 +213,7 @@
     <string name="no_active_visits">No se encontraron visitas activas</string>
     <string name="qr_scan_auto_hint">El escaneo QR se activará automáticamente con la cámara frontal</string>
     <string name="front_camera_auto">Cámara frontal • Escaneo automático</string>
-    <string name="checkout_registered_for">Salida registrada correctamente para:</string>
+    <string name="checkout_registered_for">Salida registrada correctamente!</string>
     <string name="entry_colon">Entrada: %s</string>
 
     <!-- ── VisitorBadge ──────────────────────────────────────── -->

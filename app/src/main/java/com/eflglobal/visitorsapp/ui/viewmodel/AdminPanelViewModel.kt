@@ -154,16 +154,24 @@ class AdminPanelViewModel(
                     visit.copy(exitDate = null)
                 }
                 visitRepository.updateVisit(updatedVisit)
-                // Refresh dashboard so stats + list reflect the change
-                loadDashboard()
-                // Return the updated VisitWithPersonInfo from the refreshed state
+
+                // Immediately build the updated VisitWithPersonInfo from current state
+                // so the modal can refresh right away (loadDashboard is async).
                 val state = _uiState.value
                 if (state is AdminPanelUiState.Success) {
-                    val updated = state.recentVisits.find { it.visit.visitId == visitId }
-                    onUpdated(updated)
+                    val current = state.recentVisits.find { it.visit.visitId == visitId }
+                    if (current != null) {
+                        val updatedInfo = current.copy(visit = updatedVisit)
+                        onUpdated(updatedInfo)
+                    } else {
+                        onUpdated(null)
+                    }
                 } else {
                     onUpdated(null)
                 }
+
+                // Refresh dashboard in background so stats + list also update
+                loadDashboard()
             } catch (e: Exception) {
                 e.printStackTrace()
                 onUpdated(null)
