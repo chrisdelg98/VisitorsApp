@@ -290,4 +290,24 @@
     <string name="printer_diag_connected">Conectada</string>
     <string name="printer_diag_not_connected">Não conectada</string>
     <string name="printer_configuration">Configuração</string>
+
+    <!-- Printer Discovery -->
+    <string name="printer_discovery_title">Descoberta de Impressoras</string>
+    <string name="printer_scan_network">Escanear Rede</string>
+    <string name="printer_scanning">Procurando impressoras…</string>
+    <string name="printer_scan_complete">Escaneamento concluído</string>
+    <string name="printer_found">%d impressora(s) encontrada(s)</string>
+    <string name="printer_none_found">Nenhuma impressora encontrada na rede</string>
+    <string name="printer_select">Selecionar</string>
+    <string name="printer_selected_label">Impressora selecionada</string>
+    <string name="printer_auto_discovery">Descoberta automática diária</string>
+    <string name="printer_auto_discovery_desc">Escaneia a rede a cada 24 horas para verificar a impressora</string>
+    <string name="printer_last_scan">Último escaneamento: %s</string>
+    <string name="printer_never_scanned">Nunca escaneada</string>
+    <string name="printer_identity">ID da Impressora</string>
+    <string name="printer_ip_updated">IP atualizado automaticamente: %s</string>
+    <string name="printer_known_device">Dispositivo conhecido</string>
+    <string name="printer_new_device">Novo dispositivo</string>
+    <string name="printer_usb_devices">Dispositivos USB</string>
+    <string name="printer_network_devices">Dispositivos de Rede</string>
 </resources>

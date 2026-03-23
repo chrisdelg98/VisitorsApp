@@ -42,6 +42,9 @@ import com.eflglobal.visitorsapp.core.printing.PrinterDiagnostics
 import com.eflglobal.visitorsapp.core.printing.DiagnosticItem
 import com.eflglobal.visitorsapp.core.printing.DiagStatus
 import com.eflglobal.visitorsapp.core.printing.PrinterManager
+import com.eflglobal.visitorsapp.core.printing.DiscoveredPrinter
+import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryService
+import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryWorker
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
@@ -1730,6 +1733,8 @@ private fun PrinterSettingsDialog(
     var ipAddress      by remember(currentConfig) { mutableStateOf(currentConfig.networkHost ?: "") }
     var port           by remember(currentConfig) { mutableStateOf(currentConfig.networkPort.toString()) }
     var brotherModel   by remember(currentConfig) { mutableStateOf(currentConfig.brotherModel) }
+    var printerIdentifier by remember(currentConfig) { mutableStateOf(currentConfig.printerIdentifier) }
+    var printerDisplayName by remember(currentConfig) { mutableStateOf(currentConfig.printerDisplayName) }
     var showModelMenu  by remember { mutableStateOf(false) }
     var isTesting      by remember { mutableStateOf(false) }
     var isSaving       by remember { mutableStateOf(false) }
@@ -1738,13 +1743,68 @@ private fun PrinterSettingsDialog(
     var diagnostics    by remember { mutableStateOf<PrinterDiagnostics?>(null) }
     var diagError      by remember { mutableStateOf<String?>(null) }
 
+    // ── Discovery state ──────────────────────────────────────────────
+    var isScanning     by remember { mutableStateOf(false) }
+    var scanCompleted  by remember { mutableStateOf(false) }
+    var discoveredPrinters by remember { mutableStateOf<List<DiscoveredPrinter>>(emptyList()) }
+    var scanMessage    by remember { mutableStateOf<String?>(null) }
+
+    // Auto-discovery toggle
+    val autoDiscoveryFlow = remember { PrinterConfigRepository.isAutoDiscoveryEnabled(rawContext) }
+    val autoDiscoveryEnabled by autoDiscoveryFlow.collectAsState(initial = true)
+
     fun buildConfig() = PrinterConfig(
-        brand          = selectedBrand,
-        connectionType = selectedType,
-        networkHost    = ipAddress.ifBlank { null },
-        networkPort    = port.toIntOrNull() ?: PrinterConfig.DEFAULT_PORT,
-        brotherModel   = brotherModel
+        brand              = selectedBrand,
+        connectionType     = selectedType,
+        networkHost        = ipAddress.ifBlank { null },
+        networkPort        = port.toIntOrNull() ?: PrinterConfig.DEFAULT_PORT,
+        brotherModel       = brotherModel,
+        printerIdentifier  = printerIdentifier,
+        printerDisplayName = printerDisplayName,
+        lastDiscoveryTimestamp = currentConfig.lastDiscoveryTimestamp
     )
+
+    // ── Scan action ──────────────────────────────────────────────────
+    fun runDiscovery() {
+        coroutineScope.launch {
+            isScanning = true
+            scanCompleted = false
+            scanMessage = null
+            discoveredPrinters = emptyList()
+            try {
+                val results = PrinterDiscoveryService.discoverAll(rawContext)
+                discoveredPrinters = results
+                scanCompleted = true
+            } catch (e: Exception) {
+                scanMessage = e.message ?: "Discovery error"
+                scanCompleted = true
+            }
+            isScanning = false
+        }
+    }
+
+    // ── Select discovered printer ────────────────────────────────────
+    fun selectDiscoveredPrinter(printer: DiscoveredPrinter) {
+        selectedBrand = printer.brand
+        selectedType  = printer.connectionType
+        if (printer.ipAddress != null) {
+            ipAddress = printer.ipAddress
+        }
+        port = printer.port.toString()
+        printerIdentifier  = printer.serialOrNode
+        printerDisplayName = printer.displayName
+
+        // Try to match Brother model
+        if (printer.brand == PrinterConfig.PrinterBrand.BROTHER) {
+            val matchedModel = PrinterConfig.BrotherModel.entries.firstOrNull {
+                printer.model.contains(it.displayName, ignoreCase = true)
+            }
+            if (matchedModel != null) brotherModel = matchedModel.name
+        }
+
+        diagnostics = null
+        diagError   = null
+    }
 
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
@@ -1785,7 +1845,7 @@ private fun PrinterSettingsDialog(
                         horizontalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
                         // ═══════════════════════════════════════════════════
-                        //  LEFT COLUMN — Configuration
+                        //  LEFT COLUMN — Configuration + Discovery
                         // ═══════════════════════════════════════════════════
                         Column(
                             modifier = Modifier.weight(1f)
@@ -1898,6 +1958,278 @@ private fun PrinterSettingsDialog(
                                             }
                                         }
                                     }
+                                }
+
+                                // ── Selected printer identity ────────────
+                                if (printerIdentifier.isNotBlank()) {
+                                    Spacer(Modifier.height(16.dp))
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+                                        shape  = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.Verified,
+                                                    null,
+                                                    tint = OrangePrimary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    stringResource(R.string.printer_selected_label),
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 12.sp,
+                                                    color = SlatePrimary
+                                                )
+                                            }
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                printerDisplayName.ifBlank { printerIdentifier },
+                                                fontSize = 11.sp,
+                                                color = Color.Gray
+                                            )
+                                            Text(
+                                                "${stringResource(R.string.printer_identity)}: $printerIdentifier",
+                                                fontSize = 10.sp,
+                                                color = Color.Gray.copy(alpha = 0.7f)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // ──────────────────────────────────────────
+                                //  NETWORK DISCOVERY SECTION
+                                // ──────────────────────────────────────────
+                                Spacer(Modifier.height(20.dp))
+                                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.4f))
+                                Spacer(Modifier.height(16.dp))
+
+                                Text(
+                                    stringResource(R.string.printer_discovery_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = SlatePrimary
+                                )
+                                Spacer(Modifier.height(10.dp))
+
+                                // Scan button
+                                OutlinedButton(
+                                    onClick  = { runDiscovery() },
+                                    enabled  = !isScanning,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape    = RoundedCornerShape(8.dp),
+                                    border   = BorderStroke(1.dp, if (isScanning) Color.LightGray else OrangePrimary)
+                                ) {
+                                    if (isScanning) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = OrangePrimary
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            stringResource(R.string.printer_scanning),
+                                            fontSize = 13.sp,
+                                            color = Color.Gray
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.WifiFind,
+                                            null,
+                                            tint = OrangePrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            stringResource(R.string.printer_scan_network),
+                                            fontSize = 13.sp,
+                                            color = OrangePrimary
+                                        )
+                                    }
+                                }
+
+                                // Last scan timestamp
+                                val lastScan = currentConfig.lastDiscoveryTimestamp
+                                if (lastScan > 0) {
+                                    Spacer(Modifier.height(4.dp))
+                                    val dateStr = remember(lastScan) {
+                                        SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                                            .format(Date(lastScan))
+                                    }
+                                    Text(
+                                        stringResource(R.string.printer_last_scan, dateStr),
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+
+                                // ── Scan result feedback ─────────────────
+                                if (scanCompleted && !isScanning) {
+                                    Spacer(Modifier.height(12.dp))
+
+                                    if (discoveredPrinters.isNotEmpty()) {
+                                        // ✅ Found printers — show count + list
+                                        Card(
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                            shape  = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.CheckCircle,
+                                                    null,
+                                                    tint = Color(0xFF2E7D32),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Column {
+                                                    Text(
+                                                        stringResource(R.string.printer_scan_complete),
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        fontSize = 12.sp,
+                                                        color = Color(0xFF2E7D32)
+                                                    )
+                                                    Text(
+                                                        stringResource(R.string.printer_found, discoveredPrinters.size),
+                                                        fontSize = 11.sp,
+                                                        color = Color(0xFF388E3C)
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(Modifier.height(10.dp))
+
+                                        // Group by connection type
+                                        val networkPrinters = discoveredPrinters.filter {
+                                            it.connectionType == PrinterConfig.ConnectionType.NETWORK
+                                        }
+                                        val usbPrinters = discoveredPrinters.filter {
+                                            it.connectionType == PrinterConfig.ConnectionType.USB
+                                        }
+
+                                        if (networkPrinters.isNotEmpty()) {
+                                            Text(
+                                                stringResource(R.string.printer_network_devices),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = SlatePrimary
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            networkPrinters.forEach { printer ->
+                                                DiscoveredPrinterRow(
+                                                    printer = printer,
+                                                    isKnown = printer.serialOrNode.isNotBlank() &&
+                                                            printer.serialOrNode == printerIdentifier,
+                                                    onSelect = { selectDiscoveredPrinter(printer) }
+                                                )
+                                                Spacer(Modifier.height(4.dp))
+                                            }
+                                        }
+
+                                        if (usbPrinters.isNotEmpty()) {
+                                            if (networkPrinters.isNotEmpty()) Spacer(Modifier.height(8.dp))
+                                            Text(
+                                                stringResource(R.string.printer_usb_devices),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = SlatePrimary
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            usbPrinters.forEach { printer ->
+                                                DiscoveredPrinterRow(
+                                                    printer = printer,
+                                                    isKnown = printer.serialOrNode.isNotBlank() &&
+                                                            printer.serialOrNode == printerIdentifier,
+                                                    onSelect = { selectDiscoveredPrinter(printer) }
+                                                )
+                                                Spacer(Modifier.height(4.dp))
+                                            }
+                                        }
+                                    } else {
+                                        // ⚠ No printers found
+                                        Card(
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
+                                            shape  = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.SearchOff,
+                                                    null,
+                                                    tint = Color(0xFFF57F17),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Column {
+                                                    Text(
+                                                        stringResource(R.string.printer_scan_complete),
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        fontSize = 12.sp,
+                                                        color = Color(0xFFF57F17)
+                                                    )
+                                                    Text(
+                                                        stringResource(R.string.printer_none_found),
+                                                        fontSize = 11.sp,
+                                                        color = Color(0xFF8D6E00)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Scan error message
+                                scanMessage?.let { msg ->
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(msg, fontSize = 11.sp, color = Color(0xFFC62828))
+                                }
+
+                                // ── Auto-discovery toggle ────────────────
+                                Spacer(Modifier.height(16.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            stringResource(R.string.printer_auto_discovery),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = SlatePrimary
+                                        )
+                                        Text(
+                                            stringResource(R.string.printer_auto_discovery_desc),
+                                            fontSize = 10.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Switch(
+                                        checked = autoDiscoveryEnabled,
+                                        onCheckedChange = { enabled ->
+                                            coroutineScope.launch {
+                                                PrinterConfigRepository.setAutoDiscoveryEnabled(rawContext, enabled)
+                                                if (enabled) {
+                                                    PrinterDiscoveryWorker.schedule(rawContext)
+                                                } else {
+                                                    PrinterDiscoveryWorker.cancel(rawContext)
+                                                }
+                                            }
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor  = Color.White,
+                                            checkedTrackColor  = OrangePrimary
+                                        )
+                                    )
                                 }
                             }
                         }
@@ -2117,6 +2449,84 @@ private fun PrinterSettingsDialog(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ── Discovered printer row item ───────────────────────────────────────────────
+
+@Composable
+private fun DiscoveredPrinterRow(
+    printer: DiscoveredPrinter,
+    isKnown: Boolean,
+    onSelect: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors   = CardDefaults.cardColors(
+            containerColor = if (isKnown) Color(0xFFFFF3E0) else Color(0xFFF5F5F5)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Brand icon
+            val brandIcon = when (printer.brand) {
+                PrinterConfig.PrinterBrand.BROTHER -> Icons.Default.Print
+                PrinterConfig.PrinterBrand.ZEBRA   -> Icons.Default.Print
+                else                                -> Icons.Default.DeviceUnknown
+            }
+            val brandColor = when (printer.brand) {
+                PrinterConfig.PrinterBrand.BROTHER -> Color(0xFF1565C0)
+                PrinterConfig.PrinterBrand.ZEBRA   -> Color(0xFF2E7D32)
+                else                                -> Color.Gray
+            }
+            Icon(brandIcon, null, tint = brandColor, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        printer.model,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        color = SlatePrimary
+                    )
+                    if (isKnown) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            stringResource(R.string.printer_known_device),
+                            fontSize = 9.sp,
+                            color = OrangePrimary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .background(OrangePrimary.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                val detail = buildString {
+                    append(printer.brand.name)
+                    if (printer.ipAddress != null) append(" • ${printer.ipAddress}:${printer.port}")
+                    if (printer.serialOrNode.isNotBlank()) append(" • ${printer.serialOrNode.take(20)}")
+                }
+                Text(detail, fontSize = 10.sp, color = Color.Gray)
+            }
+
+            // Select button
+            TextButton(
+                onClick = onSelect,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    stringResource(R.string.printer_select),
+                    fontSize = 11.sp,
+                    color = OrangePrimary,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

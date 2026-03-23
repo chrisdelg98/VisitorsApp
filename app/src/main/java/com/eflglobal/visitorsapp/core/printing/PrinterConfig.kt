@@ -14,7 +14,17 @@ data class PrinterConfig(
     /** TCP port — Zebra default 9100; Brother default 9100. */
     val networkPort: Int = DEFAULT_PORT,
     /** Brother printer model key (maps to PrinterInfo.Model enum in the Brother SDK). */
-    val brotherModel: String = BrotherModel.QL_810W.name
+    val brotherModel: String = BrotherModel.QL_810W.name,
+    /**
+     * Unique identifier of the physical printer (serial number, MAC, or node name).
+     * Used to re-identify the same printer even if its IP address changes (DHCP).
+     * Populated by [PrinterDiscoveryService] when a printer is selected from discovery results.
+     */
+    val printerIdentifier: String = "",
+    /** Human-readable name shown in the UI, e.g. "QL-820NWB — 10.20.21.108". */
+    val printerDisplayName: String = "",
+    /** Epoch millis of the last successful auto-discovery that found this printer. */
+    val lastDiscoveryTimestamp: Long = 0L
 ) {
     enum class PrinterBrand { NONE, ZEBRA, BROTHER }
     enum class ConnectionType { USB, NETWORK }
