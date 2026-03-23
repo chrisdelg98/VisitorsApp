@@ -99,7 +99,7 @@
     <string name="reason_meeting">Reunião</string>
     <string name="reason_interview">Entrevista</string>
     <string name="reason_delivery">Entrega</string>
-    <string name="reason_pickup">Recolha</string>
+    <string name="reason_pickup">Coleta</string>
     <string name="reason_maintenance">Manutenção</string>
     <string name="reason_training">Formação</string>
     <string name="reason_audit">Auditoria</string>
