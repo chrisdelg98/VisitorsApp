@@ -87,7 +87,7 @@ object BadgeBitmapRenderer {
         drawDivider(canvas, headerBottom + 4f)
 
         val contentTop = headerBottom + 12f
-        val photoSize  = 170f          // bigger photo & QR (was 150)
+        val photoSize  = 175f          // bigger photo & QR (was 150)
 
         // Photo (left, dithered for thermal)
         drawPhoto(canvas, data.profileBitmap, M, contentTop, photoSize)
@@ -205,7 +205,7 @@ object BadgeBitmapRenderer {
         val sectionGap = 18f           // gap pill→name AND name→details (equal)
 
         // Start below the pill with consistent gap
-        var y = startY + 30f + sectionGap   // 30 = pill height, then gap
+        var y = startY + 50f + sectionGap   // 50 = pill height, then gap
 
         // ── First name
         val namePaint = paint {
@@ -410,29 +410,28 @@ object BadgeBitmapRenderer {
         val eqLut = FloatArray(256) { i ->
             ((cdf[i] - cdfMin).toFloat() / (totalPx - cdfMin).toFloat() * 255f).coerceIn(0f, 255f)
         }
-        // Blend: 60% equalized + 40% original for natural look
+        // Blend: 25% equalized + 75% original — minimal EQ to avoid darkening
         for (i in pixels.indices) {
             val orig = pixels[i]
             val eq   = eqLut[orig.toInt().coerceIn(0, 255)]
-            pixels[i] = orig * 0.4f + eq * 0.6f
+            pixels[i] = orig * 0.75f + eq * 0.25f
         }
 
-        // Step 6: Adaptive gamma correction — lift dark images
-        // Dark photo (mean < 100): stronger gamma (0.65). Normal: mild (0.85). Bright: none (1.0)
+        // Step 6: Adaptive gamma correction — aggressively lighten for thermal paper
+        // Lower gamma = brighter. Thermal paper absorbs ink → needs extra lightness.
         val gamma = when {
-            meanLuma < 70f  -> 0.55f   // very dark
-            meanLuma < 100f -> 0.65f   // dark
-            meanLuma < 130f -> 0.80f   // slightly dark
-            meanLuma < 170f -> 0.90f   // normal
-            else            -> 1.0f    // bright — no correction
+            meanLuma < 70f  -> 0.35f   // very dark → very strong lift
+            meanLuma < 100f -> 0.42f   // dark → strong lift
+            meanLuma < 130f -> 0.50f   // slightly dark → significant lift
+            meanLuma < 160f -> 0.58f   // normal → moderate lift
+            meanLuma < 190f -> 0.68f   // bright → mild lift
+            else            -> 0.78f   // very bright — still lift for thermal
         }
-        if (gamma != 1.0f) {
-            val gammaLut = FloatArray(256) { i ->
-                (255f * Math.pow((i / 255.0), gamma.toDouble()).toFloat()).coerceIn(0f, 255f)
-            }
-            for (i in pixels.indices) {
-                pixels[i] = gammaLut[pixels[i].toInt().coerceIn(0, 255)]
-            }
+        val gammaLut = FloatArray(256) { i ->
+            (255f * Math.pow((i / 255.0), gamma.toDouble()).toFloat()).coerceIn(0f, 255f)
+        }
+        for (i in pixels.indices) {
+            pixels[i] = gammaLut[pixels[i].toInt().coerceIn(0, 255)]
         }
 
         // Step 7: Adaptive contrast + brightness boost
@@ -440,16 +439,16 @@ object BadgeBitmapRenderer {
         var newMean = 0f
         for (v in pixels) newMean += v
         newMean /= pixels.size
-        // Target mean ~155 for thermal (lighter is better on white paper)
-        val brightShift = (155f - newMean).coerceIn(-10f, 50f)
-        val contrast = 1.3f
+        // Target mean ~190 for thermal — extra light so faces stay clear
+        val brightShift = (190f - newMean).coerceIn(0f, 70f)
+        val contrast = 1.08f   // very gentle contrast — preserves all detail
         for (i in pixels.indices) {
             pixels[i] = ((pixels[i] - 128f) * contrast + 128f + brightShift).coerceIn(0f, 255f)
         }
 
-        // Step 8: Unsharp mask — sharpen edges for facial definition
+        // Step 8: Unsharp mask — light sharpening for facial definition
         // Simple 3×3 kernel: sharpened = original + strength × (original - blurred)
-        val strength = 0.6f
+        val strength = 0.35f   // light touch to avoid amplifying dark spots
         val sharpened = FloatArray(pixels.size)
         for (py in 0 until h) {
             for (px in 0 until w) {
@@ -469,15 +468,17 @@ object BadgeBitmapRenderer {
         }
 
         // Step 9: Floyd-Steinberg dithering at 2× resolution
+        // Threshold 150 (above center 128) biases heavily toward white → lighter thermal print
+        val ditherThreshold = 150f
         val dithered = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         for (py in 0 until h) {
             for (px in 0 until w) {
                 val idx = py * w + px
                 val oldVal = sharpened[idx]
-                val newVal = if (oldVal < 128f) 0f else 255f
+                val newVal = if (oldVal < ditherThreshold) 0f else 255f
                 val error  = oldVal - newVal
 
-                dithered.setPixel(px, py, if (newVal < 128f) Color.BLACK else Color.WHITE)
+                dithered.setPixel(px, py, if (newVal < ditherThreshold) Color.BLACK else Color.WHITE)
 
                 // Distribute error to neighbours
                 if (px + 1 < w)

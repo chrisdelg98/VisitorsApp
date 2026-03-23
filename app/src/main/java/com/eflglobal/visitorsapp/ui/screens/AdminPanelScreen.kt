@@ -91,7 +91,13 @@ fun AdminPanelScreen(
         VisitDetailsModal(
             visitWithInfo = visitWithInfo,
             onDismiss = { selectedVisit = null },
-            selectedLanguage = selectedLanguage
+            selectedLanguage = selectedLanguage,
+            onToggleStatus = { visitId ->
+                viewModel.toggleVisitStatus(visitId) { updatedVisit ->
+                    // Update the selected visit in-place so the modal reflects the new status
+                    selectedVisit = updatedVisit
+                }
+            }
         )
     }
 
@@ -919,7 +925,8 @@ private fun FiltersSection(
 private fun VisitDetailsModal(
     visitWithInfo: VisitWithPersonInfo,
     onDismiss: () -> Unit,
-    selectedLanguage: String
+    selectedLanguage: String,
+    onToggleStatus: (String) -> Unit = {}
 ) {
     val visit = visitWithInfo.visit
     val rawContext = LocalContext.current
@@ -945,7 +952,8 @@ private fun VisitDetailsModal(
                 visitWithInfo    = visitWithInfo,
                 onDismiss        = onDismiss,
                 selectedLanguage = selectedLanguage,
-                context          = localizedContext
+                context          = localizedContext,
+                onToggleStatus   = onToggleStatus
             )
         }
     }
@@ -956,7 +964,8 @@ private fun VisitDetailsContent(
     visitWithInfo: VisitWithPersonInfo,
     onDismiss: () -> Unit,
     selectedLanguage: String,
-    context: android.content.Context
+    context: android.content.Context,
+    onToggleStatus: (String) -> Unit = {}
 ) {
     val visit = visitWithInfo.visit
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()) }
@@ -1021,16 +1030,44 @@ private fun VisitDetailsContent(
                         .fillMaxHeight(),
                     verticalArrangement   = Arrangement.spacedBy(14.dp)
                 ) {
-                    // Status
+                    // Status with toggle button
                     item {
-                        DetailRow(
-                            label      = stringResource(R.string.status),
-                            value      = if (visit.exitDate == null)
-                                             stringResource(R.string.active)
-                                         else
-                                             stringResource(R.string.completed),
-                            valueColor = if (visit.exitDate == null) OrangePrimary else Color.Gray
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            DetailRow(
+                                label      = stringResource(R.string.status),
+                                value      = if (visit.exitDate == null)
+                                                 stringResource(R.string.active)
+                                             else
+                                                 stringResource(R.string.completed),
+                                valueColor = if (visit.exitDate == null) OrangePrimary else Color.Gray
+                            )
+                            OutlinedButton(
+                                onClick = { onToggleStatus(visit.visitId) },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (visit.exitDate == null) Color.Gray else OrangePrimary
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SwapHoriz,
+                                    contentDescription = "Toggle status",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (visit.exitDate == null) Color.Gray else OrangePrimary
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = if (visit.exitDate == null) stringResource(R.string.completed) else stringResource(R.string.active),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (visit.exitDate == null) Color.Gray else OrangePrimary
+                                )
+                            }
+                        }
                     }
 
                     item { HorizontalDivider() }

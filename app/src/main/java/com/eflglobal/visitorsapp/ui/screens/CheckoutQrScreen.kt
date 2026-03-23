@@ -57,10 +57,34 @@ fun CheckoutQrScreen(
     var successVisitorName by remember { mutableStateOf("") }
     var showQRScanner by remember { mutableStateOf(false) }
 
+    // Persist search results so they stay visible even when state changes to Error/Loading
+    var lastSearchResults by remember { mutableStateOf<List<com.eflglobal.visitorsapp.domain.model.ActiveVisit>>(emptyList()) }
+
+    // Track search results whenever they arrive
+    LaunchedEffect(uiState) {
+        if (uiState is EndVisitUiState.SearchResults) {
+            lastSearchResults = (uiState as EndVisitUiState.SearchResults).visits
+        }
+    }
+
+    // Reset state when entering the screen
+    LaunchedEffect(Unit) {
+        actualViewModel.resetState()
+    }
+
+    // Reset state when leaving the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            actualViewModel.resetState()
+        }
+    }
+
     // Búsqueda en tiempo real
     LaunchedEffect(searchQuery) {
         if (searchQuery.length >= 3) {
             actualViewModel.searchActiveVisits(searchQuery)
+        } else {
+            lastSearchResults = emptyList()
         }
     }
 
@@ -190,87 +214,73 @@ fun CheckoutQrScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Resultados de búsqueda REALES desde ViewModel
-                    when (val state = uiState) {
-                        is EndVisitUiState.Loading -> {
+                    // Resultados de búsqueda — persisten aunque el estado cambie a Error
+                    if (uiState is EndVisitUiState.Loading && lastSearchResults.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = OrangePrimary)
+                        }
+                    }
+
+                    if (lastSearchResults.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = 4.dp
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.active_visits_today),
+                                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = OrangePrimary,
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+
+                                lastSearchResults.forEach { visit ->
+                                    RealVisitorSearchCard(
+                                        visit = visit,
+                                        onEndVisit = {
+                                            successVisitorName = visit.personName
+                                            actualViewModel.endVisit(visit.visitId)
+                                        },
+                                        selectedLanguage = selectedLanguage
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+                        }
+                    } else if (searchQuery.length >= 3 && uiState !is EndVisitUiState.Loading) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
                             Box(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = OrangePrimary)
+                                Text(
+                                    text = stringResource(R.string.no_active_visits),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
-
-                        is EndVisitUiState.SearchResults -> {
-                            if (state.visits.isNotEmpty()) {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surface
-                                    ),
-                                    elevation = CardDefaults.cardElevation(
-                                        defaultElevation = 4.dp
-                                    )
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp)
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.active_visits_today),
-                                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
-                                            fontWeight = FontWeight.Bold,
-                                            color = OrangePrimary,
-                                            modifier = Modifier.padding(bottom = 12.dp)
-                                        )
-
-                                        state.visits.forEach { visit ->
-                                            RealVisitorSearchCard(
-                                                visit = visit,
-                                                onEndVisit = {
-                                                    successVisitorName = visit.personName
-                                                    actualViewModel.endVisit(visit.visitId)
-                                                },
-                                                selectedLanguage = selectedLanguage
-                                            )
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                        }
-                                    }
-                                }
-                            } else if (searchQuery.length >= 3) {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surface
-                                    )
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(24.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.no_active_visits),
-                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        is EndVisitUiState.Error -> {
-                            Text(
-                                text = state.message,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        else -> { /* Idle state */ }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -309,13 +319,22 @@ fun CheckoutQrScreen(
                         .weight(6f)
                         .fillMaxHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Top
                 ) {
-                    // Card del área de escaneo REAL con cámara
+                    // Texto informativo arriba del scanner
+                    Text(
+                        text = stringResource(R.string.front_camera_auto),
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    // Card del área de escaneo REAL con cámara — ocupa todo el espacio disponible
                     Card(
                         modifier = Modifier
-                            .fillMaxWidth(0.75f)
-                            .aspectRatio(1f),
+                            .fillMaxWidth()
+                            .weight(1f),
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = androidx.compose.ui.graphics.Color.Black
@@ -349,39 +368,73 @@ fun CheckoutQrScreen(
                                     )
                                 }
 
-                                // Overlay con marco de guía
+                                // Overlay — instructivo o error (mismo tamaño fijo)
                                 Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
+                                    modifier = Modifier.fillMaxSize()
                                 ) {
+                                    val currentError = uiState as? EndVisitUiState.Error
+
+                                    // Card con ancho fijo centrado arriba
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxSize(0.7f)
-                                            .border(
-                                                width = 4.dp,
-                                                color = OrangePrimary,
-                                                shape = RoundedCornerShape(20.dp)
-                                            )
-                                    )
-
-                                    // Texto instructivo
-                                    Column(
-                                        modifier = Modifier
                                             .align(Alignment.TopCenter)
-                                            .padding(top = 16.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
+                                            .padding(top = 20.dp)
+                                            .fillMaxWidth(0.70f)
                                     ) {
-                                        Text(
-                                            text = stringResource(R.string.place_qr),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = androidx.compose.ui.graphics.Color.White,
-                                            modifier = Modifier
-                                                .background(
-                                                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f),
-                                                    shape = RoundedCornerShape(8.dp)
+                                        if (currentError == null) {
+                                            // Instructivo
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(10.dp),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f)
                                                 )
-                                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                        )
+                                            ) {
+                                                Text(
+                                                    text = stringResource(R.string.place_qr),
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = androidx.compose.ui.graphics.Color.White,
+                                                    textAlign = TextAlign.Center,
+                                                    maxLines = 1,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                                                )
+                                            }
+                                        } else {
+                                            // Error
+                                            Card(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(10.dp),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
+                                                )
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = null,
+                                                        tint = androidx.compose.ui.graphics.Color.White,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        text = currentError.message,
+                                                        color = androidx.compose.ui.graphics.Color.White,
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        maxLines = 2,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
 
                                     // Botón cerrar
@@ -471,15 +524,6 @@ fun CheckoutQrScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Texto informativo
-                    Text(
-                        text = stringResource(R.string.front_camera_auto),
-                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Medium
-                    )
                 }
             }
 

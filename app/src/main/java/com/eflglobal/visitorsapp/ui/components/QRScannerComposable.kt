@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
@@ -109,7 +110,15 @@ fun QRScannerComposable(
     Box(modifier = modifier) {
         AndroidView(
             factory = { previewView },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    // Flip preview horizontally for front camera so text reads normally.
+                    // Only affects the visual preview — ImageAnalysis frames are unaffected.
+                    if (lensFacing == CameraSelector.LENS_FACING_FRONT)
+                        Modifier.graphicsLayer { scaleX = -1f }
+                    else Modifier
+                )
         )
     }
 }

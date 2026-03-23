@@ -150,7 +150,7 @@
     <string name="end_visit_title">Finalizar Visita</string>
     <string name="scan_qr_code">Escanear Código QR</string>
     <string name="present_qr">Presente el código QR de su visita para registrar la salida</string>
-    <string name="place_qr">Coloque el código QR\nen el área marcada</string>
+    <string name="place_qr">Ubica el código QR frente a la cámara</string>
     <string name="scanning_qr">Escaneando código QR...</string>
     <string name="valid_code">¡Código Válido!</string>
     <string name="processing_checkout">Procesando salida...</string>

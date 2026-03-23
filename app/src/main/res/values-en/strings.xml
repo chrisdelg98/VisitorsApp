@@ -150,7 +150,7 @@
     <string name="end_visit_title">End Visit</string>
     <string name="scan_qr_code">Scan QR Code</string>
     <string name="present_qr">Present your visit QR code to register checkout</string>
-    <string name="place_qr">Place the QR code\nin the marked area</string>
+    <string name="place_qr">Place the QR code in front of the camera</string>
     <string name="scanning_qr">Scanning QR code...</string>
     <string name="valid_code">Valid Code!</string>
     <string name="processing_checkout">Processing checkout...</string>

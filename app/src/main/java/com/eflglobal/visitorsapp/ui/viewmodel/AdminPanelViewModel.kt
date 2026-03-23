@@ -139,6 +139,38 @@ class AdminPanelViewModel(
         return visits.filter { it.visit.entryDate >= startOfMonth }
     }
 
+    /**
+     * Toggles a visit between active (exitDate = null) and completed (exitDate = now).
+     * Useful for testing without having to print badges every time.
+     * Returns the updated VisitWithPersonInfo so the caller can refresh the detail view.
+     */
+    fun toggleVisitStatus(visitId: String, onUpdated: (VisitWithPersonInfo?) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val visit = visitRepository.getVisitById(visitId) ?: return@launch
+                val updatedVisit = if (visit.exitDate == null) {
+                    visit.copy(exitDate = System.currentTimeMillis())
+                } else {
+                    visit.copy(exitDate = null)
+                }
+                visitRepository.updateVisit(updatedVisit)
+                // Refresh dashboard so stats + list reflect the change
+                loadDashboard()
+                // Return the updated VisitWithPersonInfo from the refreshed state
+                val state = _uiState.value
+                if (state is AdminPanelUiState.Success) {
+                    val updated = state.recentVisits.find { it.visit.visitId == visitId }
+                    onUpdated(updated)
+                } else {
+                    onUpdated(null)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onUpdated(null)
+            }
+        }
+    }
+
     fun refresh() {
         loadDashboard()
     }
