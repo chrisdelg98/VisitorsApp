@@ -193,10 +193,6 @@ La próxima fase de desarrollo se enfocará en conectar la app a un backend en l
 - 🔐 Centralized authentication / Autenticación centralizada
 - 🗄️ Persistent cloud storage for images and records / Almacenamiento persistente en la nube para imágenes y registros
 
-Planned infrastructure: **Microsoft Azure (VM or PaaS)** — see [`docs/BACKEND_SYNC_PLAN.md`](docs/BACKEND_SYNC_PLAN.md) for details.
-
-Infraestructura planificada: **Microsoft Azure (VM o PaaS)** — ver [`docs/BACKEND_SYNC_PLAN.md`](docs/BACKEND_SYNC_PLAN.md) para detalles.
-
 ---
 
 ## ⚖️ License & Copyright / Licencia y Derechos
