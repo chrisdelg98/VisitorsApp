@@ -20,7 +20,10 @@ fun VisitEntity.toDomain(): Visit = Visit(
     visitDocumentFrontPath = visitDocumentFrontPath,
     visitDocumentBackPath  = visitDocumentBackPath,
     isSynced               = isSynced,
-    lastSyncAt             = lastSyncAt
+    lastSyncAt             = lastSyncAt,
+    reentryCount           = reentryCount,
+    lastReentryAt          = lastReentryAt,
+    originalVisitId        = originalVisitId
 )
 
 fun Visit.toEntity(createdAt: Long = System.currentTimeMillis()): VisitEntity = VisitEntity(
@@ -39,7 +42,10 @@ fun Visit.toEntity(createdAt: Long = System.currentTimeMillis()): VisitEntity = 
     visitDocumentBackPath  = visitDocumentBackPath,
     createdAt              = createdAt,
     isSynced               = isSynced,
-    lastSyncAt             = lastSyncAt
+    lastSyncAt             = lastSyncAt,
+    reentryCount           = reentryCount,
+    lastReentryAt          = lastReentryAt,
+    originalVisitId        = originalVisitId
 )
 
 fun VisitReasonEntity.toDomain(): VisitReason = VisitReason(

@@ -36,7 +36,21 @@ data class Visit(
     val visitDocumentBackPath: String? = null,
 
     val isSynced: Boolean,
-    val lastSyncAt: Long?
+    val lastSyncAt: Long?,
+
+    // ── Continue Visit fields ─────────────────────────────────────────────
+
+    /** Number of same-station re-entries on the same day. */
+    val reentryCount: Int = 0,
+
+    /** Timestamp of the last re-entry at the same station. */
+    val lastReentryAt: Long? = null,
+
+    /**
+     * For cross-station continuations: the visitId of the original visit
+     * at the previous station. Null for regular and same-station re-entry visits.
+     */
+    val originalVisitId: String? = null
 )
 
 /** Domain model for the visit_reasons lookup table. */

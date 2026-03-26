@@ -46,6 +46,7 @@ fun HomeScreen(
     onNewVisit: () -> Unit,
     onRecurrentVisit: () -> Unit,
     onCheckout: () -> Unit,
+    onContinueVisit: () -> Unit,
     onStationSetup: () -> Unit,
     onAdminAccess: () -> Unit,
     languageViewModel: LanguageViewModel,
@@ -111,6 +112,7 @@ fun HomeScreen(
                     onNewVisit        = onNewVisit,
                     onRecurrentVisit  = onRecurrentVisit,
                     onCheckout        = onCheckout,
+                    onContinueVisit   = onContinueVisit,
                     modifier          = Modifier.weight(1f).fillMaxHeight()
                 )
             }
@@ -133,6 +135,7 @@ fun HomeScreen(
                     onNewVisit       = onNewVisit,
                     onRecurrentVisit = onRecurrentVisit,
                     onCheckout       = onCheckout,
+                    onContinueVisit  = onContinueVisit,
                     modifier         = Modifier.fillMaxWidth()
                 )
             }
@@ -191,6 +194,7 @@ private fun OptionsSection(
     onNewVisit: () -> Unit,
     onRecurrentVisit: () -> Unit,
     onCheckout: () -> Unit,
+    onContinueVisit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -221,6 +225,30 @@ private fun OptionsSection(
             title       = stringResource(R.string.end_visit),
             description = stringResource(R.string.end_visit_desc),
             onClick     = onCheckout
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // "Continue Visit" — subtle text link (less prominent than main cards)
+        val continueLabel = stringResource(R.string.continue_visit)
+        Text(
+            text = androidx.compose.ui.text.buildAnnotatedString {
+                pushStyle(
+                    androidx.compose.ui.text.SpanStyle(
+                        color      = OrangePrimary,
+                        fontSize   = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+                append(continueLabel)
+                pop()
+            },
+            modifier  = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null,
+                onClick           = onContinueVisit
+            ),
+            textAlign = TextAlign.Center
         )
     }
 }

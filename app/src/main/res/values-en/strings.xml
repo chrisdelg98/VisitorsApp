@@ -13,6 +13,8 @@
     <string name="returning_visit_desc">Already registered visitor</string>
     <string name="end_visit">End Visit</string>
     <string name="end_visit_desc">Scan QR code to check out</string>
+    <string name="continue_visit">Continue Visit</string>
+    <string name="continue_visit_desc">Scan QR for re-entry</string>
 
     <!-- Language names -->
     <string name="lang_spanish">Spanish</string>
@@ -322,5 +324,30 @@
     <string name="printer_new_device">New device</string>
     <string name="printer_usb_devices">USB Devices</string>
     <string name="printer_network_devices">Network Devices</string>
+
+    <!-- ContinueVisitScreen -->
+    <string name="continue_visit_title">Continue Visit</string>
+    <string name="continue_visit_instructions">Scan the visitor\'s QR code to register their re-entry or continuation at this station.</string>
+    <string name="continue_visit_scanning">Scanning…</string>
+    <string name="continue_visit_same_station">Re-entry — same station</string>
+    <string name="continue_visit_diff_station">Continuation — different station</string>
+    <string name="continue_visit_already_ended">This visit had already ended. It will be reopened.</string>
+    <string name="continue_visit_auto_confirm">Auto-confirming in %d s…</string>
+    <string name="continue_visit_confirm_btn">Confirm Re-entry</string>
+    <string name="continue_visit_confirm_btn_cross">Confirm Continuation</string>
+    <string name="continue_visit_reentry_ok">Re-entry registered!</string>
+    <string name="continue_visit_continuation_ok">Continuation registered!</string>
+    <string name="continue_visit_reentry_count">Re-entries today: %d</string>
+    <string name="continue_visit_visiting">Visiting</string>
+    <string name="continue_visit_error_not_found">No visit found with that QR. Make sure it is a QR from this app.</string>
+    <string name="continue_visit_error_person">Could not retrieve visitor information.</string>
+    <string name="continue_visit_error_not_today">This visit is not from today. Re-entry cannot be registered.</string>
+    <string name="continue_visit_error_generic">An error occurred. Please try again.</string>
+    <string name="continue_visit_print_badge">Print new badge</string>
+    <string name="continue_visit_skip_print">Skip</string>
+    <string name="continue_visit_scan_again">Scan another</string>
+    <string name="continue_visit_go_home">Return to home</string>
+    <string name="continue_visit_source_station">Source station</string>
+    <string name="continue_visit_current_station">This station</string>
 </resources>
 

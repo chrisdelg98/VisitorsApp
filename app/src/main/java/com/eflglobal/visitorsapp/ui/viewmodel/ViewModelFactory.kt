@@ -10,6 +10,7 @@ import com.eflglobal.visitorsapp.domain.usecase.person.SearchPersonsUseCase
 import com.eflglobal.visitorsapp.domain.usecase.station.CreateStationUseCase
 import com.eflglobal.visitorsapp.domain.usecase.station.HasActiveStationUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.CreateVisitUseCase
+import com.eflglobal.visitorsapp.domain.usecase.visit.ContinueVisitUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.EndVisitByQRUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.SearchActiveVisitsUseCase
 
@@ -67,6 +68,16 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                 AdminPanelViewModel(
                     stationRepository = stationRepository,
                     visitRepository = visitRepository
+                ) as T
+            }
+
+            modelClass.isAssignableFrom(ContinueVisitViewModel::class.java) -> {
+                ContinueVisitViewModel(
+                    continueVisitUseCase = ContinueVisitUseCase(
+                        visitRepository   = visitRepository,
+                        personRepository  = personRepository,
+                        stationRepository = stationRepository
+                    )
                 ) as T
             }
 

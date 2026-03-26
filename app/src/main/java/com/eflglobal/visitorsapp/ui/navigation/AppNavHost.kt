@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.eflglobal.visitorsapp.ui.screens.CheckoutQrScreen
 import com.eflglobal.visitorsapp.ui.screens.ConfirmScreen
+import com.eflglobal.visitorsapp.ui.screens.ContinueVisitScreen
 import com.eflglobal.visitorsapp.ui.screens.DocumentScanScreen
 import com.eflglobal.visitorsapp.ui.screens.HomeScreen
 import com.eflglobal.visitorsapp.ui.screens.PersonDataScreen
@@ -19,6 +20,7 @@ import com.eflglobal.visitorsapp.ui.screens.RecurrentDocumentScanScreen
 import com.eflglobal.visitorsapp.ui.screens.RecurrentSearchScreen
 import com.eflglobal.visitorsapp.ui.screens.RecurrentVisitDataScreen
 import com.eflglobal.visitorsapp.ui.screens.StationSetupScreen
+import com.eflglobal.visitorsapp.ui.viewmodel.ContinueVisitViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.EndVisitViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.LanguageViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.NewVisitViewModel
@@ -70,6 +72,7 @@ fun AppNavHost(
     val recurrentSearchViewModel: RecurrentSearchViewModel = viewModel(factory = factory)
     val recurrentVisitViewModel: RecurrentVisitViewModel = viewModel(factory = factory)
     val endVisitViewModel: EndVisitViewModel = viewModel(factory = factory)
+    val continueVisitViewModel: ContinueVisitViewModel = viewModel(factory = factory)
 
 
     AnimatedNavHost(
@@ -91,13 +94,14 @@ fun AppNavHost(
         // ── Home ─────────────────────────────────────────────────────────────────
         composable(Routes.Home) {
             HomeScreen(
-                onNewVisit = { navController.safeNavigate(Routes.DocumentScan) },
+                onNewVisit      = { navController.safeNavigate(Routes.DocumentScan) },
                 onRecurrentVisit = { navController.safeNavigate(Routes.RecurrentSearch) },
-                onCheckout = { navController.safeNavigate(Routes.CheckoutQr) },
-                onStationSetup = { navController.safeNavigate(Routes.StationSetup) },
-                onAdminAccess = { navController.safeNavigate(Routes.AdminPanel) },
+                onCheckout      = { navController.safeNavigate(Routes.CheckoutQr) },
+                onContinueVisit = { navController.safeNavigate(Routes.ContinueVisit) },
+                onStationSetup  = { navController.safeNavigate(Routes.StationSetup) },
+                onAdminAccess   = { navController.safeNavigate(Routes.AdminPanel) },
                 languageViewModel = languageViewModel,
-                selectedLanguage = selectedLanguage
+                selectedLanguage  = selectedLanguage
             )
         }
         composable(Routes.StationSetup) {
@@ -247,6 +251,18 @@ fun AppNavHost(
                 onFinish = { navController.safeNavigate(Routes.Home) },
                 onBack = { navController.safePopBackStack() },
                 viewModel = endVisitViewModel,
+                selectedLanguage = selectedLanguage
+            )
+        }
+        composable(Routes.ContinueVisit) {
+            ContinueVisitScreen(
+                onFinish         = {
+                    navController.safeNavigate(Routes.Home) {
+                        popUpTo(Routes.Home) { inclusive = false }
+                    }
+                },
+                onBack           = { navController.safePopBackStack() },
+                viewModel        = continueVisitViewModel,
                 selectedLanguage = selectedLanguage
             )
         }

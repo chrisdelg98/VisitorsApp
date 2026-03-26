@@ -82,6 +82,23 @@ data class VisitEntity(
 
     // Sync
     val isSynced: Boolean,
-    val lastSyncAt: Long?
+    val lastSyncAt: Long?,
+
+    // ── Continue Visit fields ─────────────────────────────────────────────
+
+    /**
+     * Number of times the visitor re-entered on the same day at the same station.
+     * Incremented by the "Continue Visit" fast re-entry flow.
+     */
+    val reentryCount: Int = 0,
+
+    /** Timestamp of the most recent re-entry (same-station fast re-entry). */
+    val lastReentryAt: Long? = null,
+
+    /**
+     * For cross-station continuations: the visitId of the original/source visit.
+     * Null for first-time visits and same-station reentries.
+     */
+    val originalVisitId: String? = null
 )
 

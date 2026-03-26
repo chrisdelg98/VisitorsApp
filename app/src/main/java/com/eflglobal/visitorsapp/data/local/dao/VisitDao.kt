@@ -57,6 +57,13 @@ interface VisitDao {
     @Query("UPDATE visits SET isSynced = :isSynced, lastSyncAt = :syncTime WHERE visitId = :visitId")
     suspend fun updateSyncStatus(visitId: String, isSynced: Boolean, syncTime: Long)
 
+    /**
+     * Same-station re-entry: increments reentryCount, records timestamp,
+     * and clears exitDate so the visit becomes active again.
+     */
+    @Query("UPDATE visits SET reentryCount = reentryCount + 1, lastReentryAt = :reentryAt, exitDate = NULL WHERE visitId = :visitId")
+    suspend fun registerReentry(visitId: String, reentryAt: Long)
+
     // ===== DELETE =====
     @Delete
     suspend fun deleteVisit(visit: VisitEntity)

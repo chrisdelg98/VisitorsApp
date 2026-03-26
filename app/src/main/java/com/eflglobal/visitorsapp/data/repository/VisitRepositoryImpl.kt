@@ -258,5 +258,44 @@ class VisitRepositoryImpl(
 
         return today == visitDay
     }
+
+    // ── Continue Visit ────────────────────────────────────────────────────
+
+    override suspend fun registerReentry(visitId: String): Result<Unit> {
+        return try {
+            visitDao.registerReentry(visitId, System.currentTimeMillis())
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun createContinuationVisit(
+        originalVisit: Visit,
+        currentStationId: String?
+    ): Result<Visit> {
+        return try {
+            val newVisitId = java.util.UUID.randomUUID().toString()
+            val qrCode     = generateQRCode(newVisitId)
+
+            val continuationVisit = originalVisit.copy(
+                visitId         = newVisitId,
+                stationId       = currentStationId,
+                entryDate       = System.currentTimeMillis(),
+                exitDate        = null,
+                qrCodeValue     = qrCode,
+                originalVisitId = originalVisit.visitId,
+                reentryCount    = 0,
+                lastReentryAt   = null,
+                isSynced        = false,
+                lastSyncAt      = null
+            )
+
+            visitDao.insertVisit(continuationVisit.toEntity())
+            Result.success(continuationVisit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
 

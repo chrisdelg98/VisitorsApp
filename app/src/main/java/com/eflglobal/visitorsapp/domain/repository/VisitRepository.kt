@@ -117,4 +117,25 @@ interface VisitRepository {
      * Útil para panel de administración por estación.
      */
     suspend fun getVisitsWithPersonInfoByStationId(stationId: String): List<VisitWithPersonInfo>
+
+    // ── Continue Visit ────────────────────────────────────────────────────
+
+    /**
+     * Same-station re-entry: increments reentryCount, sets lastReentryAt,
+     * and clears exitDate so the visit is active again.
+     */
+    suspend fun registerReentry(visitId: String): Result<Unit>
+
+    /**
+     * Cross-station continuation: creates a new visit record linked to
+     * [originalVisit] via originalVisitId.
+     *
+     * @param originalVisit The source visit whose visitor is continuing.
+     * @param currentStationId The station where the visitor is arriving.
+     * @return The newly created continuation visit with its own QR code.
+     */
+    suspend fun createContinuationVisit(
+        originalVisit: Visit,
+        currentStationId: String?
+    ): Result<Visit>
 }

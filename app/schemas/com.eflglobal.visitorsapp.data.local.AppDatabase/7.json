@@ -1,0 +1,560 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 7,
+    "identityHash": "990c914aae499cbfb6a30ac360821bf4",
+    "entities": [
+      {
+        "tableName": "persons",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`personId` TEXT NOT NULL, `firstName` TEXT NOT NULL, `lastName` TEXT NOT NULL, `documentNumber` TEXT, `documentType` TEXT NOT NULL, `profilePhotoPath` TEXT, `documentFrontPath` TEXT, `documentBackPath` TEXT, `company` TEXT, `email` TEXT NOT NULL, `phoneNumber` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `isSynced` INTEGER NOT NULL, `lastSyncAt` INTEGER, PRIMARY KEY(`personId`))",
+        "fields": [
+          {
+            "fieldPath": "personId",
+            "columnName": "personId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstName",
+            "columnName": "firstName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastName",
+            "columnName": "lastName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "documentNumber",
+            "columnName": "documentNumber",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "documentType",
+            "columnName": "documentType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profilePhotoPath",
+            "columnName": "profilePhotoPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "documentFrontPath",
+            "columnName": "documentFrontPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "documentBackPath",
+            "columnName": "documentBackPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "company",
+            "columnName": "company",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "email",
+            "columnName": "email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phoneNumber",
+            "columnName": "phoneNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncAt",
+            "columnName": "lastSyncAt",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "personId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_persons_documentNumber",
+            "unique": false,
+            "columnNames": [
+              "documentNumber"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_persons_documentNumber` ON `${TABLE_NAME}` (`documentNumber`)"
+          }
+        ]
+      },
+      {
+        "tableName": "visits",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`visitId` TEXT NOT NULL, `personId` TEXT NOT NULL, `stationId` TEXT, `visitingPersonName` TEXT NOT NULL, `visitorType` TEXT NOT NULL, `visitReason` TEXT NOT NULL, `visitReasonCustom` TEXT, `entryDate` INTEGER NOT NULL, `exitDate` INTEGER, `qrCodeValue` TEXT NOT NULL, `visitProfilePhotoPath` TEXT, `visitDocumentFrontPath` TEXT, `visitDocumentBackPath` TEXT, `createdAt` INTEGER NOT NULL, `isSynced` INTEGER NOT NULL, `lastSyncAt` INTEGER, `reentryCount` INTEGER NOT NULL, `lastReentryAt` INTEGER, `originalVisitId` TEXT, PRIMARY KEY(`visitId`), FOREIGN KEY(`personId`) REFERENCES `persons`(`personId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`stationId`) REFERENCES `stations`(`stationId`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "visitId",
+            "columnName": "visitId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "personId",
+            "columnName": "personId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stationId",
+            "columnName": "stationId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "visitingPersonName",
+            "columnName": "visitingPersonName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "visitorType",
+            "columnName": "visitorType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "visitReason",
+            "columnName": "visitReason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "visitReasonCustom",
+            "columnName": "visitReasonCustom",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "entryDate",
+            "columnName": "entryDate",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exitDate",
+            "columnName": "exitDate",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "qrCodeValue",
+            "columnName": "qrCodeValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "visitProfilePhotoPath",
+            "columnName": "visitProfilePhotoPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "visitDocumentFrontPath",
+            "columnName": "visitDocumentFrontPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "visitDocumentBackPath",
+            "columnName": "visitDocumentBackPath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncAt",
+            "columnName": "lastSyncAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reentryCount",
+            "columnName": "reentryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastReentryAt",
+            "columnName": "lastReentryAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "originalVisitId",
+            "columnName": "originalVisitId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "visitId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_visits_personId",
+            "unique": false,
+            "columnNames": [
+              "personId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_visits_personId` ON `${TABLE_NAME}` (`personId`)"
+          },
+          {
+            "name": "index_visits_stationId",
+            "unique": false,
+            "columnNames": [
+              "stationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_visits_stationId` ON `${TABLE_NAME}` (`stationId`)"
+          },
+          {
+            "name": "index_visits_qrCodeValue",
+            "unique": true,
+            "columnNames": [
+              "qrCodeValue"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_visits_qrCodeValue` ON `${TABLE_NAME}` (`qrCodeValue`)"
+          },
+          {
+            "name": "index_visits_entryDate",
+            "unique": false,
+            "columnNames": [
+              "entryDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_visits_entryDate` ON `${TABLE_NAME}` (`entryDate`)"
+          },
+          {
+            "name": "index_visits_visitorType",
+            "unique": false,
+            "columnNames": [
+              "visitorType"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_visits_visitorType` ON `${TABLE_NAME}` (`visitorType`)"
+          },
+          {
+            "name": "index_visits_visitReason",
+            "unique": false,
+            "columnNames": [
+              "visitReason"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_visits_visitReason` ON `${TABLE_NAME}` (`visitReason`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "persons",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "personId"
+            ],
+            "referencedColumns": [
+              "personId"
+            ]
+          },
+          {
+            "table": "stations",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "stationId"
+            ],
+            "referencedColumns": [
+              "stationId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "stations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`stationId` TEXT NOT NULL, `pin` TEXT NOT NULL, `stationName` TEXT NOT NULL, `countryCode` TEXT NOT NULL, `isActive` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `activatedAt` INTEGER, `isSynced` INTEGER NOT NULL, `lastSyncAt` INTEGER, PRIMARY KEY(`stationId`))",
+        "fields": [
+          {
+            "fieldPath": "stationId",
+            "columnName": "stationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pin",
+            "columnName": "pin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stationName",
+            "columnName": "stationName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "countryCode",
+            "columnName": "countryCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "isActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activatedAt",
+            "columnName": "activatedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "isSynced",
+            "columnName": "isSynced",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncAt",
+            "columnName": "lastSyncAt",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "stationId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_stations_isActive",
+            "unique": false,
+            "columnNames": [
+              "isActive"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_stations_isActive` ON `${TABLE_NAME}` (`isActive`)"
+          }
+        ]
+      },
+      {
+        "tableName": "visit_reasons",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`reasonKey` TEXT NOT NULL, `labelEs` TEXT NOT NULL, `labelEn` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, PRIMARY KEY(`reasonKey`))",
+        "fields": [
+          {
+            "fieldPath": "reasonKey",
+            "columnName": "reasonKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "labelEs",
+            "columnName": "labelEs",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "labelEn",
+            "columnName": "labelEn",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "isActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "reasonKey"
+          ]
+        }
+      },
+      {
+        "tableName": "ocr_metrics",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `timestamp` INTEGER NOT NULL, `detectedCountry` TEXT NOT NULL, `detectedDocType` TEXT NOT NULL, `classificationConfidence` REAL NOT NULL, `firstNameConfidence` REAL NOT NULL, `lastNameConfidence` REAL NOT NULL, `docNumberConfidence` REAL NOT NULL, `firstNameSource` TEXT NOT NULL, `lastNameSource` TEXT NOT NULL, `docNumberSource` TEXT NOT NULL, `firstNameAutoFilled` INTEGER NOT NULL, `lastNameAutoFilled` INTEGER NOT NULL, `docNumberAutoFilled` INTEGER NOT NULL, `firstNameCorrected` INTEGER NOT NULL, `lastNameCorrected` INTEGER NOT NULL, `docNumberCorrected` INTEGER NOT NULL, `ocrCharCount` INTEGER NOT NULL, `ocrLineCount` INTEGER NOT NULL, `hasMrz` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectedCountry",
+            "columnName": "detectedCountry",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectedDocType",
+            "columnName": "detectedDocType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "classificationConfidence",
+            "columnName": "classificationConfidence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstNameConfidence",
+            "columnName": "firstNameConfidence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastNameConfidence",
+            "columnName": "lastNameConfidence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "docNumberConfidence",
+            "columnName": "docNumberConfidence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstNameSource",
+            "columnName": "firstNameSource",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastNameSource",
+            "columnName": "lastNameSource",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "docNumberSource",
+            "columnName": "docNumberSource",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstNameAutoFilled",
+            "columnName": "firstNameAutoFilled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastNameAutoFilled",
+            "columnName": "lastNameAutoFilled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "docNumberAutoFilled",
+            "columnName": "docNumberAutoFilled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstNameCorrected",
+            "columnName": "firstNameCorrected",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastNameCorrected",
+            "columnName": "lastNameCorrected",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "docNumberCorrected",
+            "columnName": "docNumberCorrected",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ocrCharCount",
+            "columnName": "ocrCharCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ocrLineCount",
+            "columnName": "ocrLineCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasMrz",
+            "columnName": "hasMrz",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '990c914aae499cbfb6a30ac360821bf4')"
+    ]
+  }
+}

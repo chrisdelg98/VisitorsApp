@@ -13,6 +13,8 @@
     <string name="returning_visit_desc">Visitante já registrado</string>
     <string name="end_visit">Encerrar Visita</string>
     <string name="end_visit_desc">Escanear código QR de saída</string>
+    <string name="continue_visit">Continuar Visita</string>
+    <string name="continue_visit_desc">Escanear QR para reentrada</string>
 
     <!-- Language names -->
     <string name="lang_spanish">Espanhol</string>
@@ -322,4 +324,29 @@
     <string name="printer_new_device">Novo dispositivo</string>
     <string name="printer_usb_devices">Dispositivos USB</string>
     <string name="printer_network_devices">Dispositivos de Rede</string>
+
+    <!-- ContinueVisitScreen -->
+    <string name="continue_visit_title">Continuar Visita</string>
+    <string name="continue_visit_instructions">Escaneie o código QR do visitante para registrar sua reentrada ou continuação nesta estação.</string>
+    <string name="continue_visit_scanning">Escaneando…</string>
+    <string name="continue_visit_same_station">Reentrada — mesma estação</string>
+    <string name="continue_visit_diff_station">Continuação — estação diferente</string>
+    <string name="continue_visit_already_ended">Esta visita já havia sido encerrada. Será reaberta.</string>
+    <string name="continue_visit_auto_confirm">Confirmando automaticamente em %d s…</string>
+    <string name="continue_visit_confirm_btn">Confirmar Reentrada</string>
+    <string name="continue_visit_confirm_btn_cross">Confirmar Continuação</string>
+    <string name="continue_visit_reentry_ok">Reentrada registrada!</string>
+    <string name="continue_visit_continuation_ok">Continuação registrada!</string>
+    <string name="continue_visit_reentry_count">Reentradas hoje: %d</string>
+    <string name="continue_visit_visiting">Visita a</string>
+    <string name="continue_visit_error_not_found">Nenhuma visita encontrada com esse QR. Verifique se é um QR deste aplicativo.</string>
+    <string name="continue_visit_error_person">Não foi possível recuperar as informações do visitante.</string>
+    <string name="continue_visit_error_not_today">Esta visita não é de hoje. A reentrada não pode ser registrada.</string>
+    <string name="continue_visit_error_generic">Ocorreu um erro. Tente novamente.</string>
+    <string name="continue_visit_print_badge">Imprimir novo crachá</string>
+    <string name="continue_visit_skip_print">Ignorar</string>
+    <string name="continue_visit_scan_again">Escanear outro</string>
+    <string name="continue_visit_go_home">Voltar ao início</string>
+    <string name="continue_visit_source_station">Estação de origem</string>
+    <string name="continue_visit_current_station">Esta estação</string>
 </resources>

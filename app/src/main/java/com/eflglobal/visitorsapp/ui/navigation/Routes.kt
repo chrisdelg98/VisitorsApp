@@ -12,5 +12,6 @@ object Routes {
     const val RecurrentDocumentScan = "recurrent_document_scan"
     const val RecurrentVisitData = "recurrent_visit_data"
     const val CheckoutQr = "checkout_qr"
+    const val ContinueVisit = "continue_visit"
 }
 
