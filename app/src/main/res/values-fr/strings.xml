@@ -224,6 +224,7 @@
     <string name="company_colon">Entreprise :</string>
     <string name="visiting_colon2">Visite :</string>
     <string name="valid_colon">Valide :</string>
+    <string name="station_colon">Station :</string>
     <string name="printed_colon">Imprimé :</string>
     <string name="access_control">Contrôle d\'Accès</string>
     <string name="badge_note">Ce badge n\'est valable que pour la date indiquée. Il doit être porté de façon visible pendant toute la visite.</string>

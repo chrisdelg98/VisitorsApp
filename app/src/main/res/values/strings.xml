@@ -224,6 +224,7 @@
     <string name="company_colon">Empresa:</string>
     <string name="visiting_colon2">Visitando:</string>
     <string name="valid_colon">Válido:</string>
+    <string name="station_colon">Estación:</string>
     <string name="printed_colon">Impreso:</string>
     <string name="access_control">Control de Acceso</string>
     <string name="badge_note">Este carnet es válido únicamente para la fecha indicada. Debe ser portado de manera visible durante toda la visita.</string>

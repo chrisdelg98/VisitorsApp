@@ -224,6 +224,7 @@
     <string name="company_colon">Empresa:</string>
     <string name="visiting_colon2">Visitando:</string>
     <string name="valid_colon">Válido:</string>
+    <string name="station_colon">Estação:</string>
     <string name="printed_colon">Impresso:</string>
     <string name="access_control">Controle de Acesso</string>
     <string name="badge_note">Este crachá é válido apenas para a data indicada. Deve ser usado visivelmente durante toda a visita.</string>

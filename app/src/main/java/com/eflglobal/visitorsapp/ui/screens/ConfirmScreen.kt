@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eflglobal.visitorsapp.R
+import com.eflglobal.visitorsapp.core.DependencyProvider
 import com.eflglobal.visitorsapp.core.printing.BadgeBitmapRenderer
 import com.eflglobal.visitorsapp.core.printing.PrintResult
 import com.eflglobal.visitorsapp.core.printing.PrinterManager
@@ -77,12 +78,20 @@ fun ConfirmScreen(
     val strFinish                    = stringResource(R.string.finish)
 
     // Badge label strings for printing
-    val strBadgeTitle   = stringResource(R.string.visitor_badge_title)
-    val strCompanyLabel = stringResource(R.string.company_colon)
+    val strBadgeTitle    = stringResource(R.string.visitor_badge_title)
+    val strCompanyLabel  = stringResource(R.string.company_colon)
     val strVisitingLabel = stringResource(R.string.visiting_colon2)
-    val strValidLabel   = stringResource(R.string.valid_colon)
-    val strBadgeNote    = stringResource(R.string.badge_note)
-    val strPrintedLabel = stringResource(R.string.printed_colon)
+    val strStationLabel  = stringResource(R.string.station_colon)
+    val strValidLabel    = stringResource(R.string.valid_colon)
+    val strBadgeNote     = stringResource(R.string.badge_note)
+    val strPrintedLabel  = stringResource(R.string.printed_colon)
+
+    // Load active station name for badge printing
+    var stationName by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        stationName = DependencyProvider.provideStationRepository(context)
+            .getActiveStation()?.stationName
+    }
 
     val strVisitorTypeLabel = when (visitorType) {
         "VISITOR"         -> stringResource(R.string.visitor_type)
@@ -224,12 +233,14 @@ fun ConfirmScreen(
                                             visitingPerson   = visitingPerson ?: "",
                                             visitorTypeLabel = strVisitorTypeLabel,
                                             entryDate        = System.currentTimeMillis(),
+                                            stationName      = stationName,
                                             profileBitmap    = profileBitmap,
                                             qrBitmap         = qrBitmap,
                                             logoBitmap       = logoBitmap,
                                             labelBadgeTitle  = strBadgeTitle,
                                             labelCompany     = strCompanyLabel,
                                             labelVisiting    = strVisitingLabel,
+                                            labelStation     = strStationLabel,
                                             labelValid       = strValidLabel,
                                             labelValidFor    = strBadgeNote,
                                             labelPrinted     = strPrintedLabel

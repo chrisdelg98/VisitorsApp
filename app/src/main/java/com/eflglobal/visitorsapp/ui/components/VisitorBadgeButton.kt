@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.eflglobal.visitorsapp.R
+import com.eflglobal.visitorsapp.core.DependencyProvider
 import com.eflglobal.visitorsapp.core.printing.BadgeBitmapRenderer
 import com.eflglobal.visitorsapp.core.printing.PrintResult
 import com.eflglobal.visitorsapp.core.printing.PrinterManager
@@ -93,11 +94,19 @@ fun VisitorBadgeButton(
     val strViewBadge    = stringResource(R.string.view_visitor_badge)
     val strVisiting     = stringResource(R.string.visiting_colon2)
     val strValid        = stringResource(R.string.valid_colon)
+    val strStation      = stringResource(R.string.station_colon)
     val strPrinted      = stringResource(R.string.printed_colon)
     val strBadgeNote    = stringResource(R.string.badge_note)
     val strCompany      = stringResource(R.string.company_colon)
     val strPrinting     = stringResource(R.string.printing)
     val strPrintOk      = stringResource(R.string.print_success)
+
+    // Load active station name (best-effort; null if not yet loaded)
+    var stationName by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        stationName = DependencyProvider.provideStationRepository(context)
+            .getActiveStation()?.stationName
+    }
 
     val strVisitorTypeLabel = when (visitorType) {
         "VISITOR"         -> stringResource(R.string.visitor_type)
@@ -131,12 +140,14 @@ fun VisitorBadgeButton(
                     visitingPerson   = visitingPerson,
                     visitorTypeLabel = strVisitorTypeLabel,
                     entryDate        = visitDate,
+                    stationName      = stationName,
                     profileBitmap    = profileBitmap,
                     qrBitmap         = qrBitmap,
                     logoBitmap       = logoBitmap,
                     labelBadgeTitle  = strBadgeTitle,
                     labelCompany     = strCompany,
                     labelVisiting    = strVisiting,
+                    labelStation     = strStation,
                     labelValid       = strValid,
                     labelValidFor    = strBadgeNote,
                     labelPrinted     = strPrinted
@@ -224,10 +235,12 @@ fun VisitorBadgeButton(
                 qrBitmap            = qrBitmap,
                 grayscaleBitmap     = grayscaleBitmap,
                 visitorTypeLabel    = strVisitorTypeLabel,
+                stationName         = stationName,
                 strBadgeTitle       = strBadgeTitle,
                 strCompany          = strCompany,
                 strVisiting         = strVisiting,
                 strValid            = strValid,
+                strStation          = strStation,
                 strPrinted          = strPrinted,
                 strBadgeNote        = strBadgeNote,
                 onDismiss           = { showBadge = false },
@@ -248,10 +261,12 @@ private fun VisitorBadgeCard(
     qrBitmap: Bitmap?,
     grayscaleBitmap: Bitmap?,
     visitorTypeLabel: String,
+    stationName: String?,
     strBadgeTitle: String,
     strCompany: String,
     strVisiting: String,
     strValid: String,
+    strStation: String,
     strPrinted: String,
     strBadgeNote: String,
     onDismiss: () -> Unit,
@@ -465,14 +480,38 @@ private fun VisitorBadgeCard(
 
                             Spacer(Modifier.height(6.dp))
 
-                            // Valid until
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(strValid, fontSize = 11.sp, color = Color(0xFF9E9E9E))
+                            // Station
+                            if (!stationName.isNullOrBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(strStation, fontSize = 11.sp, color = Color(0xFF9E9E9E))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text       = stationName,
+                                        fontSize   = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color      = Color(0xFF424242),
+                                        maxLines   = 1,
+                                        overflow   = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            // Valid until — bold + bigger so visitor knows it's today-only
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier          = Modifier.padding(top = 4.dp)
+                            ) {
+                                Text(
+                                    text       = strValid,
+                                    fontSize   = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = Color(0xFF212121)
+                                )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     text       = dateFormat.format(Date(visitDate)),
-                                    fontSize   = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize   = 14.sp,
+                                    fontWeight = FontWeight.ExtraBold,
                                     color      = Color(0xFF212121)
                                 )
                             }

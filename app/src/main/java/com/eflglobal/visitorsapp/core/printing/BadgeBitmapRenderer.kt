@@ -60,12 +60,14 @@ object BadgeBitmapRenderer {
         val visitingPerson: String,
         val visitorTypeLabel: String,
         val entryDate: Long,
+        val stationName: String?    = null,
         val profileBitmap: Bitmap?  = null,
         val qrBitmap: Bitmap?       = null,
         val logoBitmap: Bitmap?     = null,
         val labelBadgeTitle: String = "VISITOR BADGE",
         val labelCompany: String    = "Company:",
         val labelVisiting: String   = "Visiting:",
+        val labelStation: String    = "Station:",
         val labelValid: String      = "Valid:",
         val labelValidFor: String   = "Valid for 24 hours from entry",
         val labelPrinted: String    = "Printed:"
@@ -232,10 +234,31 @@ object BadgeBitmapRenderer {
         y = drawLabelValue(canvas, data.labelVisiting, data.visitingPerson.take(28), x, y)
         y += detailGap
 
-        // ── Valid
+        // ── Station (only if set)
+        if (!data.stationName.isNullOrBlank()) {
+            y = drawLabelValue(canvas, data.labelStation, data.stationName.take(30), x, y)
+            y += detailGap
+        }
+
+        // ── Valid — bold label + extra-bold date (today-only emphasis)
         val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             .format(Date(data.entryDate))
-        y = drawLabelValue(canvas, data.labelValid, dateStr, x, y)
+        val validLabelPaint = paint {
+            color    = CLR_TEXT
+            textSize = 24f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+        val validValuePaint = paint {
+            color    = CLR_TEXT
+            textSize = 26f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            isAntiAlias = true
+        }
+        canvas.drawText(data.labelValid, x, y, validLabelPaint)
+        val lw = validLabelPaint.measureText(data.labelValid)
+        canvas.drawText(dateStr, x + lw + 6f, y, validValuePaint)
+        y += 32f
         y += detailGap
 
         // ── Printed
