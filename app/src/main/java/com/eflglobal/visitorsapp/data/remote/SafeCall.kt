@@ -2,6 +2,8 @@ package com.eflglobal.visitorsapp.data.remote
 
 import com.eflglobal.visitorsapp.data.remote.dto.ApiResponse
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonReader
+import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import retrofit2.HttpException
@@ -136,10 +138,32 @@ private fun HttpException.toApiException(): ApiException {
 }
 
 // Shared adapter for parsing error-body envelopes. `Unit` because we don't
-// care about `data` on the failure path.
 private val errorEnvelopeAdapter: JsonAdapter<ApiResponse<Unit>> by lazy {
-    val moshi = Moshi.Builder().build()
+    val moshi = Moshi.Builder()
+        .add(Unit::class.javaObjectType, UnitJsonAdapter)
+        .build()
     val type = Types.newParameterizedType(ApiResponse::class.java, Unit::class.javaObjectType)
     moshi.adapter<ApiResponse<Unit>>(type)
 }
 
+/**
+ * A minimal [JsonAdapter] for `Unit`. Moshi has no built-in adapter for
+ * Kotlin's `Unit` type, but Retrofit endpoints like `uploadVisitImage`
+ * and `checkout` are declared as `ApiResponse<Unit>` because the backend
+ * sends `{"success":true}` with no payload.
+ *
+ *  - On read: any value (including absent / null / a JSON object) is
+ *    skipped and we just return `Unit`.
+ *  - On write: emits `null` — these endpoints never serialise the data
+ *    field anyway, this is just to satisfy the contract.
+ */
+internal object UnitJsonAdapter : JsonAdapter<Unit>() {
+    override fun fromJson(reader: JsonReader): Unit {
+        reader.skipValue()
+        return Unit
+    }
+
+    override fun toJson(writer: JsonWriter, value: Unit?) {
+        writer.nullValue()
+    }
+}

@@ -64,6 +64,10 @@ object ApiClient {
 
     private val moshi: Moshi by lazy {
         Moshi.Builder()
+            // Explicit Unit adapter — needed by endpoints declared as
+            // ApiResponse<Unit> (image upload, checkout). Moshi has no
+            // built-in adapter for Kotlin's Unit type.
+            .add(Unit::class.javaObjectType, UnitJsonAdapter)
             // KotlinJsonAdapterFactory handles non-codegen classes & defaults.
             .add(KotlinJsonAdapterFactory())
             .build()
