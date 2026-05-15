@@ -1,8 +1,10 @@
 package com.eflglobal.visitorsapp.data.repository
 
+import android.content.Context
 import com.eflglobal.visitorsapp.data.local.dao.VisitDao
 import com.eflglobal.visitorsapp.data.local.mapper.toDomain
 import com.eflglobal.visitorsapp.data.local.mapper.toEntity
+import com.eflglobal.visitorsapp.data.sync.SyncScheduler
 import com.eflglobal.visitorsapp.domain.model.Visit
 import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
 import com.eflglobal.visitorsapp.domain.repository.VisitRepository
@@ -17,12 +19,15 @@ import java.util.Calendar
  * de entradas y salidas de visitantes.
  */
 class VisitRepositoryImpl(
+    private val appContext: Context,
     private val visitDao: VisitDao
 ) : VisitRepository {
 
     override suspend fun createVisit(visit: Visit): Result<Visit> {
         return try {
             visitDao.insertVisit(visit.toEntity())
+            // Fire-and-forget sync — the worker handles connectivity itself.
+            SyncScheduler.enqueueNow(appContext)
             Result.success(visit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -122,6 +127,7 @@ class VisitRepositoryImpl(
     override suspend fun endVisit(visitId: String, exitDate: Long): Result<Unit> {
         return try {
             visitDao.updateExitDate(visitId, exitDate)
+            SyncScheduler.enqueueNow(appContext)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -144,6 +150,7 @@ class VisitRepositoryImpl(
             }
 
             visitDao.updateExitDate(visit.visitId, exitDate)
+            SyncScheduler.enqueueNow(appContext)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

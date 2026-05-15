@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp
 
 import android.app.Application
 import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryWorker
+import com.eflglobal.visitorsapp.data.sync.SyncScheduler
 
 /**
  * Application class para la app de registro de visitantes.
@@ -16,6 +17,11 @@ class VisitorsApplication : Application() {
         // Schedule daily auto-discovery of network printers.
         // Uses WorkManager — safe to call on every launch (KEEP policy deduplicates).
         PrinterDiscoveryWorker.schedule(this)
+
+        // Sync engine — periodic safety net + an immediate pass so anything
+        // that piled up while the app was closed gets uploaded ASAP.
+        SyncScheduler.schedulePeriodic(this)
+        SyncScheduler.enqueueNow(this)
     }
 }
 

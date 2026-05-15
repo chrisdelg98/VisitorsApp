@@ -60,6 +60,43 @@ suspend fun <T : Any> safeCall(
 }
 
 /**
+ * Variant of [safeCall] for endpoints that return no useful payload
+ * (`ApiResponse<Unit>`). A successful envelope is treated as completion even
+ * if `data` is absent — failures still throw [ApiException] with the tagged
+ * `code`.
+ */
+suspend fun safeCallUnit(
+    block: suspend () -> ApiResponse<Unit>
+) {
+    val envelope: ApiResponse<Unit> = try {
+        block()
+    } catch (e: HttpException) {
+        throw e.toApiException()
+    } catch (e: IOException) {
+        throw ApiException(
+            code = ApiErrorCode.NETWORK_UNAVAILABLE,
+            message = "No connection to the server.",
+            cause = e
+        )
+    } catch (e: ApiException) {
+        throw e
+    } catch (e: Exception) {
+        throw ApiException(
+            code = ApiErrorCode.UNKNOWN,
+            message = e.message ?: "Unexpected error",
+            cause = e
+        )
+    }
+
+    if (envelope.success) return
+    throw ApiException(
+        code = envelope.code ?: ApiErrorCode.UNKNOWN,
+        message = envelope.message ?: "Request failed.",
+        fieldErrors = envelope.errors
+    )
+}
+
+/**
  * Maps a Retrofit [HttpException] (the body is an unsuccessful envelope
  * surfaced as an HTTP 4xx/5xx) into our [ApiException]. Tries to parse the
  * error body as `ApiResponse<Unit>` so we preserve the backend's tagged

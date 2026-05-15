@@ -89,7 +89,10 @@ object DependencyProvider {
             synchronized(this) {
                 if (visitRepository == null) {
                     val db = provideDatabase(context)
-                    visitRepository = VisitRepositoryImpl(db.visitDao())
+                    visitRepository = VisitRepositoryImpl(
+                        appContext = context.applicationContext,
+                        visitDao = db.visitDao()
+                    )
                 }
             }
         }
