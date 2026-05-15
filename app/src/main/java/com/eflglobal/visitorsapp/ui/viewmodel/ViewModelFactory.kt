@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.eflglobal.visitorsapp.core.DependencyProvider
+import com.eflglobal.visitorsapp.data.sync.RemoteVisitLookup
 import com.eflglobal.visitorsapp.domain.usecase.person.CreatePersonUseCase
 import com.eflglobal.visitorsapp.domain.usecase.person.GetPersonByDocumentUseCase
 import com.eflglobal.visitorsapp.domain.usecase.person.SearchPersonsUseCase
@@ -76,7 +77,8 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                     continueVisitUseCase = ContinueVisitUseCase(
                         visitRepository   = visitRepository,
                         personRepository  = personRepository,
-                        stationRepository = stationRepository
+                        stationRepository = stationRepository,
+                        remoteLookup      = RemoteVisitLookup(context.applicationContext)
                     )
                 ) as T
             }

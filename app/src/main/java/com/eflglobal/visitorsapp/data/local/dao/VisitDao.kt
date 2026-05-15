@@ -302,6 +302,15 @@ interface VisitDao {
     @Query("UPDATE visits SET checkoutSyncedAt = :syncedAt WHERE visitId = :visitId")
     suspend fun markCheckoutSynced(visitId: String, syncedAt: Long)
 
+    /**
+     * Returns a previously-synced visit back to the `pending` queue so the
+     * SyncWorker re-evaluates it. Used after a local checkout or a same-station
+     * re-entry: the row already has a `remoteId`, but the new local state
+     * (exitDate / reentryCount) still needs to be propagated to the backend.
+     */
+    @Query("UPDATE visits SET syncStatus = 'pending', lastSyncError = NULL WHERE visitId = :visitId")
+    suspend fun markVisitPendingResync(visitId: String)
+
     // ===== QUERY - Estadísticas =====
     @Query("SELECT COUNT(*) FROM visits")
     suspend fun getTotalVisitsCount(): Int

@@ -127,6 +127,9 @@ class VisitRepositoryImpl(
     override suspend fun endVisit(visitId: String, exitDate: Long): Result<Unit> {
         return try {
             visitDao.updateExitDate(visitId, exitDate)
+            // Force a re-evaluation by the SyncWorker — for already-synced
+            // visits the checkout PATCH still needs to reach the backend.
+            visitDao.markVisitPendingResync(visitId)
             SyncScheduler.enqueueNow(appContext)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -150,6 +153,7 @@ class VisitRepositoryImpl(
             }
 
             visitDao.updateExitDate(visit.visitId, exitDate)
+            visitDao.markVisitPendingResync(visit.visitId)
             SyncScheduler.enqueueNow(appContext)
             Result.success(Unit)
         } catch (e: Exception) {
@@ -279,7 +283,9 @@ class VisitRepositoryImpl(
 
     override suspend fun createContinuationVisit(
         originalVisit: Visit,
-        currentStationId: String?
+        currentStationId: String?,
+        reentryFromStationId: String?,
+        reentryFromStationName: String?
     ): Result<Visit> {
         return try {
             val newVisitId = java.util.UUID.randomUUID().toString()
@@ -298,7 +304,22 @@ class VisitRepositoryImpl(
                 lastSyncAt      = null
             )
 
-            visitDao.insertVisit(continuationVisit.toEntity())
+            // Cross-station continuations follow Estrategia 2: the images
+            // already live on the source visit in the backend, so the worker
+            // must NOT try to upload them again. Pre-stamp the *SyncedAt
+            // columns so allImagesUploaded() returns true straight away.
+            val isCrossStation = reentryFromStationId != null
+            val now = System.currentTimeMillis()
+            val entity = continuationVisit.toEntity().copy(
+                reentryFromStationId   = reentryFromStationId,
+                reentryFromStationName = reentryFromStationName,
+                personalPhotoSyncedAt  = if (isCrossStation) now else null,
+                docFrontSyncedAt       = if (isCrossStation) now else null,
+                docBackSyncedAt        = if (isCrossStation) now else null
+            )
+
+            visitDao.insertVisit(entity)
+            SyncScheduler.enqueueNow(appContext)
             Result.success(continuationVisit)
         } catch (e: Exception) {
             Result.failure(e)

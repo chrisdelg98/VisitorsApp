@@ -132,10 +132,16 @@ interface VisitRepository {
      *
      * @param originalVisit The source visit whose visitor is continuing.
      * @param currentStationId The station where the visitor is arriving.
+     * @param reentryFromStationId Remote stationId of the originating visit
+     *        when this continuation came from a cross-station QR. `null` when
+     *        the visit was found locally (same tenant, same DB).
+     * @param reentryFromStationName Cached display name for the admin panel.
      * @return The newly created continuation visit with its own QR code.
      */
     suspend fun createContinuationVisit(
         originalVisit: Visit,
-        currentStationId: String?
+        currentStationId: String?,
+        reentryFromStationId: String? = null,
+        reentryFromStationName: String? = null
     ): Result<Visit>
 }
