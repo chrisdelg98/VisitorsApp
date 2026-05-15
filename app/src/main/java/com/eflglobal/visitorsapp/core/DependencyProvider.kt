@@ -71,7 +71,10 @@ object DependencyProvider {
             synchronized(this) {
                 if (stationRepository == null) {
                     val db = provideDatabase(context)
-                    stationRepository = StationRepositoryImpl(db.stationDao())
+                    stationRepository = StationRepositoryImpl(
+                        appContext = context.applicationContext,
+                        stationDao = db.stationDao()
+                    )
                 }
             }
         }
