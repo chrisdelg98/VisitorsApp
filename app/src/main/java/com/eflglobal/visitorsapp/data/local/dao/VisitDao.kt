@@ -240,6 +240,68 @@ interface VisitDao {
     @Query("SELECT COUNT(*) FROM visits WHERE isSynced = 0")
     fun getUnsyncedCountFlow(): Flow<Int>
 
+    // ── Phase 3: per-row sync tracking against the backend ───────────────────
+
+    /** FIFO list of visits waiting to be uploaded by the SyncWorker. */
+    @Query("SELECT * FROM visits WHERE syncStatus = 'pending' ORDER BY createdAt ASC")
+    suspend fun getPendingVisits(): List<VisitEntity>
+
+    @Query("SELECT COUNT(*) FROM visits WHERE syncStatus = 'pending' OR syncStatus = 'failed'")
+    suspend fun getPendingVisitsCount(): Int
+
+    @Query("SELECT COUNT(*) FROM visits WHERE syncStatus = 'pending' OR syncStatus = 'failed'")
+    fun getPendingVisitsCountFlow(): Flow<Int>
+
+    /** Marks a visit row as synced and stores the backend-assigned UUID. */
+    @Query("""
+        UPDATE visits
+           SET remoteId = :remoteId,
+               syncStatus = 'synced',
+               lastSyncAt = :syncedAt,
+               isSynced = 1,
+               lastSyncError = NULL
+         WHERE visitId = :visitId
+    """)
+    suspend fun markVisitSynced(visitId: String, remoteId: String, syncedAt: Long)
+
+    /** Permanent failure (4xx). Surfaces in admin panel for manual handling. */
+    @Query("""
+        UPDATE visits
+           SET syncStatus = 'failed',
+               syncAttempts = syncAttempts + 1,
+               lastSyncError = :error
+         WHERE visitId = :visitId
+    """)
+    suspend fun markVisitFailed(visitId: String, error: String)
+
+    /** Transient failure — keeps row as pending for the next worker run. */
+    @Query("""
+        UPDATE visits
+           SET syncAttempts = syncAttempts + 1,
+               lastSyncError = :error
+         WHERE visitId = :visitId
+    """)
+    suspend fun bumpVisitAttempt(visitId: String, error: String)
+
+    /**
+     * Marks a single image upload as confirmed. `imageType` is one of
+     * `personal_photo`, `doc_front`, `doc_back`. Implemented with CASE so we
+     * can keep a single typed entry-point instead of three near-identical DAO
+     * methods.
+     */
+    @Query("""
+        UPDATE visits
+           SET personalPhotoSyncedAt = CASE WHEN :imageType = 'personal_photo' THEN :syncedAt ELSE personalPhotoSyncedAt END,
+               docFrontSyncedAt      = CASE WHEN :imageType = 'doc_front'      THEN :syncedAt ELSE docFrontSyncedAt END,
+               docBackSyncedAt       = CASE WHEN :imageType = 'doc_back'       THEN :syncedAt ELSE docBackSyncedAt END
+         WHERE visitId = :visitId
+    """)
+    suspend fun markVisitImageSynced(visitId: String, imageType: String, syncedAt: Long)
+
+    /** Marks the checkout PATCH as confirmed by the backend. */
+    @Query("UPDATE visits SET checkoutSyncedAt = :syncedAt WHERE visitId = :visitId")
+    suspend fun markCheckoutSynced(visitId: String, syncedAt: Long)
+
     // ===== QUERY - Estadísticas =====
     @Query("SELECT COUNT(*) FROM visits")
     suspend fun getTotalVisitsCount(): Int

@@ -21,6 +21,46 @@ interface PersonDao {
     @Query("UPDATE persons SET isSynced = :isSynced, lastSyncAt = :syncTime WHERE personId = :personId")
     suspend fun updateSyncStatus(personId: String, isSynced: Boolean, syncTime: Long)
 
+    // ── Phase 3: per-row sync tracking against the backend ───────────────────
+
+    /** FIFO list of persons waiting to be uploaded by the SyncWorker. */
+    @Query("SELECT * FROM persons WHERE syncStatus = 'pending' ORDER BY createdAt ASC")
+    suspend fun getPendingPersons(): List<PersonEntity>
+
+    @Query("SELECT COUNT(*) FROM persons WHERE syncStatus = 'pending' OR syncStatus = 'failed'")
+    suspend fun getUnsyncedPersonsCount(): Int
+
+    /** Marks a person as successfully synced and stores the backend-assigned UUID. */
+    @Query("""
+        UPDATE persons
+           SET remoteId = :remoteId,
+               syncStatus = 'synced',
+               lastSyncAt = :syncedAt,
+               isSynced = 1,
+               lastSyncError = NULL
+         WHERE personId = :personId
+    """)
+    suspend fun markPersonSynced(personId: String, remoteId: String, syncedAt: Long)
+
+    /** Records a non-retryable failure (4xx) so it surfaces in the admin panel. */
+    @Query("""
+        UPDATE persons
+           SET syncStatus = 'failed',
+               syncAttempts = syncAttempts + 1,
+               lastSyncError = :error
+         WHERE personId = :personId
+    """)
+    suspend fun markPersonFailed(personId: String, error: String)
+
+    /** Bumps the attempt counter for a transient failure (network / 5xx / 429). */
+    @Query("""
+        UPDATE persons
+           SET syncAttempts = syncAttempts + 1,
+               lastSyncError = :error
+         WHERE personId = :personId
+    """)
+    suspend fun bumpPersonAttempt(personId: String, error: String)
+
     // ===== DELETE =====
     @Delete
     suspend fun deletePerson(person: PersonEntity)

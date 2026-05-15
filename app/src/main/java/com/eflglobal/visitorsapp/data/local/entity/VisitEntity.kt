@@ -27,7 +27,8 @@ import androidx.room.Index
         Index(value = ["qrCodeValue"], unique = true),
         Index(value = ["entryDate"]),
         Index(value = ["visitorType"]),
-        Index(value = ["visitReason"])
+        Index(value = ["visitReason"]),
+        Index(value = ["syncStatus", "createdAt"])  // SyncWorker FIFO scan
     ]
 )
 data class VisitEntity(
@@ -99,6 +100,40 @@ data class VisitEntity(
      * For cross-station continuations: the visitId of the original/source visit.
      * Null for first-time visits and same-station reentries.
      */
-    val originalVisitId: String? = null
+    val originalVisitId: String? = null,
+
+    // ── Phase 3: cross-station re-entry metadata (used in Phase 6) ────────
+
+    /** Remote stationId of the source visit when this row is a re-entry. */
+    val reentryFromStationId: String? = null,
+
+    /** Cached display name of [reentryFromStationId] for the admin panel. */
+    val reentryFromStationName: String? = null,
+
+    // ── Phase 3: per-row sync tracking against the backend ────────────────
+
+    /** UUID assigned by the backend after a successful POST /v1/visits. */
+    val remoteId: String? = null,
+
+    /** One of [SyncStatus]. New rows nace `pending`. */
+    val syncStatus: String = SyncStatus.PENDING,
+
+    /** Number of upload attempts made by the SyncWorker. */
+    val syncAttempts: Int = 0,
+
+    /** Last error returned by the backend (or network) for diagnostics. */
+    val lastSyncError: String? = null,
+
+    /** Timestamp at which `personal_photo` was confirmed uploaded; null = pending. */
+    val personalPhotoSyncedAt: Long? = null,
+
+    /** Timestamp at which `doc_front` was confirmed uploaded; null = pending. */
+    val docFrontSyncedAt: Long? = null,
+
+    /** Timestamp at which `doc_back` was confirmed uploaded; null = pending. */
+    val docBackSyncedAt: Long? = null,
+
+    /** Timestamp at which the checkout PATCH was confirmed; null = pending. */
+    val checkoutSyncedAt: Long? = null
 )
 

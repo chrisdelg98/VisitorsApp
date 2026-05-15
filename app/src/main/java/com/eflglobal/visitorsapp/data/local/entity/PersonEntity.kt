@@ -7,7 +7,8 @@ import androidx.room.Index
 @Entity(
     tableName = "persons",
     indices = [
-        Index(value = ["documentNumber"])   // no longer unique — nullable values allowed
+        Index(value = ["documentNumber"]),  // no longer unique — nullable values allowed
+        Index(value = ["syncStatus"])       // SyncWorker FIFO scan
     ]
 )
 data class PersonEntity(
@@ -42,8 +43,22 @@ data class PersonEntity(
     // Metadata
     val createdAt: Long,
 
-    // Sync
+    // ── Legacy local-only sync flags (kept for backwards compat) ──────────
     val isSynced: Boolean,
-    val lastSyncAt: Long?
+    val lastSyncAt: Long?,
+
+    // ── Phase 3: per-row sync tracking against the backend ────────────────
+
+    /** UUID assigned by the backend after a successful POST /v1/visitors. */
+    val remoteId: String? = null,
+
+    /** One of [SyncStatus]. New rows nace `pending`. */
+    val syncStatus: String = SyncStatus.PENDING,
+
+    /** Number of upload attempts made by the SyncWorker. */
+    val syncAttempts: Int = 0,
+
+    /** Last error returned by the backend (or network) for diagnostics. */
+    val lastSyncError: String? = null
 )
 

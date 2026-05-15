@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
         VisitReasonEntity::class,
         OcrMetricEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -100,6 +100,37 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration 7 → 8: per-row sync tracking against the backend (Phase 3).
+         *
+         * Existing rows are marked as `synced` because they were created in the
+         * pre-API era and have no remote counterpart to upload. Newly inserted
+         * rows nace as `pending` via the entity defaults.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // persons
+                db.execSQL("ALTER TABLE persons ADD COLUMN remoteId TEXT")
+                db.execSQL("ALTER TABLE persons ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'synced'")
+                db.execSQL("ALTER TABLE persons ADD COLUMN syncAttempts INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE persons ADD COLUMN lastSyncError TEXT")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_persons_syncStatus ON persons(syncStatus)")
+
+                // visits
+                db.execSQL("ALTER TABLE visits ADD COLUMN reentryFromStationId TEXT")
+                db.execSQL("ALTER TABLE visits ADD COLUMN reentryFromStationName TEXT")
+                db.execSQL("ALTER TABLE visits ADD COLUMN remoteId TEXT")
+                db.execSQL("ALTER TABLE visits ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'synced'")
+                db.execSQL("ALTER TABLE visits ADD COLUMN syncAttempts INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE visits ADD COLUMN lastSyncError TEXT")
+                db.execSQL("ALTER TABLE visits ADD COLUMN personalPhotoSyncedAt INTEGER")
+                db.execSQL("ALTER TABLE visits ADD COLUMN docFrontSyncedAt INTEGER")
+                db.execSQL("ALTER TABLE visits ADD COLUMN docBackSyncedAt INTEGER")
+                db.execSQL("ALTER TABLE visits ADD COLUMN checkoutSyncedAt INTEGER")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_visits_syncStatus_createdAt ON visits(syncStatus, createdAt)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -110,7 +141,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigration()
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
