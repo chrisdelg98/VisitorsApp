@@ -16,15 +16,24 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Default fallback (overridden per buildType below)
+        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/\"")
     }
 
     buildTypes {
+        debug {
+            // QA / development backend. Adjust when QA URL is final.
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Production backend. Replace with the real internal IP/domain before release.
+            buildConfigField("String", "API_BASE_URL", "\"https://visitors.eflglobal.local/api/\"")
         }
     }
     compileOptions {
@@ -33,6 +42,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {
@@ -120,6 +130,16 @@ dependencies {
 
     // WorkManager — scheduled printer auto-discovery
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // ── Networking (Retrofit + Moshi + OkHttp) ────────────────────────────────
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-moshi:2.11.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.1")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // EncryptedSharedPreferences for storing the api_key securely
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
