@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalConfiguration
 import com.eflglobal.visitorsapp.R
+import com.eflglobal.visitorsapp.ui.components.SyncStatusBadge
 import com.eflglobal.visitorsapp.ui.localization.AppLanguage
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
@@ -89,6 +90,14 @@ fun HomeScreen(
                         onAdminAccess()
                     }
                 }
+        )
+
+        // Pending-sync banner overlay. Hides itself when nothing is pending.
+        SyncStatusBadge(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp, start = 24.dp, end = 24.dp)
+                .fillMaxWidth(fraction = 0.6f)
         )
 
         // Layout adaptativo: Column para móvil, Row para tablet

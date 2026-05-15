@@ -242,6 +242,12 @@
     <string name="visit_times">Tiempos de Visita</string>
     <string name="no_visits_yet">No hay visitas registradas aún</string>
     <string name="logout">Cerrar Sesión</string>
+
+    <!-- ── Sync (Phase 7) ────────────────────────────────────── -->
+    <string name="sync_pending_title">Sincronización pendiente</string>
+    <string name="sync_pending_count">%1$d registro(s) por sincronizar</string>
+    <string name="sync_now">Sincronizar ahora</string>
+    <string name="sync_all_synced">Todo sincronizado</string>
     <string name="logout_confirmation">¿Está seguro que desea cerrar sesión? Deberá ingresar el PIN nuevamente.</string>
     <string name="yes">Sí</string>
     <string name="no">No</string>

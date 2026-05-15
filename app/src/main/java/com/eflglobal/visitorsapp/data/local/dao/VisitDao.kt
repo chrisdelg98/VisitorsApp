@@ -333,4 +333,17 @@ interface VisitDao {
 
     @Query("DELETE FROM visits WHERE exitDate IS NOT NULL AND entryDate < :beforeDate")
     suspend fun deleteOldCompletedVisits(beforeDate: Long)
+
+    // ===== PHASE 8 — RETENTION =====
+    /** Drop fully-synced visits older than [beforeTimestamp] (entry date). */
+    @Query("DELETE FROM visits WHERE syncStatus = 'synced' AND entryDate < :beforeTimestamp")
+    suspend fun deleteSyncedOlderThan(beforeTimestamp: Long): Int
+
+    /** Drop visits still pending/failed beyond the retention window. */
+    @Query("DELETE FROM visits WHERE syncStatus IN ('pending', 'failed') AND entryDate < :beforeTimestamp")
+    suspend fun deletePendingOlderThan(beforeTimestamp: Long): Int
+
+    /** Active local visit ids — used to detect orphan image folders. */
+    @Query("SELECT visitId FROM visits")
+    suspend fun getAllVisitIds(): List<String>
 }

@@ -243,6 +243,12 @@
     <string name="no_visits_yet">Aucune visite enregistrée pour le moment</string>
     <string name="logout">Déconnexion</string>
     <string name="logout_confirmation">Êtes-vous sûr de vouloir vous déconnecter ? Vous devrez entrer le PIN à nouveau.</string>
+
+    <!-- ── Sync (Phase 7) ────────────────────────────────────── -->
+    <string name="sync_pending_title">Synchronisation en attente</string>
+    <string name="sync_pending_count">%1$d enregistrement(s) à téléverser</string>
+    <string name="sync_now">Synchroniser maintenant</string>
+    <string name="sync_all_synced">Tout est synchronisé</string>
     <string name="yes">Oui</string>
     <string name="no">Non</string>
     <string name="filters">Filtres</string>

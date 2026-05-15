@@ -244,6 +244,12 @@
     <string name="logout">Logout</string>
     <string name="logout_confirmation">Are you sure you want to logout? You will need to enter the PIN again.</string>
     <string name="yes">Yes</string>
+
+    <!-- ── Sync (Phase 7) ────────────────────────────────────── -->
+    <string name="sync_pending_title">Pending sync</string>
+    <string name="sync_pending_count">%1$d record(s) waiting to upload</string>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_all_synced">All synced</string>
     <string name="no">No</string>
     <string name="filters">Filters</string>
     <string name="advanced_filters">Advanced Filters</string>

@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp
 
 import android.app.Application
 import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryWorker
+import com.eflglobal.visitorsapp.data.sync.PurgeScheduler
 import com.eflglobal.visitorsapp.data.sync.SyncScheduler
 
 /**
@@ -22,6 +23,9 @@ class VisitorsApplication : Application() {
         // that piled up while the app was closed gets uploaded ASAP.
         SyncScheduler.schedulePeriodic(this)
         SyncScheduler.enqueueNow(this)
+
+        // Daily local retention pass (Phase 8).
+        PurgeScheduler.schedule(this)
     }
 }
 
