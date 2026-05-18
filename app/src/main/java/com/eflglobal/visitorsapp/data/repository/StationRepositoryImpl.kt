@@ -17,6 +17,7 @@ import com.eflglobal.visitorsapp.data.remote.ApiException
 import com.eflglobal.visitorsapp.data.remote.SecureStore
 import com.eflglobal.visitorsapp.data.remote.dto.ValidateStationBody
 import com.eflglobal.visitorsapp.data.remote.safeCall
+import com.eflglobal.visitorsapp.data.remote.safeCallUnit
 import com.eflglobal.visitorsapp.domain.model.Station
 import com.eflglobal.visitorsapp.domain.repository.StationRepository
 import kotlinx.coroutines.flow.Flow
@@ -95,13 +96,10 @@ class StationRepositoryImpl(
 
             Result.success(entity.toDomain())
         } catch (e: ApiException) {
-            val msg = when (e.code) {
-                ApiErrorCode.STATION_INVALID,
-                ApiErrorCode.API_KEY_INVALID          -> "Invalid station code"
-                ApiErrorCode.STATION_ALREADY_REGISTERED -> "Contacta al administrador"
-                ApiErrorCode.NETWORK_UNAVAILABLE      -> "No connection to the server"
-                ApiErrorCode.RATE_LIMIT_EXCEEDED      -> "Too many attempts. Wait 15 minutes and try again"
-                else                                  -> e.message ?: "Activation failed"
+            val msg = if (e.code == ApiErrorCode.NETWORK_UNAVAILABLE) {
+                "No connection to the server"
+            } else {
+                e.message ?: "Activation failed"
             }
             Result.failure(Exception(msg, e))
         } catch (e: Exception) {
@@ -114,14 +112,17 @@ class StationRepositoryImpl(
 
     override suspend fun getActiveStationId(): String? = getActiveStation()?.stationId
 
-    override suspend fun deactivateCurrentStation(): Result<Unit> = try {
-        stationDao.deactivateAllStations()
-        // Wipe credenciales remotas también — si no, una próxima llamada
-        // viajaría con un api_key huérfano.
-        SecureStore.clearStation(appContext)
-        Result.success(Unit)
-    } catch (e: Exception) {
-        Result.failure(e)
+    override suspend fun deactivateCurrentStation(): Result<Unit> {
+        // Best-effort: notificamos al backend pero limpiamos local pase lo que pase.
+        runCatching { safeCallUnit { api.logout() } }
+
+        return try {
+            stationDao.deactivateAllStations()
+            SecureStore.clearStation(appContext)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     // ── Device info helpers ───────────────────────────────────────────────────

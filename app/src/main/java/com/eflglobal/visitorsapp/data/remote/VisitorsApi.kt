@@ -45,6 +45,14 @@ interface VisitorsApi {
         @Body body: ValidateStationBody
     ): ApiResponse<StationDto>
 
+    /**
+     * Invalidates the current station session on the backend.
+     * The `X-API-Key` header is injected automatically by the auth interceptor.
+     * Always clear local credentials after this call, regardless of the result.
+     */
+    @POST("v1/station/logout")
+    suspend fun logout(): ApiResponse<Unit>
+
     // ── Visitors ─────────────────────────────────────────────────────────────
 
     @GET("v1/visitors/search")
