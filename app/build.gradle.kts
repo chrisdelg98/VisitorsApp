@@ -17,14 +17,17 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Default fallback (overridden per buildType below)
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/\"")
+        // Default fallback (overridden per buildType below).
+        // NOTE: Retrofit base URLs MUST end with "/". Endpoints declared in
+        // VisitorsApi.kt already include the "v1/..." prefix, so the base URL
+        // stops at "/api/".
+        buildConfigField("String", "API_BASE_URL", "\"https://privateapi.efltrackingsystem.com/api/\"")
     }
 
     buildTypes {
         debug {
-            // QA / development backend. Adjust when QA URL is final.
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/\"")
+            // QA / laboratory backend (Linux server, HTTPS).
+            buildConfigField("String", "API_BASE_URL", "\"https://privateapi.efltrackingsystem.com/api/\"")
         }
         release {
             isMinifyEnabled = false
@@ -32,8 +35,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Production backend. Replace with the real internal IP/domain before release.
-            buildConfigField("String", "API_BASE_URL", "\"https://visitors.eflglobal.local/api/\"")
+            // Production backend (same host until a separate prod URL is provisioned).
+            buildConfigField("String", "API_BASE_URL", "\"https://privateapi.efltrackingsystem.com/api/\"")
         }
     }
     compileOptions {

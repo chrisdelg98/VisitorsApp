@@ -7,6 +7,9 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- READ_PHONE_STATE — used to read IMEI during station setup (API 26+, nullable) -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
     <!-- Network — required for printer discovery and TCP/IP printing -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
