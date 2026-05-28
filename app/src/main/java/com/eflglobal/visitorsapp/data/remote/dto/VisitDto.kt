@@ -70,3 +70,27 @@ data class CreateVisitBody(
     @Json(name = "reentry_from_station_id") val reentryFromStationId: String? = null
 )
 
+/**
+ * Body for `PATCH /v1/visits/{id}/checkout`.
+ *
+ * [checkOut] is the device-local time formatted as ISO-8601 with offset.
+ * When omitted, the backend stamps `now()` at sync time — which loses
+ * precision for offline checkouts that are pushed minutes or hours later.
+ */
+@JsonClass(generateAdapter = true)
+data class CheckoutBody(
+    @Json(name = "check_out") val checkOut: String? = null
+)
+
+/**
+ * Body for `PATCH /v1/visits/{id}/reentry`.
+ *
+ * The backend SETs (does not increment) [reentryCount] and [lastReentryAt],
+ * which keeps the call idempotent under worker retries.
+ */
+@JsonClass(generateAdapter = true)
+data class ReentryBody(
+    @Json(name = "reentry_count") val reentryCount: Int? = null,
+    @Json(name = "last_reentry_at") val lastReentryAt: String? = null
+)
+

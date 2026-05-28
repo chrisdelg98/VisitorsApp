@@ -1,8 +1,10 @@
 package com.eflglobal.visitorsapp.data.remote
 
 import com.eflglobal.visitorsapp.data.remote.dto.ApiResponse
+import com.eflglobal.visitorsapp.data.remote.dto.CheckoutBody
 import com.eflglobal.visitorsapp.data.remote.dto.CreateVisitBody
 import com.eflglobal.visitorsapp.data.remote.dto.CreateVisitorBody
+import com.eflglobal.visitorsapp.data.remote.dto.ReentryBody
 import com.eflglobal.visitorsapp.data.remote.dto.StationDto
 import com.eflglobal.visitorsapp.data.remote.dto.ValidateStationBody
 import com.eflglobal.visitorsapp.data.remote.dto.VisitDto
@@ -100,9 +102,27 @@ interface VisitorsApi {
     @GET("v1/visits/active")
     suspend fun activeVisits(): ApiResponse<List<VisitDto>>
 
+    /**
+     * Closes a visit. The body's `check_out` is the device-local time
+     * formatted as ISO-8601 with offset; when omitted the backend stamps
+     * `now()` at sync time. The endpoint is idempotent — it accepts a
+     * re-checkout on an already-completed visit and overwrites `check_out`.
+     */
     @PATCH("v1/visits/{id}/checkout")
     suspend fun checkout(
-        @Path("id") visitId: String
+        @Path("id") visitId: String,
+        @Body body: CheckoutBody
+    ): ApiResponse<VisitDto>
+
+    /**
+     * Re-opens a previously-closed visit (same-station re-entry). The backend
+     * SETs `reentry_count` and `last_reentry_at` (does not increment) so
+     * retries from the SyncWorker are idempotent.
+     */
+    @PATCH("v1/visits/{id}/reentry")
+    suspend fun reentry(
+        @Path("id") visitId: String,
+        @Body body: ReentryBody
     ): ApiResponse<VisitDto>
 
     // ── Visit images ─────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
 import android.telephony.TelephonyManager
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.eflglobal.visitorsapp.data.local.dao.StationDao
 import com.eflglobal.visitorsapp.data.local.entity.StationEntity
@@ -37,6 +38,10 @@ class StationRepositoryImpl(
 ) : StationRepository {
 
     private val api get() = ApiClient.get(appContext)
+
+    companion object {
+        private const val TAG = "StationRepository"
+    }
 
     override suspend fun getActiveStation(): Station? =
         stationDao.getActiveStation()?.toDomain()
@@ -113,9 +118,17 @@ class StationRepositoryImpl(
     override suspend fun getActiveStationId(): String? = getActiveStation()?.stationId
 
     override suspend fun deactivateCurrentStation(): Result<Unit> {
-        // Best-effort: notificamos al backend pero limpiamos local pase lo que pase.
-        runCatching { safeCallUnit { api.logout() } }
+        // 1. Notificar al backend — best-effort: si falla igual limpiamos local.
+        try {
+            safeCallUnit { api.logout() }
+            Log.d(TAG, "logout: server confirmed")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // no swallowing de cancelación de coroutine
+        } catch (e: Exception) {
+            Log.w(TAG, "logout: server call failed (${e.message}), continuing with local cleanup")
+        }
 
+        // 2. Limpiar datos locales siempre.
         return try {
             stationDao.deactivateAllStations()
             SecureStore.clearStation(appContext)

@@ -275,6 +275,11 @@ class VisitRepositoryImpl(
     override suspend fun registerReentry(visitId: String): Result<Unit> {
         return try {
             visitDao.registerReentry(visitId, System.currentTimeMillis())
+            // The DAO query already cleared checkoutSyncedAt. Flip the row
+            // back to `pending` and kick the worker so the backend learns
+            // about the reopening (and the eventual second checkout).
+            visitDao.markVisitPendingResync(visitId)
+            SyncScheduler.enqueueNow(appContext)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

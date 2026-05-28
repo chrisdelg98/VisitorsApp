@@ -134,6 +134,14 @@ data class VisitEntity(
     val docBackSyncedAt: Long? = null,
 
     /** Timestamp at which the checkout PATCH was confirmed; null = pending. */
-    val checkoutSyncedAt: Long? = null
+    val checkoutSyncedAt: Long? = null,
+
+    /**
+     * Timestamp at which the most recent same-station re-entry was confirmed
+     * by the backend. Compared against [lastReentryAt] — if `lastReentryAt`
+     * is greater (or this is null while a re-entry exists), the SyncWorker
+     * needs to PATCH /reentry again.
+     */
+    val reentrySyncedAt: Long? = null
 )
 

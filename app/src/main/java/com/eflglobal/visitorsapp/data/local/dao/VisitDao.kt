@@ -59,9 +59,11 @@ interface VisitDao {
 
     /**
      * Same-station re-entry: increments reentryCount, records timestamp,
-     * and clears exitDate so the visit becomes active again.
+     * clears exitDate so the visit becomes active again, and also clears
+     * checkoutSyncedAt so the SyncWorker re-PATCHes the final checkout once
+     * the visitor leaves for real.
      */
-    @Query("UPDATE visits SET reentryCount = reentryCount + 1, lastReentryAt = :reentryAt, exitDate = NULL WHERE visitId = :visitId")
+    @Query("UPDATE visits SET reentryCount = reentryCount + 1, lastReentryAt = :reentryAt, exitDate = NULL, checkoutSyncedAt = NULL WHERE visitId = :visitId")
     suspend fun registerReentry(visitId: String, reentryAt: Long)
 
     // ===== DELETE =====
@@ -301,6 +303,14 @@ interface VisitDao {
     /** Marks the checkout PATCH as confirmed by the backend. */
     @Query("UPDATE visits SET checkoutSyncedAt = :syncedAt WHERE visitId = :visitId")
     suspend fun markCheckoutSynced(visitId: String, syncedAt: Long)
+
+    /**
+     * Marks the PATCH /reentry as confirmed. [syncedAt] should be the
+     * `lastReentryAt` that was pushed so a concurrent re-entry on the device
+     * (which would bump `lastReentryAt` further) still triggers a resync.
+     */
+    @Query("UPDATE visits SET reentrySyncedAt = :syncedAt WHERE visitId = :visitId")
+    suspend fun markReentrySynced(visitId: String, syncedAt: Long)
 
     /**
      * Returns a previously-synced visit back to the `pending` queue so the

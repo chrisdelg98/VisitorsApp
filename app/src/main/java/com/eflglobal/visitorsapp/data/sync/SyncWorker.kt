@@ -15,8 +15,11 @@ import com.eflglobal.visitorsapp.data.remote.ApiErrorCode
 import com.eflglobal.visitorsapp.data.remote.ApiException
 import com.eflglobal.visitorsapp.data.remote.SecureStore
 import com.eflglobal.visitorsapp.data.remote.VisitorsApi
+import com.eflglobal.visitorsapp.data.remote.dto.CheckoutBody
 import com.eflglobal.visitorsapp.data.remote.dto.CreateVisitBody
 import com.eflglobal.visitorsapp.data.remote.dto.CreateVisitorBody
+import com.eflglobal.visitorsapp.data.remote.dto.ReentryBody
+import com.eflglobal.visitorsapp.data.remote.formatIso8601
 import java.io.File
 
 /**
@@ -134,17 +137,74 @@ class SyncWorker(
         val refreshed = visitDao.getVisitById(visit.visitId) ?: return
         uploadPendingImages(refreshed, visitRemoteId)
 
-        // 4. Checkout (only if the visit was already closed locally).
-        if (refreshed.exitDate != null && refreshed.checkoutSyncedAt == null) {
-            apiCall { api.checkout(visitRemoteId) }
-            visitDao.markCheckoutSynced(refreshed.visitId, System.currentTimeMillis())
+        // 4. Re-entry. If the visit was reopened locally after being synced,
+        // tell the backend before pushing the second checkout — otherwise
+        // a re-checkout would target an already-completed visit. We re-read
+        // again because uploadPendingImages may have mutated the row.
+        val afterImages = visitDao.getVisitById(visit.visitId) ?: return
+        if (needsReentryPush(afterImages)) {
+            val lastReentryAt = afterImages.lastReentryAt!!
+            try {
+                apiCall {
+                    api.reentry(
+                        visitRemoteId,
+                        ReentryBody(
+                            reentryCount  = afterImages.reentryCount,
+                            lastReentryAt = formatIso8601(lastReentryAt)
+                        )
+                    )
+                }
+                visitDao.markReentrySynced(afterImages.visitId, lastReentryAt)
+            } catch (e: ApiException) {
+                // Tablets in the field may run against a backend that hasn't
+                // shipped /reentry yet — treat 404 as transient so the row
+                // stays pending instead of getting parked as permanently
+                // failed.
+                if (e.httpStatus == 404) {
+                    throw ApiException(
+                        code = ApiErrorCode.NETWORK_UNAVAILABLE,
+                        message = "reentry endpoint not available yet",
+                        httpStatus = 404,
+                        cause = e
+                    )
+                }
+                throw e
+            }
         }
 
-        // 5. Final state — only mark synced if every image is up.
+        // 5. Checkout (only if the visit was closed locally and the latest
+        // close hasn't been pushed yet). Send the device-local exit time so
+        // the backend records the real moment, not the sync moment.
+        val beforeCheckout = visitDao.getVisitById(visit.visitId) ?: return
+        if (beforeCheckout.exitDate != null && beforeCheckout.checkoutSyncedAt == null) {
+            apiCall {
+                api.checkout(
+                    visitRemoteId,
+                    CheckoutBody(checkOut = formatIso8601(beforeCheckout.exitDate))
+                )
+            }
+            visitDao.markCheckoutSynced(beforeCheckout.visitId, System.currentTimeMillis())
+        }
+
+        // 6. Final state — only mark synced if every image is up, the
+        // re-entry (if any) was pushed and the checkout (if any) was pushed.
         val finalState = visitDao.getVisitById(visit.visitId) ?: return
         if (allImagesUploaded(finalState)) {
             visitDao.markVisitSynced(finalState.visitId, visitRemoteId, System.currentTimeMillis())
         }
+    }
+
+    /**
+     * True when the visit has been reopened locally and the backend hasn't
+     * been informed yet. Only applies to visits that already exist remotely
+     * (no remoteId → the initial POST /visits will register them as active,
+     * so a /reentry call would be redundant).
+     */
+    private fun needsReentryPush(visit: VisitEntity): Boolean {
+        if (visit.remoteId == null) return false
+        val lastReentryAt = visit.lastReentryAt ?: return false
+        val syncedAt = visit.reentrySyncedAt
+        return syncedAt == null || syncedAt < lastReentryAt
     }
 
     /**
@@ -198,6 +258,9 @@ class SyncWorker(
         if (!visit.visitDocumentBackPath.isNullOrBlank() && visit.docBackSyncedAt == null) return false
         // If the visit was closed, the checkout must have been pushed too.
         if (visit.exitDate != null && visit.checkoutSyncedAt == null) return false
+        // A pending re-entry means the backend still believes the visit is
+        // completed — don't claim the row is synced until /reentry lands.
+        if (needsReentryPush(visit)) return false
         return true
     }
 
