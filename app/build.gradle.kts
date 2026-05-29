@@ -1,7 +1,21 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp.android)
+}
+
+// Release signing credentials are kept out of version control. Copy
+// keystore.properties.example to keystore.properties and fill in your values.
+// When the file is absent (CI, fresh clone) the release build stays unsigned
+// instead of breaking the build.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
 }
 
 android {
@@ -24,12 +38,28 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"https://privateapi.efltrackingsystem.com/api/\"")
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // QA / laboratory backend (Linux server, HTTPS).
             buildConfigField("String", "API_BASE_URL", "\"https://privateapi.efltrackingsystem.com/api/\"")
         }
         release {
+            // Sign with the release key when keystore.properties is present.
+            // Otherwise the APK is left unsigned (must be signed before install).
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
