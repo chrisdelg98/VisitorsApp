@@ -4,6 +4,9 @@ import android.content.Context
 import com.eflglobal.visitorsapp.data.local.dao.VisitDao
 import com.eflglobal.visitorsapp.data.local.mapper.toDomain
 import com.eflglobal.visitorsapp.data.local.mapper.toEntity
+import com.eflglobal.visitorsapp.data.remote.ApiClient
+import com.eflglobal.visitorsapp.data.remote.parseIso8601
+import com.eflglobal.visitorsapp.data.remote.safeCall
 import com.eflglobal.visitorsapp.data.sync.SyncScheduler
 import com.eflglobal.visitorsapp.domain.model.Visit
 import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
@@ -62,6 +65,32 @@ class VisitRepositoryImpl(
         return try {
             visitDao.getLastVisitByPersonId(personId)?.toDomain()
         } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun getLatestVisitRemote(personId: String): Visit? {
+        return try {
+            val dto = safeCall { ApiClient.get(appContext).latestVisit(personId) }
+            val checkIn = parseIso8601(dto.checkIn) ?: return null
+            // Lightweight Visit for form pre-fill only — not inserted as a row.
+            Visit(
+                visitId            = dto.id,
+                personId           = personId,
+                stationId          = dto.station?.id,
+                visitingPersonName = dto.visitingPerson,
+                visitorType        = dto.visitorType,
+                visitReason        = dto.visitReason,
+                visitReasonCustom  = dto.visitReasonCustom,
+                entryDate          = checkIn,
+                exitDate           = dto.checkOut?.let { parseIso8601(it) },
+                qrCodeValue        = dto.id,
+                isSynced           = true,
+                lastSyncAt         = System.currentTimeMillis(),
+                originalVisitId    = dto.originalVisitId
+            )
+        } catch (e: Exception) {
+            // No history (404 NO_VISITS) or offline — caller degrades gracefully.
             null
         }
     }

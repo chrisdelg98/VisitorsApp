@@ -31,6 +31,8 @@ import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
 import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentSearchViewModel
 import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentSearchUiState
 import com.eflglobal.visitorsapp.ui.viewmodel.RecurrentVisitViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -202,11 +204,19 @@ fun RecurrentSearchScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(persons) { person ->
+                            // Lazy photo resolution: local file wins, otherwise
+                            // it is downloaded from the backend and cached.
+                            val photoPath by produceState<String?>(
+                                initialValue = null,
+                                key1 = person.personId
+                            ) {
+                                value = searchViewModel.resolvePhoto(person)
+                            }
                             PersonCard(
                                 personName      = person.fullName,
                                 documentNumber  = person.documentNumber,
                                 documentType    = person.documentType,
-                                profilePhotoPath = person.profilePhotoPath,
+                                profilePhotoPath = photoPath,
                                 onClick = {
                                     recurrentVisitViewModel.setSelectedPerson(person)
                                     onPersonSelected()
@@ -243,10 +253,15 @@ fun PersonCard(
     profilePhotoPath: String? = null,
     onClick: () -> Unit
 ) {
-    // Load bitmap from disk on first composition
-    val photoBitmap = remember(profilePhotoPath) {
-        profilePhotoPath?.let {
-            runCatching { BitmapFactory.decodeFile(it) }.getOrNull()
+    // Decode the bitmap off the main thread once a path is available.
+    val photoBitmap by produceState<android.graphics.Bitmap?>(
+        initialValue = null,
+        key1 = profilePhotoPath
+    ) {
+        value = profilePhotoPath?.let { path ->
+            withContext(Dispatchers.IO) {
+                runCatching { BitmapFactory.decodeFile(path) }.getOrNull()
+            }
         }
     }
 
@@ -276,9 +291,10 @@ fun PersonCard(
                     .background(OrangePrimary.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (photoBitmap != null) {
+                val bitmap = photoBitmap
+                if (bitmap != null) {
                     Image(
-                        bitmap       = photoBitmap.asImageBitmap(),
+                        bitmap       = bitmap.asImageBitmap(),
                         contentDescription = personName,
                         contentScale = ContentScale.Crop,
                         modifier     = Modifier.fillMaxSize()

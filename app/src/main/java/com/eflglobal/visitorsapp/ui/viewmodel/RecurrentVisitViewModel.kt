@@ -11,6 +11,7 @@ import com.eflglobal.visitorsapp.domain.model.VisitReasonKeys
 import com.eflglobal.visitorsapp.domain.repository.PersonRepository
 import com.eflglobal.visitorsapp.domain.repository.VisitRepository
 import com.eflglobal.visitorsapp.domain.usecase.visit.CreateVisitUseCase
+import com.eflglobal.visitorsapp.domain.usecase.visit.ResolveVisitorPhotoUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +23,8 @@ import kotlinx.coroutines.launch
 class RecurrentVisitViewModel(
     private val createVisitUseCase: CreateVisitUseCase,
     private val personRepository: PersonRepository,
-    private val visitRepository: VisitRepository
+    private val visitRepository: VisitRepository,
+    private val resolveVisitorPhoto: ResolveVisitorPhotoUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<RecurrentVisitUiState>(RecurrentVisitUiState.Idle)
@@ -89,9 +91,12 @@ class RecurrentVisitViewModel(
     fun setSelectedPerson(person: Person) {
         selectedPerson = person
         _lastVisitPreFill.value = null  // reset while loading
-        // Load last visit to pre-fill form fields
+        // Load last visit to pre-fill form fields. Prefer the local cache; if
+        // the person was purged locally (visited > retention window ago), fall
+        // back to the backend so re-entry still pre-fills correctly.
         viewModelScope.launch {
             val last = visitRepository.getLastVisitByPersonId(person.personId)
+                ?: visitRepository.getLatestVisitRemote(person.personId)
             lastVisit = last
             if (last != null) {
                 // Pre-fill visitor type and visit reason from most recent visit
@@ -102,6 +107,17 @@ class RecurrentVisitViewModel(
                 _lastVisitPreFill.value = last
             }
         }
+    }
+
+    /**
+     * Resolves the profile photo of the selected person (local file → backend
+     * download + cache). Returns an absolute file path or null. Used by the
+     * re-entry data screen so the last registered face is shown even after the
+     * local visit folder was purged.
+     */
+    suspend fun resolveProfilePhoto(): String? {
+        val person = selectedPerson ?: return null
+        return resolveVisitorPhoto(person.personId, person.profilePhotoPath)
     }
 
     fun setDocumentType(type: String)     { documentType = type }

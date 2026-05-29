@@ -111,13 +111,17 @@ fun RecurrentVisitDataScreen(
         }
     ) }
 
-    // Load profile photo: new photo taken in this session wins, otherwise use stored person photo
-    val effectivePhotoPath = viewModel?.profilePhotoPath ?: person?.profilePhotoPath
+    // Load profile photo: a photo taken in this session wins; otherwise resolve
+    // the last registered photo (local file → backend download + cache) so the
+    // face still shows even after the local visit folder was purged.
     var storedProfileBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(effectivePhotoPath) {
-        if (!effectivePhotoPath.isNullOrBlank()) {
+    LaunchedEffect(person?.personId, viewModel?.profilePhotoPath) {
+        val sessionPhoto = viewModel?.profilePhotoPath
+        val path = if (!sessionPhoto.isNullOrBlank()) sessionPhoto
+                   else viewModel?.resolveProfilePhoto()
+        if (!path.isNullOrBlank()) {
             withContext(Dispatchers.IO) {
-                runCatching { BitmapFactory.decodeFile(effectivePhotoPath) }.getOrNull()
+                runCatching { BitmapFactory.decodeFile(path) }.getOrNull()
             }?.let { storedProfileBitmap = it }
         }
     }

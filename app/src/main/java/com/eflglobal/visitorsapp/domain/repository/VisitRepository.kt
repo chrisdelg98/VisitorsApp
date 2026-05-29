@@ -36,6 +36,15 @@ interface VisitRepository {
     suspend fun getLastVisitByPersonId(personId: String): Visit?
 
     /**
+     * Obtiene la última visita de una persona desde el servidor
+     * (`GET /v1/visitors/{id}/latest-visit`). Se usa como fallback para
+     * pre-llenar el formulario de reingreso cuando la persona ya no tiene
+     * visitas en la caché local (purgada). Best-effort: devuelve null ante
+     * fallo de red o si el visitante no tiene historial.
+     */
+    suspend fun getLatestVisitRemote(personId: String): Visit?
+
+    /**
      * Obtiene todas las visitas activas (sin fecha de salida).
      */
     suspend fun getActiveVisits(): List<Visit>

@@ -13,6 +13,7 @@ import com.eflglobal.visitorsapp.domain.usecase.station.HasActiveStationUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.CreateVisitUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.ContinueVisitUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.EndVisitByQRUseCase
+import com.eflglobal.visitorsapp.domain.usecase.visit.ResolveVisitorPhotoUseCase
 import com.eflglobal.visitorsapp.domain.usecase.visit.SearchActiveVisitsUseCase
 
 /**
@@ -26,6 +27,7 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
         val personRepository = DependencyProvider.providePersonRepository(context)
         val visitRepository = DependencyProvider.provideVisitRepository(context)
         val stationRepository = DependencyProvider.provideStationRepository(context)
+        val resolveVisitorPhoto = ResolveVisitorPhotoUseCase(context.applicationContext)
 
         return when {
             modelClass.isAssignableFrom(StationSetupViewModel::class.java) -> {
@@ -45,15 +47,18 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
 
             modelClass.isAssignableFrom(RecurrentSearchViewModel::class.java) -> {
                 RecurrentSearchViewModel(
-                    searchPersonsUseCase = SearchPersonsUseCase(personRepository)
+                    personRepository     = personRepository,
+                    searchPersonsUseCase = SearchPersonsUseCase(personRepository),
+                    resolveVisitorPhoto  = resolveVisitorPhoto
                 ) as T
             }
 
             modelClass.isAssignableFrom(RecurrentVisitViewModel::class.java) -> {
                 RecurrentVisitViewModel(
-                    createVisitUseCase = CreateVisitUseCase(visitRepository, stationRepository),
-                    personRepository   = personRepository,
-                    visitRepository    = visitRepository
+                    createVisitUseCase  = CreateVisitUseCase(visitRepository, stationRepository),
+                    personRepository    = personRepository,
+                    visitRepository     = visitRepository,
+                    resolveVisitorPhoto = resolveVisitorPhoto
                 ) as T
             }
 

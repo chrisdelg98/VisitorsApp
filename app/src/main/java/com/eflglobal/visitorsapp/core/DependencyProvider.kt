@@ -56,7 +56,10 @@ object DependencyProvider {
             synchronized(this) {
                 if (personRepository == null) {
                     val db = provideDatabase(context)
-                    personRepository = PersonRepositoryImpl(db.personDao())
+                    personRepository = PersonRepositoryImpl(
+                        appContext = context.applicationContext,
+                        personDao  = db.personDao()
+                    )
                 }
             }
         }

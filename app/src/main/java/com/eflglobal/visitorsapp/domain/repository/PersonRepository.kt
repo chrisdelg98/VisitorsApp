@@ -30,6 +30,20 @@ interface PersonRepository {
     suspend fun searchPersons(query: String): List<Person>
 
     /**
+     * Busca visitantes contra el servidor (`GET /v1/visitors/search`).
+     *
+     * El servidor es la fuente de verdad: a diferencia de [searchPersons]
+     * (limitada a la caché local de ~10 días), esta búsqueda encuentra a
+     * visitantes que ya fueron purgados localmente. Cuando un visitante ya
+     * existe en local se devuelve el [Person] local (datos más ricos: foto
+     * cacheada, contacto editado); el resto se construye desde el DTO remoto.
+     *
+     * Devuelve [Result.failure] ante fallo de red para que el llamador pueda
+     * degradar a [searchPersons] (búsqueda local).
+     */
+    suspend fun searchVisitorsRemote(query: String): Result<List<Person>>
+
+    /**
      * Busca personas como Flow (observable).
      */
     fun searchPersonsFlow(query: String): Flow<List<Person>>
