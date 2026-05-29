@@ -59,6 +59,21 @@ object PrinterManager {
     }
 
     /**
+     * Prints a tiny confirmation label (see [BadgeBitmapRenderer.renderTestLabel]).
+     * Unlike [testConnection] it sends a real job, so it proves the full path
+     * works end-to-end while using minimal paper.
+     */
+    suspend fun testPrint(
+        context: Context,
+        config: PrinterConfig
+    ): PrintResult = withContext(Dispatchers.IO) {
+        val label = BadgeBitmapRenderer.renderTestLabel()
+        val result = printBitmap(context, label, config)
+        label.recycle()
+        result
+    }
+
+    /**
      * Tests connectivity without printing anything meaningful.
      * Returns **null** on success, error message on failure.
      */

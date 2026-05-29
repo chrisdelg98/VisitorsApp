@@ -235,7 +235,7 @@
     <string name="total_visits">Total Visits</string>
     <string name="active_visits">Active Visits</string>
     <string name="today_visits">Today\'s Visits</string>
-    <string name="month_visits">This Month</string>
+    <string name="month_visits">Last 10 days</string>
     <string name="recent_visits">Recent Visits</string>
     <string name="visits">Visits</string>
     <string name="visit_details">Visit Details</string>
@@ -313,9 +313,15 @@
     <string name="printer_configuration">Configuration</string>
 
     <!-- Printer Discovery -->
+    <string name="nav_printer">Printer</string>
+    <string name="nav_dashboard">Dashboard</string>
     <string name="printer_discovery_title">Printer Discovery</string>
     <string name="printer_scan_subnet">Subnet to scan (optional)</string>
     <string name="printer_scan_subnet_hint">For printers on another subnet. E.g.: 10.20.21</string>
+    <string name="printer_brand_unavailable">Brand unavailable</string>
+    <string name="printer_test_print">Test print</string>
+    <string name="printer_test_printing">Printing test…</string>
+    <string name="printer_test_print_ok">Test sent successfully</string>
     <string name="printer_scan_network">Scan Network</string>
     <string name="printer_scanning">Searching for printers…</string>
     <string name="printer_scan_complete">Scan complete</string>

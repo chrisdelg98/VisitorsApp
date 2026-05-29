@@ -235,7 +235,7 @@
     <string name="total_visits">Total des Visites</string>
     <string name="active_visits">Visites Actives</string>
     <string name="today_visits">Visites Aujourd\'hui</string>
-    <string name="month_visits">Visites du Mois</string>
+    <string name="month_visits">10 derniers jours</string>
     <string name="recent_visits">Visites Récentes</string>
     <string name="visits">Visites</string>
     <string name="visit_details">Détails de la Visite</string>
@@ -312,9 +312,15 @@
     <string name="printer_configuration">Configuration</string>
 
     <!-- Printer Discovery -->
+    <string name="nav_printer">Imprimante</string>
+    <string name="nav_dashboard">Tableau de bord</string>
     <string name="printer_discovery_title">Découverte d\'Imprimantes</string>
     <string name="printer_scan_subnet">Sous-réseau à scanner (optionnel)</string>
     <string name="printer_scan_subnet_hint">Pour les imprimantes sur un autre sous-réseau. Ex : 10.20.21</string>
+    <string name="printer_brand_unavailable">Marque non disponible</string>
+    <string name="printer_test_print">Test d\'impression</string>
+    <string name="printer_test_printing">Impression du test…</string>
+    <string name="printer_test_print_ok">Test envoyé avec succès</string>
     <string name="printer_scan_network">Scanner le Réseau</string>
     <string name="printer_scanning">Recherche d\'imprimantes…</string>
     <string name="printer_scan_complete">Scan terminé</string>

@@ -42,6 +42,7 @@ import com.eflglobal.visitorsapp.core.printing.PrinterDiagnostics
 import com.eflglobal.visitorsapp.core.printing.DiagnosticItem
 import com.eflglobal.visitorsapp.core.printing.DiagStatus
 import com.eflglobal.visitorsapp.core.printing.PrinterManager
+import com.eflglobal.visitorsapp.core.printing.PrintResult
 import com.eflglobal.visitorsapp.core.printing.DiscoveredPrinter
 import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryService
 import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryWorker
@@ -57,6 +58,9 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.launch
 
+/** Top-level sections of the admin panel. Printer config is the landing view. */
+enum class AdminView { PRINTER, DASHBOARD }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminPanelScreen(
@@ -65,10 +69,11 @@ fun AdminPanelScreen(
     viewModel: AdminPanelViewModel,
     selectedLanguage: String = "es"
 ) {
+    // Admin opens on the printer configuration (most-used by reception).
+    var adminView by remember { mutableStateOf(AdminView.PRINTER) }
     val uiState by viewModel.uiState.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
     var selectedVisit by remember { mutableStateOf<VisitWithPersonInfo?>(null) }
-    var showPrinterSettings by remember { mutableStateOf(false) }
 
     // Localized context para que los diálogos (que abren nueva ventana Compose)
     // respeten el idioma seleccionado y no el locale del dispositivo.
@@ -98,14 +103,6 @@ fun AdminPanelScreen(
                     selectedVisit = updatedVisit
                 }
             }
-        )
-    }
-
-    // Printer settings dialog
-    if (showPrinterSettings) {
-        PrinterSettingsDialog(
-            onDismiss = { showPrinterSettings = false },
-            selectedLanguage = selectedLanguage
         )
     }
 
@@ -204,25 +201,39 @@ fun AdminPanelScreen(
                 }
 
                 is AdminPanelUiState.Success -> {
-                    AdminPanelContent(
-                        state = state,
-                        onRefresh = { viewModel.refresh() },
-                        onOpenPrinterSettings = { showPrinterSettings = true },
-                        onOpenFilters = { showFiltersPanel = true },
-                        onLogout = { showLogoutDialog = true },
-                        selectedLanguage = selectedLanguage,
-                        filterStatus = filterStatus,
-                        filterVisitorType = filterVisitorType,
-                        onFilterStatusChange = { filterStatus = it },
-                        onFilterVisitorTypeChange = { filterVisitorType = it },
-                        onVisitClick = { selectedVisit = it },
-                        currentPage = currentPage,
-                        itemsPerPage = itemsPerPage,
-                        onPageChange = { currentPage = it },
-                        filterFirstName = filterFirstName,
-                        filterLastName = filterLastName,
-                        filterVisitingPerson = filterVisitingPerson
-                    )
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        AdminNavBar(
+                            current  = adminView,
+                            onSelect = { adminView = it },
+                            onLogout = { showLogoutDialog = true }
+                        )
+                        when (adminView) {
+                            AdminView.PRINTER -> PrinterSettingsDialog(
+                                onDismiss = {},
+                                selectedLanguage = selectedLanguage,
+                                embedded = true
+                            )
+                            AdminView.DASHBOARD -> AdminPanelContent(
+                                state = state,
+                                onRefresh = { viewModel.refresh() },
+                                onOpenPrinterSettings = { adminView = AdminView.PRINTER },
+                                onOpenFilters = { showFiltersPanel = true },
+                                onLogout = { showLogoutDialog = true },
+                                selectedLanguage = selectedLanguage,
+                                filterStatus = filterStatus,
+                                filterVisitorType = filterVisitorType,
+                                onFilterStatusChange = { filterStatus = it },
+                                onFilterVisitorTypeChange = { filterVisitorType = it },
+                                onVisitClick = { selectedVisit = it },
+                                currentPage = currentPage,
+                                itemsPerPage = itemsPerPage,
+                                onPageChange = { currentPage = it },
+                                filterFirstName = filterFirstName,
+                                filterLastName = filterLastName,
+                                filterVisitingPerson = filterVisitingPerson
+                            )
+                        }
+                    }
                 }
 
                 is AdminPanelUiState.Error -> {
@@ -316,6 +327,83 @@ fun AdminPanelScreen(
         }
     }
     } // Fin del Box
+}
+
+/**
+ * Top navigation bar inside the admin panel: switch between the printer
+ * configuration (landing) and the dashboard, plus a logout shortcut.
+ */
+@Composable
+private fun AdminNavBar(
+    current: AdminView,
+    onSelect: (AdminView) -> Unit,
+    onLogout: () -> Unit
+) {
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            AdminNavButton(
+                label    = stringResource(R.string.nav_printer),
+                icon     = Icons.Default.Print,
+                selected = current == AdminView.PRINTER,
+                onClick  = { onSelect(AdminView.PRINTER) }
+            )
+            AdminNavButton(
+                label    = stringResource(R.string.nav_dashboard),
+                icon     = Icons.Default.Dashboard,
+                selected = current == AdminView.DASHBOARD,
+                onClick  = { onSelect(AdminView.DASHBOARD) }
+            )
+            Spacer(Modifier.weight(1f))
+            OutlinedButton(
+                onClick = onLogout,
+                shape   = RoundedCornerShape(8.dp),
+                colors  = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFC62828)),
+                border  = BorderStroke(1.dp, Color(0xFFC62828).copy(alpha = 0.5f))
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ExitToApp, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.logout), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminNavButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(8.dp)
+    if (selected) {
+        Button(
+            onClick = onClick,
+            shape   = shape,
+            colors  = ButtonDefaults.buttonColors(containerColor = SlatePrimary)
+        ) {
+            Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            shape   = shape,
+            colors  = ButtonDefaults.outlinedButtonColors(contentColor = SlatePrimary),
+            border  = BorderStroke(1.dp, SlatePrimary.copy(alpha = 0.4f))
+        ) {
+            Icon(icon, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        }
+    }
 }
 
 @Composable
@@ -1779,7 +1867,9 @@ private fun FilterDrawerContent(
 @Composable
 private fun PrinterSettingsDialog(
     onDismiss: () -> Unit,
-    selectedLanguage: String = "es"
+    selectedLanguage: String = "es",
+    /** When true, renders full-screen (no Dialog/Card chrome, no close button). */
+    embedded: Boolean = false
 ) {
     val rawContext     = LocalContext.current
     val localizedContext = remember(selectedLanguage) {
@@ -1799,6 +1889,7 @@ private fun PrinterSettingsDialog(
     var printerDisplayName by remember(currentConfig) { mutableStateOf(currentConfig.printerDisplayName) }
     var showModelMenu  by remember { mutableStateOf(false) }
     var isTesting      by remember { mutableStateOf(false) }
+    var isTestPrinting by remember { mutableStateOf(false) }
     var isSaving       by remember { mutableStateOf(false) }
 
     // Diagnostics state
@@ -1888,20 +1979,8 @@ private fun PrinterSettingsDialog(
         diagError   = null
     }
 
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        )
-    ) {
-        CompositionLocalProvider(LocalContext provides localizedContext) {
-            Card(
-                modifier  = Modifier.fillMaxWidth(0.80f).fillMaxHeight(0.85f),
-                shape     = RoundedCornerShape(20.dp),
-                elevation = CardDefaults.cardElevation(8.dp)
-            ) {
+    // Shared body so the same UI renders either full-screen (embedded) or in a Dialog.
+    val body: @Composable () -> Unit = {
                 Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
 
                     // ── Title ──────────────────────────────────────────────
@@ -1914,8 +1993,10 @@ private fun PrinterSettingsDialog(
                             fontWeight = FontWeight.Bold, color = SlatePrimary
                         )
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
+                        if (!embedded) {
+                            IconButton(onClick = onDismiss) {
+                                Icon(Icons.Default.Close, contentDescription = null, tint = Color.Gray)
+                            }
                         }
                     }
 
@@ -2494,11 +2575,13 @@ private fun PrinterSettingsDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        OutlinedButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(stringResource(R.string.cancel), fontSize = 13.sp)
+                        if (!embedded) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(stringResource(R.string.cancel), fontSize = 13.sp)
+                            }
                         }
 
                         OutlinedButton(
@@ -2524,6 +2607,38 @@ private fun PrinterSettingsDialog(
                             }
                         }
 
+                        OutlinedButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    isTestPrinting = true
+                                    val result = try {
+                                        PrinterManager.testPrint(rawContext, buildConfig())
+                                    } catch (e: Exception) {
+                                        PrintResult.Error(e.message ?: "Error")
+                                    }
+                                    isTestPrinting = false
+                                    val msg = when (result) {
+                                        is PrintResult.Success -> localizedContext.getString(R.string.printer_test_print_ok)
+                                        is PrintResult.PermissionRequested -> "USB permission requested. Tap again."
+                                        is PrintResult.Error -> result.message
+                                    }
+                                    android.widget.Toast.makeText(
+                                        rawContext, msg, android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled  = !isTesting && !isSaving && !isTestPrinting &&
+                                       selectedBrand != PrinterConfig.PrinterBrand.NONE
+                        ) {
+                            if (isTestPrinting) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            else {
+                                Icon(Icons.Default.Print, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.printer_test_print), fontSize = 13.sp)
+                            }
+                        }
+
                         Button(
                             onClick = {
                                 coroutineScope.launch {
@@ -2534,7 +2649,7 @@ private fun PrinterSettingsDialog(
                             },
                             modifier = Modifier.weight(1f),
                             colors   = ButtonDefaults.buttonColors(containerColor = OrangePrimary),
-                            enabled  = !isTesting && !isSaving
+                            enabled  = !isTesting && !isSaving && !isTestPrinting
                         ) {
                             if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
                             else {
@@ -2545,6 +2660,30 @@ private fun PrinterSettingsDialog(
                         }
                     }
                 }
+    }  // end body lambda
+
+    if (embedded) {
+        CompositionLocalProvider(LocalContext provides localizedContext) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) { body() }
+        }
+    } else {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
+            )
+        ) {
+            CompositionLocalProvider(LocalContext provides localizedContext) {
+                Card(
+                    modifier  = Modifier.fillMaxWidth(0.80f).fillMaxHeight(0.85f),
+                    shape     = RoundedCornerShape(20.dp),
+                    elevation = CardDefaults.cardElevation(8.dp)
+                ) { body() }
             }
         }
     }
@@ -2604,8 +2743,11 @@ private fun DiscoveredPrinterRow(
                         )
                     }
                 }
+                val brandLabel = if (printer.brand == PrinterConfig.PrinterBrand.NONE)
+                    stringResource(R.string.printer_brand_unavailable)
+                else printer.brand.name
                 val detail = buildString {
-                    append(printer.brand.name)
+                    append(brandLabel)
                     if (printer.ipAddress != null) append(" • ${printer.ipAddress}:${printer.port}")
                     if (printer.serialOrNode.isNotBlank()) append(" • ${printer.serialOrNode.take(20)}")
                 }

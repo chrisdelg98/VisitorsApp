@@ -31,6 +31,11 @@ class AdminPanelViewModel(
         loadDashboard()
     }
 
+    companion object {
+        /** Local retention window (days) — must mirror PurgeWorker.RETENTION_VISITS_DAYS. */
+        private const val RETENTION_DAYS = 10
+    }
+
     fun loadDashboard() {
         viewModelScope.launch {
             try {
@@ -61,7 +66,7 @@ class AdminPanelViewModel(
                 // 6. Calcular estadísticas
                 val activeVisits = visitsWithPersonInfo.filter { it.visit.exitDate == null }
                 val todayVisits = getTodayVisitsWithInfo(visitsWithPersonInfo)
-                val thisMonthVisits = getThisMonthVisitsWithInfo(visitsWithPersonInfo)
+                val thisMonthVisits = getRecentRetentionVisits(visitsWithPersonInfo)
 
                 _uiState.value = AdminPanelUiState.Success(
                     station = station,
@@ -127,16 +132,22 @@ class AdminPanelViewModel(
         return visits.filter { it.visit.entryDate >= startOfDay }
     }
 
-    private fun getThisMonthVisitsWithInfo(visits: List<VisitWithPersonInfo>): List<VisitWithPersonInfo> {
+    /**
+     * Visits from the last [RETENTION_DAYS] days. This window matches the
+     * PurgeWorker retention (synced visits older than that are deleted locally),
+     * so showing "this month" would be misleading — there is never more than
+     * ~10 days of local history.
+     */
+    private fun getRecentRetentionVisits(visits: List<VisitWithPersonInfo>): List<VisitWithPersonInfo> {
         val calendar = Calendar.getInstance()
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
-        val startOfMonth = calendar.timeInMillis
+        calendar.add(Calendar.DAY_OF_YEAR, -(RETENTION_DAYS - 1))  // include today
+        val windowStart = calendar.timeInMillis
 
-        return visits.filter { it.visit.entryDate >= startOfMonth }
+        return visits.filter { it.visit.entryDate >= windowStart }
     }
 
     /**
@@ -148,12 +159,20 @@ class AdminPanelViewModel(
         viewModelScope.launch {
             try {
                 val visit = visitRepository.getVisitById(visitId) ?: return@launch
-                val updatedVisit = if (visit.exitDate == null) {
-                    visit.copy(exitDate = System.currentTimeMillis())
+                val updatedVisit: Visit
+                if (visit.exitDate == null) {
+                    // Closing: go through endVisit so the checkout reaches the
+                    // backend (marks the row pending-resync + enqueues the
+                    // SyncWorker). updateVisit alone would only change it locally.
+                    val now = System.currentTimeMillis()
+                    visitRepository.endVisit(visitId, now)
+                    updatedVisit = visit.copy(exitDate = now)
                 } else {
-                    visit.copy(exitDate = null)
+                    // Reopening: registerReentry clears the checkout on the
+                    // backend and re-activates the visit (also enqueues sync).
+                    visitRepository.registerReentry(visitId)
+                    updatedVisit = visit.copy(exitDate = null)
                 }
-                visitRepository.updateVisit(updatedVisit)
 
                 // Immediately build the updated VisitWithPersonInfo from current state
                 // so the modal can refresh right away (loadDashboard is async).

@@ -109,6 +109,36 @@ object BadgeBitmapRenderer {
         return bmp
     }
 
+    /**
+     * Renders a tiny confirmation label used by the "test print" button.
+     * Kept very short (≈150 px tall) so it consumes minimal paper while still
+     * proving the printer receives and prints a real bitmap.
+     */
+    fun renderTestLabel(): Bitmap {
+        val h = 150
+        val bmp = Bitmap.createBitmap(BADGE_W, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        canvas.drawColor(Color.WHITE)
+
+        canvas.drawText(
+            "PRUEBA DE IMPRESION OK", BADGE_W / 2f, 60f,
+            paint {
+                color = CLR_TEXT; textSize = 38f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER; isAntiAlias = true
+            }
+        )
+        canvas.drawText(
+            SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date()),
+            BADGE_W / 2f, 110f,
+            paint {
+                color = CLR_GRAY; textSize = 26f
+                textAlign = Paint.Align.CENTER; isAntiAlias = true
+            }
+        )
+        return bmp
+    }
+
     // ── Section renderers ─────────────────────────────────────────────────
 
     /** Draws header: logo/text left + badge title right. Returns bottom Y. */
