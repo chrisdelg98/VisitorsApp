@@ -197,6 +197,11 @@ class ContinueVisitUseCase(
         v: com.eflglobal.visitorsapp.data.remote.dto.VisitorDto?
     ): Person = Person(
         personId        = personId,
+        // personId is the backend visitor UUID (visitor?.id ?: dto.visitorId).
+        // Mirroring it as remoteId marks the row as already synced so the
+        // SyncWorker won't POST it again — preventing a duplicate visitor when
+        // a station continues a visit created on another station.
+        remoteId        = personId,
         firstName       = v?.firstName ?: "?",
         lastName        = v?.lastName ?: "",
         documentNumber  = v?.documentNumber,

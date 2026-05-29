@@ -169,6 +169,7 @@ class PersonRepositoryImpl(
  */
 private fun VisitorDto.toDomainPerson(): Person = Person(
     personId          = id,
+    remoteId          = id,            // already a backend visitor — never re-POST
     firstName         = firstName,
     lastName          = lastName,
     documentNumber    = documentNumber,

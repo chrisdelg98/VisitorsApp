@@ -2,6 +2,13 @@ package com.eflglobal.visitorsapp.domain.model
 
 data class Person(
     val personId: String,
+    /**
+     * UUID assigned by the backend (mirrors [personId] for visitors that
+     * originate remotely). Null until the visitor has been pushed via
+     * `POST /v1/visitors`. The SyncWorker uses this to avoid re-creating a
+     * visitor that already exists in the backend.
+     */
+    val remoteId: String? = null,
     val firstName: String,
     val lastName: String,
     val documentNumber: String?,
