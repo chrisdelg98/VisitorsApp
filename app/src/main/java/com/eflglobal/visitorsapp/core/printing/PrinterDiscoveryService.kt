@@ -9,6 +9,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 
@@ -73,11 +76,15 @@ object PrinterDiscoveryService {
      *
      * Timeout: ~15 seconds total.
      */
-    suspend fun discoverAll(context: Context): List<DiscoveredPrinter> =
+    suspend fun discoverAll(
+        context: Context,
+        targetSubnet: String? = null,
+        targetHosts: List<String> = emptyList()
+    ): List<DiscoveredPrinter> =
         withContext(Dispatchers.IO) {
             val results = mutableListOf<DiscoveredPrinter>()
 
-            // ── Phase 1: SDK-based discovery ─────────────────────────────
+            // ── Phase 1: SDK-based discovery (broadcast — same subnet only) ──
             try {
                 coroutineScope {
                     val brotherJob = async { discoverBrother() }
@@ -98,21 +105,40 @@ object PrinterDiscoveryService {
 
             Log.i(TAG, "SDK discovery found ${results.size} printer(s)")
 
-            // ── Phase 2: Subnet port-scan fallback ───────────────────────
-            if (results.none { it.connectionType == PrinterConfig.ConnectionType.NETWORK }) {
-                val subnet = getDeviceSubnet(context)
-                if (subnet != null) {
-                    Log.i(TAG, "No network printers from SDK — falling back to subnet scan: $subnet.*")
-                    try {
-                        val portScanResults = withTimeoutOrNull(18_000L) {
-                            scanSubnet(subnet, 9100, 600)
-                        } ?: emptyList()
-                        results.addAll(portScanResults)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Subnet scan failed: ${e.message}")
-                    }
-                } else {
-                    Log.w(TAG, "Cannot determine device subnet — skipping port scan")
+            // ── Phase 1.5: direct unicast probe of known hosts ───────────
+            // The SDK discovery above relies on UDP broadcast, which routers do
+            // NOT forward across subnets. A direct unicast probe of a known IP
+            // (e.g. a Brother on a different subnet) is routable and works.
+            val cleanHosts = targetHosts.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+            if (cleanHosts.isNotEmpty()) {
+                Log.i(TAG, "Probing ${cleanHosts.size} known host(s) directly: $cleanHosts")
+                try {
+                    val probed = withTimeoutOrNull(10_000L) { probeHosts(cleanHosts, 9100) } ?: emptyList()
+                    results.addAll(probed)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Direct host probe failed: ${e.message}")
+                }
+            }
+
+            // ── Phase 2: subnet port-scan ────────────────────────────────
+            // Scan the explicitly requested subnet plus the subnet(s) derived
+            // from the known hosts (so a cross-subnet printer is reachable).
+            // The device's own subnet is only scanned as a last resort when
+            // nothing else turned up.
+            val subnets = LinkedHashSet<String>()
+            targetSubnet?.let { normalizeSubnet(it) }?.let { subnets.add(it) }
+            cleanHosts.forEach { host -> subnetOf(host)?.let { subnets.add(it) } }
+            if (subnets.isEmpty() && results.none { it.connectionType == PrinterConfig.ConnectionType.NETWORK }) {
+                getDeviceSubnet(context)?.let { subnets.add(it) }
+            }
+
+            for (sn in subnets) {
+                Log.i(TAG, "Subnet scan: $sn.*")
+                try {
+                    val scan = withTimeoutOrNull(25_000L) { scanSubnet(sn, 9100, 600) } ?: emptyList()
+                    results.addAll(scan)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Subnet scan failed for $sn: ${e.message}")
                 }
             }
 
@@ -120,6 +146,36 @@ object PrinterDiscoveryService {
             results.distinctBy { "${it.brand}|${it.ipAddress}|${it.serialOrNode}" }
                 .also { Log.i(TAG, "Discovery complete: ${it.size} printer(s) found") }
         }
+
+    /** Probes a fixed set of hosts on [port] in parallel (unicast, cross-subnet). */
+    private suspend fun probeHosts(hosts: List<String>, port: Int): List<DiscoveredPrinter> =
+        coroutineScope {
+            hosts.map { ip ->
+                async(Dispatchers.IO) {
+                    try {
+                        Socket().use { it.connect(InetSocketAddress(ip, port), 1500) }
+                        Log.i(TAG, "Host $ip: port $port open — probing brand")
+                        probePrinter(ip, port)
+                    } catch (e: Exception) {
+                        Log.d(TAG, "Host $ip not reachable on $port: ${e.message}")
+                        null
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+
+    /** "10.20.21.49" -> "10.20.21"; null if not a dotted IPv4. */
+    private fun subnetOf(host: String): String? {
+        val parts = host.trim().split(".")
+        val valid = parts.size == 4 && parts.all { val n = it.toIntOrNull(); n != null && n in 0..255 }
+        return if (valid) "${parts[0]}.${parts[1]}.${parts[2]}" else null
+    }
+
+    /** Accepts "10.20.21" or a full "10.20.21.x" and returns the /24 prefix; blank → null. */
+    private fun normalizeSubnet(input: String): String? {
+        val parts = input.trim().split(".").filter { it.isNotBlank() }
+        return if (parts.size >= 3) "${parts[0]}.${parts[1]}.${parts[2]}" else null
+    }
 
     /**
      * Returns the /24 subnet prefix of the device's WiFi IP, e.g. "10.20.21".
@@ -404,6 +460,35 @@ object PrinterDiscoveryService {
      * - Falls back to generic "Printer" if unidentifiable.
      */
     private fun probePrinter(ip: String, port: Int): DiscoveredPrinter {
+        // ── Try SNMP sysDescr (port 161) — reliable cross-subnet brand ID ──
+        // A unicast SNMP GET is routable across subnets, so a Brother/Zebra on
+        // a different subnet still gets its brand identified here.
+        snmpSysDescr(ip)?.let { sys ->
+            Log.d(TAG, "SNMP sysDescr $ip: ${sys.take(80)}")
+            if (sys.contains("Brother", ignoreCase = true)) {
+                val model = extractBrotherModel(sys)
+                return DiscoveredPrinter(
+                    brand          = PrinterConfig.PrinterBrand.BROTHER,
+                    model          = model,
+                    ipAddress      = ip,
+                    port           = port,
+                    connectionType = PrinterConfig.ConnectionType.NETWORK,
+                    displayName    = "$model — $ip"
+                )
+            }
+            if (sys.contains("Zebra", ignoreCase = true)) {
+                val model = extractZebraModel(sys)
+                return DiscoveredPrinter(
+                    brand          = PrinterConfig.PrinterBrand.ZEBRA,
+                    model          = model,
+                    ipAddress      = ip,
+                    port           = port,
+                    connectionType = PrinterConfig.ConnectionType.NETWORK,
+                    displayName    = "$model — $ip"
+                )
+            }
+        }
+
         // ── Try Zebra identification: send ~HI ──
         try {
             val socket = Socket()
@@ -494,6 +579,43 @@ object PrinterDiscoveryService {
         val modelRegex = Regex("((?:QL|TD|RJ|PT|MW)-\\w+)")
         val match = modelRegex.find(response)
         return match?.value ?: "Brother"
+    }
+
+    /**
+     * Sends an SNMPv1 GET for sysDescr (OID 1.3.6.1.2.1.1.1.0, community
+     * "public") and returns the raw response text. SNMP is enabled by default
+     * on Brother/Zebra network print servers and is **unicast**, so this works
+     * across subnets where broadcast discovery cannot. Returns null on timeout
+     * or when SNMP is disabled/blocked.
+     */
+    private fun snmpSysDescr(ip: String, timeoutMs: Int = 1200): String? {
+        // Fixed SNMPv1 GetRequest packet for sysDescr.0, community "public".
+        val request = byteArrayOf(
+            0x30, 0x29,
+            0x02, 0x01, 0x00,                                       // version: SNMPv1 (0)
+            0x04, 0x06, 0x70, 0x75, 0x62, 0x6C, 0x69, 0x63,         // community: "public"
+            0xA0.toByte(), 0x1C,                                    // GetRequest PDU
+            0x02, 0x04, 0x00, 0x00, 0x00, 0x01,                     // request-id
+            0x02, 0x01, 0x00,                                       // error-status
+            0x02, 0x01, 0x00,                                       // error-index
+            0x30, 0x0E,                                             // varbind list
+            0x30, 0x0C,                                             // varbind
+            0x06, 0x08, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x01, 0x01, 0x00, // OID 1.3.6.1.2.1.1.1.0
+            0x05, 0x00                                              // value: NULL
+        )
+        return try {
+            DatagramSocket().use { sock ->
+                sock.soTimeout = timeoutMs
+                val addr = InetAddress.getByName(ip)
+                sock.send(DatagramPacket(request, request.size, addr, 161))
+                val buf = ByteArray(1024)
+                val resp = DatagramPacket(buf, buf.size)
+                sock.receive(resp)
+                String(buf, 0, resp.length, Charsets.ISO_8859_1)
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**

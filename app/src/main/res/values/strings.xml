@@ -314,6 +314,8 @@
 
     <!-- Printer Discovery -->
     <string name="printer_discovery_title">Descubrimiento de Impresoras</string>
+    <string name="printer_scan_subnet">Subred a escanear (opcional)</string>
+    <string name="printer_scan_subnet_hint">Para impresoras en otra subred. Ej: 10.20.21</string>
     <string name="printer_scan_network">Escanear Red</string>
     <string name="printer_scanning">Buscando impresoras…</string>
     <string name="printer_scan_complete">Escaneo completado</string>

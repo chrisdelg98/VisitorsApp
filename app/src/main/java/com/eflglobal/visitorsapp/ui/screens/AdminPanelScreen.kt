@@ -1810,6 +1810,17 @@ private fun PrinterSettingsDialog(
     var scanCompleted  by remember { mutableStateOf(false) }
     var discoveredPrinters by remember { mutableStateOf<List<DiscoveredPrinter>>(emptyList()) }
     var scanMessage    by remember { mutableStateOf<String?>(null) }
+    // Optional /24 to port-scan for printers on a different subnet than the
+    // tablet (broadcast discovery can't cross subnets). Pre-filled from the
+    // configured host's subnet as a convenience.
+    var scanSubnet     by remember(currentConfig) {
+        mutableStateOf(
+            (currentConfig.networkHost ?: "").split(".")
+                .takeIf { it.size == 4 }
+                ?.let { "${it[0]}.${it[1]}.${it[2]}" }
+                ?: ""
+        )
+    }
 
     // Auto-discovery toggle
     val autoDiscoveryFlow = remember { PrinterConfigRepository.isAutoDiscoveryEnabled(rawContext) }
@@ -1834,7 +1845,11 @@ private fun PrinterSettingsDialog(
             scanMessage = null
             discoveredPrinters = emptyList()
             try {
-                val results = PrinterDiscoveryService.discoverAll(rawContext)
+                val results = PrinterDiscoveryService.discoverAll(
+                    context      = rawContext,
+                    targetSubnet = scanSubnet.ifBlank { null },
+                    targetHosts  = listOfNotNull(ipAddress.ifBlank { null })
+                )
                 discoveredPrinters = results
                 scanCompleted = true
             } catch (e: Exception) {
@@ -1847,7 +1862,12 @@ private fun PrinterSettingsDialog(
 
     // ── Select discovered printer ────────────────────────────────────
     fun selectDiscoveredPrinter(printer: DiscoveredPrinter) {
-        selectedBrand = printer.brand
+        // A port-scan hit that couldn't be branded (SNMP off / no ~HI reply)
+        // comes back as NONE — keep whatever brand the operator already picked
+        // instead of resetting it, so a known Brother stays Brother.
+        if (printer.brand != PrinterConfig.PrinterBrand.NONE) {
+            selectedBrand = printer.brand
+        }
         selectedType  = printer.connectionType
         if (printer.ipAddress != null) {
             ipAddress = printer.ipAddress
@@ -2073,6 +2093,20 @@ private fun PrinterSettingsDialog(
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = SlatePrimary
+                                )
+                                Spacer(Modifier.height(10.dp))
+
+                                // Optional subnet for cross-subnet scanning.
+                                // The typed IP (above) is always probed directly;
+                                // this scans a whole /24 when the exact IP is unknown.
+                                OutlinedTextField(
+                                    value          = scanSubnet,
+                                    onValueChange  = { scanSubnet = it },
+                                    label          = { Text(stringResource(R.string.printer_scan_subnet)) },
+                                    placeholder    = { Text("10.20.21") },
+                                    supportingText = { Text(stringResource(R.string.printer_scan_subnet_hint)) },
+                                    singleLine     = true,
+                                    modifier       = Modifier.fillMaxWidth()
                                 )
                                 Spacer(Modifier.height(10.dp))
 
