@@ -54,10 +54,15 @@ object DocumentValidator {
     // ─── Thresholds ───────────────────────────────────────────────────────────
 
     /** Minimum Laplacian-variance sharpness on the RAW captured bitmap. */
-    const val RAW_SHARPNESS_MIN = 15f
+    const val RAW_SHARPNESS_MIN = 10f
 
-    /** Minimum Laplacian-variance sharpness on the CROPPED document region. */
-    const val CROP_SHARPNESS_MIN = 20f
+    /**
+     * Minimum Laplacian-variance sharpness on the CROPPED document region.
+     * Kept at/below [RAW_SHARPNESS_MIN] so the crop gate isn't stricter than the
+     * raw gate — softer-but-readable captures are accepted (templates / MRZ /
+     * barcode make the pipeline robust to moderate blur).
+     */
+    const val CROP_SHARPNESS_MIN = 13f
 
     /** Minimum OCR character count to consider a side "readable". */
     const val OCR_MIN_CHARS = 12

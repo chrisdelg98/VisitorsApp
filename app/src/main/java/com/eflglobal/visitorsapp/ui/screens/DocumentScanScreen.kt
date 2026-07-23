@@ -526,10 +526,10 @@ private sealed class ScanState {
 // ── Tuning constants ─────────────────────────────────────────────────────────
 
 /** YUV live-frame sharpness floor.  Below this: document not yet steady. */
-private const val LIVE_THRESHOLD = 20f
+private const val LIVE_THRESHOLD = 13f
 
 /** Number of consecutive frames above [LIVE_THRESHOLD] required before capture. */
-private const val STREAK_REQUIRED = 6
+private const val STREAK_REQUIRED = 4
 
 /** Camera warm-up period (ms) — gives the user time to position the document before scanning begins. */
 private const val WARMUP_MS = 3500L
