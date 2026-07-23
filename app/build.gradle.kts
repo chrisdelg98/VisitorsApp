@@ -151,6 +151,10 @@ dependencies {
     // ML Kit Face Detection (on-device — selfie validation)
     implementation("com.google.mlkit:face-detection:16.1.7")
 
+    // ML Kit Barcode Scanning (on-device — PDF417/QR/CODE_128 on document backs,
+    // e.g. AAMVA on US/CA licences). Bundled model, no Play Services download.
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
     // ZXing for QR Code generation and scanning
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")

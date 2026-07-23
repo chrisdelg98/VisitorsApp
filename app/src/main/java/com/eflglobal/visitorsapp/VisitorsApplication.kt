@@ -4,6 +4,7 @@ import android.app.Application
 import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryWorker
 import com.eflglobal.visitorsapp.data.sync.PurgeScheduler
 import com.eflglobal.visitorsapp.data.sync.SyncScheduler
+import com.eflglobal.visitorsapp.data.sync.TemplateSyncScheduler
 
 /**
  * Application class para la app de registro de visitantes.
@@ -26,6 +27,12 @@ class VisitorsApplication : Application() {
 
         // Daily local retention pass (Phase 8).
         PurgeScheduler.schedule(this)
+
+        // OCR template catalog — daily conditional sync + an immediate pass so a
+        // freshly-published catalog reaches the tablet ASAP. Offline-first: the
+        // OCR pipeline degrades to the generic path when the catalog is empty.
+        TemplateSyncScheduler.scheduleDaily(this)
+        TemplateSyncScheduler.enqueueNow(this)
     }
 }
 

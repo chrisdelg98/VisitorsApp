@@ -6,11 +6,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.eflglobal.visitorsapp.data.local.dao.DocumentTemplateDao
 import com.eflglobal.visitorsapp.data.local.dao.OcrMetricDao
 import com.eflglobal.visitorsapp.data.local.dao.PersonDao
 import com.eflglobal.visitorsapp.data.local.dao.StationDao
 import com.eflglobal.visitorsapp.data.local.dao.VisitDao
 import com.eflglobal.visitorsapp.data.local.dao.VisitReasonDao
+import com.eflglobal.visitorsapp.data.local.entity.DocumentTemplateEntity
 import com.eflglobal.visitorsapp.data.local.entity.OcrMetricEntity
 import com.eflglobal.visitorsapp.data.local.entity.PersonEntity
 import com.eflglobal.visitorsapp.data.local.entity.StationEntity
@@ -26,9 +28,10 @@ import kotlinx.coroutines.launch
         VisitEntity::class,
         StationEntity::class,
         VisitReasonEntity::class,
-        OcrMetricEntity::class
+        OcrMetricEntity::class,
+        DocumentTemplateEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -38,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun stationDao(): StationDao
     abstract fun visitReasonDao(): VisitReasonDao
     abstract fun ocrMetricDao(): OcrMetricDao
+    abstract fun documentTemplateDao(): DocumentTemplateDao
 
     companion object {
         private const val DATABASE_NAME = "visitors_app_database"
@@ -143,6 +147,38 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration 9 → 10: adds the OCR template catalog table (Phase — OCR
+         * templates). Signature and fields are stored as JSON strings; the whole
+         * table is replaced transactionally on every catalog sync.
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS document_templates (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        documentTypeId TEXT,
+                        countryId TEXT,
+                        code TEXT,
+                        name TEXT,
+                        documentKind TEXT,
+                        subdivision TEXT,
+                        version INTEGER NOT NULL,
+                        side TEXT NOT NULL,
+                        extractionMethod TEXT NOT NULL,
+                        signatureJson TEXT NOT NULL,
+                        fieldsJson TEXT NOT NULL,
+                        publishedAt TEXT,
+                        updatedAt TEXT
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_document_templates_countryId ON document_templates(countryId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_document_templates_side ON document_templates(side)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -153,7 +189,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     .fallbackToDestructiveMigration()
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {

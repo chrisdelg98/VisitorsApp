@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp.core.ocr
 
 import com.eflglobal.visitorsapp.data.local.dao.OcrMetricDao
 import com.eflglobal.visitorsapp.domain.model.DocumentClassification
+import com.eflglobal.visitorsapp.domain.model.DocumentTemplate
 import com.eflglobal.visitorsapp.domain.model.ExtractedField
 import com.eflglobal.visitorsapp.domain.model.FieldSource
 import com.google.mlkit.vision.text.Text
@@ -10,22 +11,27 @@ import com.google.mlkit.vision.text.Text
  * ═══════════════════════════════════════════════════════════════════════════════
  * DocumentProcessingPipeline
  *
- * Central orchestrator that replaces the ad-hoc logic in DocumentDataExtractor.
+ * Central orchestrator. Pipeline steps (in order):
  *
- * Pipeline steps (in order):
+ *   1. DocumentClassifier   — generic country/type guess (fallback signal)
+ *   2. MrzParser            — MRZ extraction
+ *   3. TemplateMatcher      — data-driven identification from the local catalog
+ *   4. Barcode fields       — AAMVA/known parse from the back-side barcode
+ *   5. TemplateFieldExtractor — anchor/zone field extraction for the matched template
+ *   6. EntityExtractionAdapter — async ML Kit entity pass (bonus signals)
+ *   7. FieldScoringEngine   — probabilistic per-field scoring (generic FALLBACK)
+ *   8. Priority merge       — BARCODE > MRZ > TEMPLATE > generic > legacy
+ *   9. Failure reporting    — unrecognised / low-confidence / unknown barcode
+ *  10. MetricsLogger        — fire-and-forget persistence
  *
- *   1. DocumentClassifier  — classify country + doc type, get confidence
- *   2. MrzParser           — attempt MRZ extraction (highest reliability)
- *   3. EntityExtractionAdapter — async ML Kit entity pass (bonus signals)
- *   4. FieldScoringEngine  — probabilistic per-field scoring
- *   5. Confidence threshold gate — only auto-fill fields ≥ 0.60
- *   6. MetricsLogger       — fire-and-forget persistence
- *
- * Returns [PipelineResult] which replaces DocumentDataExtractor.ExtractionResult.
- * DocumentDataExtractor is kept as a compatibility shim that delegates here.
+ * Offline-first: with an empty catalog and no barcode, steps 3–5 no-op and the
+ * behaviour is identical to the previous generic-only pipeline.
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 object DocumentProcessingPipeline {
+
+    // Confidence assigned to AAMVA barcode fields (US/CA — standard & reliable).
+    private const val BARCODE_CONFIDENCE = 0.92f
 
     // ─── Result ───────────────────────────────────────────────────────────────
 
@@ -37,168 +43,239 @@ object DocumentProcessingPipeline {
         val mrzData: MrzParser.MrzData?,
         val fullOcrText: String,
         /** Row ID of the metric entry — pass to MetricsLogger.logCorrections() later. */
-        val metricId: Long = -1L
+        val metricId: Long = -1L,
+        /** The catalog template that identified this document, if any. */
+        val matchedTemplate: DocumentTemplate? = null,
+        /** The decoded/parsed barcode for this side, if any. */
+        val barcode: BarcodeReader.BarcodeReadResult? = null
     ) {
-        /** Convenience: auto-fillable first name or null */
         val autoFirstName: String? get() =
             firstName.value?.takeIf { firstName.isAutoFillable }
-
-        /** Convenience: auto-fillable last name or null */
         val autoLastName: String? get() =
             lastName.value?.takeIf { lastName.isAutoFillable }
-
-        /** Convenience: auto-fillable document number or null */
         val autoDocNumber: String? get() =
             documentNumber.value?.takeIf { documentNumber.isAutoFillable }
+    }
+
+    /**
+     * Called by the pipeline when a document could not be reliably read, so the
+     * caller (which owns Context/network) can enqueue a failure report. The
+     * pipeline itself stays free of the data layer.
+     *
+     * @param barcodeRaw  Raw barcode content when a code was present but not parsed.
+     */
+    fun interface UnrecognisedSink {
+        suspend fun onUnrecognised(
+            detectedType: String?,
+            detectedConfidence: Float?,
+            barcodeRaw: String?
+        )
     }
 
     // ─── Public API ───────────────────────────────────────────────────────────
 
     /**
-     * Run the full pipeline on already-obtained OCR text.
+     * Run the full pipeline.
      *
      * @param fullText      Raw OCR string from ML Kit.
-     * @param visionText    Structured ML Kit Text (used for block-level hints).
+     * @param visionText    Structured ML Kit Text (block boxes for template extraction).
      * @param ocrMetricDao  Optional DAO — when provided, metrics are persisted.
+     * @param templates     Local OCR template catalog (empty → generic pipeline).
+     * @param barcode       Decoded/parsed barcode for this side (null → none).
+     * @param imageWidth    Pixel width of the OCR'd bitmap (for zone/aspect); 0 = unknown.
+     * @param imageHeight   Pixel height of the OCR'd bitmap.
+     * @param isBackSide    True when the scanned side is the reverse.
+     * @param unrecognisedSink  Optional callback to report unreadable documents.
      */
     suspend fun process(
         fullText: String,
         visionText: Text?,
-        ocrMetricDao: OcrMetricDao? = null
+        ocrMetricDao: OcrMetricDao? = null,
+        templates: List<DocumentTemplate> = emptyList(),
+        barcode: BarcodeReader.BarcodeReadResult? = null,
+        imageWidth: Int = 0,
+        imageHeight: Int = 0,
+        isBackSide: Boolean = false,
+        unrecognisedSink: UnrecognisedSink? = null
     ): PipelineResult {
 
-        log("=== Pipeline START (${fullText.length} chars) ===")
+        log("=== Pipeline START (${fullText.length} chars, templates=${templates.size}, barcode=${barcode != null}) ===")
 
-        if (fullText.isBlank()) {
-            log("Empty OCR text — returning empty result")
+        if (fullText.isBlank() && barcode == null) {
+            log("Empty OCR text and no barcode — returning empty result")
             return emptyResult(fullText)
         }
 
-        val lines = fullText.split("\n")
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
+        val lines = fullText.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+        val aspectRatio = if (imageWidth > 0 && imageHeight > 0)
+            imageWidth.toFloat() / imageHeight else null
 
-        // ── STEP 1: Classify document ─────────────────────────────────────────
-        val classification = DocumentClassifier.classify(fullText)
-        log("STEP 1 classification → ${classification.country}/${classification.documentType} conf=${"%.2f".format(classification.confidence)}")
-
-        // If confidence < 0.50 we still attempt extraction, but thresholds are stricter
-        val isClassified = classification.isReliable
+        // ── STEP 1: Generic classification (fallback signal) ──────────────────
+        val genericClassification = DocumentClassifier.classify(fullText)
 
         // ── STEP 2: MRZ ───────────────────────────────────────────────────────
         val mrzData = MrzParser.parse(fullText)
-        if (mrzData != null && mrzData.isReliable) {
-            log("STEP 2 MRZ ✅ format=${mrzData.mrzFormat}")
-            val fnField = ExtractedField(
-                value      = mrzData.firstName.ifBlank { null },
-                confidence = mrzData.confidence,
-                source     = FieldSource.MRZ
-            )
-            val lnField = ExtractedField(
-                value      = mrzData.lastName.ifBlank { null },
-                confidence = mrzData.confidence,
-                source     = FieldSource.MRZ
-            )
-            val docField = ExtractedField(
-                value      = mrzData.documentNumber.ifBlank { null },
-                confidence = mrzData.confidence,
-                source     = FieldSource.MRZ
-            )
-            val metricId = ocrMetricDao?.let {
-                MetricsLogger.logScan(it, classification, fnField, lnField, docField, fullText, hasMrz = true)
-            } ?: -1L
-            return PipelineResult(fnField, lnField, docField, classification, mrzData, fullText, metricId)
-        }
-        log("STEP 2 MRZ — not found or unreliable")
+        val mrzReliable = mrzData != null && mrzData.isReliable
+        val hasMrz = mrzData != null
 
-        // ── STEP 3: Entity extraction (async, optional) ────────────────────────
+        // ── STEP 3: Template identification (data-driven) ─────────────────────
+        val templateMatch = TemplateMatcher.identify(
+            templates   = templates,
+            ocrText     = fullText,
+            hasMrz      = hasMrz,
+            hasBarcode  = barcode != null,
+            aspectRatio = aspectRatio,
+            isBackSide  = isBackSide
+        )
+        if (templateMatch != null) {
+            log("STEP 3 template ✅ '${templateMatch.template.code}' score=${"%.2f".format(templateMatch.score)}")
+        }
+
+        // Prefer template-derived classification over the hardcoded classifier.
+        val classification = templateMatch?.let { m ->
+            DocumentClassification(
+                country      = m.template.countryId ?: genericClassification.country,
+                documentType = (m.template.documentKind ?: m.template.code ?: genericClassification.documentType).uppercase(),
+                confidence   = m.score,
+                signals      = m.signals + "template:${m.template.code}"
+            )
+        } ?: genericClassification
+
+        // ── STEP 4: Barcode fields — ONLY from AAMVA (US/CA standard) ──────────
+        // Non-AAMVA barcodes (e.g. the SV DUI, which carries only verification
+        // data) never fill fields — those documents are read via OCR templates.
+        // Their raw content is still captured for the failure report below.
+        val aamva = barcode?.takeIf { it.parser == BarcodeReader.ParserType.AAMVA }
+        val bcFn  = aamva?.firstName?.let      { field(it, BARCODE_CONFIDENCE, FieldSource.BARCODE) }
+        val bcLn  = aamva?.lastName?.let       { field(it, BARCODE_CONFIDENCE, FieldSource.BARCODE) }
+        val bcDoc = aamva?.documentNumber?.let { field(it, BARCODE_CONFIDENCE, FieldSource.BARCODE) }
+
+        // ── STEP 5: Template field extraction (anchor/zone) ───────────────────
+        val templateFields = templateMatch?.let {
+            TemplateFieldExtractor.extract(it.template.fields, visionText, imageWidth, imageHeight)
+        } ?: emptyMap()
+        val tplFn  = templateFields["first_name"]?.let      { field(it.value, it.confidence, FieldSource.TEMPLATE) }
+        val tplLn  = templateFields["last_name"]?.let       { field(it.value, it.confidence, FieldSource.TEMPLATE) }
+        val tplDoc = templateFields["document_number"]?.let { field(it.value, it.confidence, FieldSource.TEMPLATE) }
+
+        // ── STEP 6: MRZ fields ────────────────────────────────────────────────
+        val mrzFn  = mrzData?.takeIf { mrzReliable }?.firstName?.ifBlank { null }?.let      { field(it, mrzData.confidence, FieldSource.MRZ) }
+        val mrzLn  = mrzData?.takeIf { mrzReliable }?.lastName?.ifBlank { null }?.let       { field(it, mrzData.confidence, FieldSource.MRZ) }
+        val mrzDoc = mrzData?.takeIf { mrzReliable }?.documentNumber?.ifBlank { null }?.let { field(it, mrzData.confidence, FieldSource.MRZ) }
+
+        // ── STEP 7: Entity + generic scoring (FALLBACK) ───────────────────────
         val entities = try {
             EntityExtractionAdapter.extractEntities(fullText)
         } catch (e: Exception) {
-            log("STEP 3 entity extraction failed silently: ${e.message}")
             EntityExtractionAdapter.EntityExtractionResult.EMPTY
         }
-        log("STEP 3 entities → nonName=${entities.nonNameLines.size} dateLines=${entities.dateLines.size}")
+        val genFnRaw  = FieldScoringEngine.scoreFirstName(lines, classification)
+        val genLnRaw  = FieldScoringEngine.scoreLastName(lines, classification)
+        val genDoc    = FieldScoringEngine.scoreDocumentNumber(lines, classification)
+        val genFn = penaliseIfNonName(genFnRaw, entities.nonNameLines)
+        val genLn = penaliseIfNonName(genLnRaw, entities.nonNameLines)
 
-        // ── STEP 4: Field scoring ─────────────────────────────────────────────
-        // Lines confirmed as dates/phones by entity extraction are penalised
-        // by passing them as context — FieldScoringEngine scores each line anyway
-        // so we add the non-name lines as negative-boost set.
-        val entityNonNameLines = entities.nonNameLines
+        // Legacy heuristic fallback (lowest priority).
+        val legacyFn  = if (genFn.value.isNullOrBlank())  legacyFallbackName(fullText, isFirst = true)  else null
+        val legacyLn  = if (genLn.value.isNullOrBlank())  legacyFallbackName(fullText, isFirst = false) else null
+        val legacyDoc = if (genDoc.value.isNullOrBlank()) legacyFallbackDoc(fullText) else null
 
-        val rawFirstName = FieldScoringEngine.scoreFirstName(
-            lines          = lines,
+        // ── STEP 8: Priority merge  (BARCODE > MRZ > TEMPLATE > generic > legacy)
+        val fnFinal  = firstUsable(bcFn, mrzFn, tplFn, genFn, legacyFn)
+        val lnFinal  = firstUsable(bcLn, mrzLn, tplLn, genLn, legacyLn)
+        val docFinal = firstUsable(bcDoc, mrzDoc, tplDoc, genDoc, legacyDoc)
+
+        log("STEP 8 merged → fn='${fnFinal.value}'(${fnFinal.source}) ln='${lnFinal.value}'(${lnFinal.source}) doc='${docFinal.value}'(${docFinal.source})")
+
+        // ── STEP 9: Failure reporting ─────────────────────────────────────────
+        maybeReportFailure(
+            templates      = templates,
+            templateMatch  = templateMatch,
+            barcode        = barcode,
             classification = classification,
-            entityBoostLines = emptySet() // no positive person-entity boost available in public SDK
-        )
-        val rawLastName = FieldScoringEngine.scoreLastName(
-            lines          = lines,
-            classification = classification,
-            entityBoostLines = emptySet()
-        )
-        val rawDocNumber = FieldScoringEngine.scoreDocumentNumber(
-            lines          = lines,
-            classification = classification
+            fnFinal        = fnFinal,
+            lnFinal        = lnFinal,
+            docFinal       = docFinal,
+            sink           = unrecognisedSink
         )
 
-        log("STEP 4 scoring → fn='${rawFirstName.value}' conf=${"%.2f".format(rawFirstName.confidence)} | " +
-            "ln='${rawLastName.value}' conf=${"%.2f".format(rawLastName.confidence)} | " +
-            "doc='${rawDocNumber.value}' conf=${"%.2f".format(rawDocNumber.confidence)}")
-
-        // ── STEP 5: Confidence threshold gate ────────────────────────────────
-        // Fields below AUTOFILL_THRESHOLD (0.60) still carry their value so the
-        // UI can show them with a warning badge, but isAutoFillable will be false.
-        val firstName  = penaliseIfNonName(rawFirstName, entityNonNameLines)
-        val lastName   = penaliseIfNonName(rawLastName, entityNonNameLines)
-
-        // ── STEP 6: Fallback — if scoring found nothing, try legacy extractor ──
-        val fnFinal  = if (firstName.value.isNullOrBlank())  legacyFallbackName(fullText, isFirst = true)  else firstName
-        val lnFinal  = if (lastName.value.isNullOrBlank())   legacyFallbackName(fullText, isFirst = false) else lastName
-        val docFinal = if (rawDocNumber.value.isNullOrBlank()) legacyFallbackDoc(fullText) else rawDocNumber
-
-        log("STEP 5/6 final → fn='${fnFinal.value}' autoFill=${fnFinal.isAutoFillable} | " +
-            "ln='${lnFinal.value}' autoFill=${lnFinal.isAutoFillable} | " +
-            "doc='${docFinal.value}' autoFill=${docFinal.isAutoFillable}")
-
-        // ── STEP 7: Metrics ───────────────────────────────────────────────────
+        // ── STEP 10: Metrics ──────────────────────────────────────────────────
         val metricId = ocrMetricDao?.let {
-            MetricsLogger.logScan(it, classification, fnFinal, lnFinal, docFinal, fullText, hasMrz = false)
+            MetricsLogger.logScan(it, classification, fnFinal, lnFinal, docFinal, fullText, hasMrz = mrzReliable)
         } ?: -1L
 
         log("=== Pipeline END ===")
 
         return PipelineResult(
-            firstName      = fnFinal,
-            lastName       = lnFinal,
-            documentNumber = docFinal,
-            classification = classification,
-            mrzData        = mrzData,
-            fullOcrText    = fullText,
-            metricId       = metricId
+            firstName       = fnFinal,
+            lastName        = lnFinal,
+            documentNumber  = docFinal,
+            classification  = classification,
+            mrzData         = mrzData,
+            fullOcrText     = fullText,
+            metricId        = metricId,
+            matchedTemplate = templateMatch?.template,
+            barcode         = barcode
         )
     }
+
+    // ─── Failure reporting decision ───────────────────────────────────────────
+
+    private suspend fun maybeReportFailure(
+        templates: List<DocumentTemplate>,
+        templateMatch: TemplateMatcher.Match?,
+        barcode: BarcodeReader.BarcodeReadResult?,
+        classification: DocumentClassification,
+        fnFinal: ExtractedField,
+        lnFinal: ExtractedField,
+        docFinal: ExtractedField,
+        sink: UnrecognisedSink?
+    ) {
+        if (sink == null) return
+
+        val unknownBarcode = barcode?.isUnknown == true
+        val lowConfidence = !fnFinal.isAutoFillable && !docFinal.isAutoFillable && !lnFinal.isAutoFillable
+        // Only report "no template" when a catalog actually exists (avoid spamming
+        // when offline / never synced). Always capture unknown barcodes.
+        val noTemplateWithCatalog = templates.isNotEmpty() && templateMatch == null
+
+        val shouldReport = unknownBarcode ||
+            noTemplateWithCatalog ||
+            (templates.isNotEmpty() && lowConfidence)
+
+        if (!shouldReport) return
+
+        log("STEP 9 reporting unrecognised (unknownBarcode=$unknownBarcode noTemplate=$noTemplateWithCatalog lowConf=$lowConfidence)")
+        sink.onUnrecognised(
+            classification.documentType.takeIf { it != "UNKNOWN" },
+            classification.confidence,
+            if (unknownBarcode) barcode?.rawValue else null
+        )
+    }
+
+    // ─── Merge / field helpers ─────────────────────────────────────────────────
+
+    /** First candidate with a non-blank value, in priority order. Empty if none. */
+    private fun firstUsable(vararg options: ExtractedField?): ExtractedField {
+        for (o in options) if (o != null && !o.value.isNullOrBlank()) return o
+        return ExtractedField.EMPTY
+    }
+
+    private fun field(value: String, confidence: Float, source: FieldSource): ExtractedField =
+        ExtractedField(value = value, confidence = confidence, source = source)
 
     // ─── Fallback to legacy extractor logic ───────────────────────────────────
 
     private fun legacyFallbackName(text: String, isFirst: Boolean): ExtractedField {
-        // Delegate to DocumentDataExtractor's existing proven logic
         val result = DocumentDataExtractor.extractFromText(text, null)
         val value  = if (isFirst) result.firstName else result.lastName
         if (value.isNullOrBlank()) return ExtractedField.EMPTY
-        return ExtractedField(
-            value      = value,
-            confidence = 0.55f, // below autofill threshold — shown as suggestion only
-            source     = FieldSource.HEURISTIC
-        )
+        return ExtractedField(value, 0.55f, FieldSource.HEURISTIC)
     }
 
     private fun legacyFallbackDoc(text: String): ExtractedField {
         val num = DocumentDataExtractor.extractDocumentNumber(text) ?: return ExtractedField.EMPTY
-        return ExtractedField(
-            value      = num,
-            confidence = 0.50f,
-            source     = FieldSource.HEURISTIC
-        )
+        return ExtractedField(num, 0.50f, FieldSource.HEURISTIC)
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -209,7 +286,6 @@ object DocumentProcessingPipeline {
         val isNonName = nonNameLines.any { field.value.contains(it, ignoreCase = true) }
         if (!isNonName) return field
         val penalised = (field.confidence - 0.20f).coerceAtLeast(0f)
-        log("  penalise '${field.value}' → ${"%.2f".format(field.confidence)} → ${"%.2f".format(penalised)}")
         return field.copy(
             confidence     = penalised,
             scoreBreakdown = field.scoreBreakdown + mapOf("entity_nonname_penalty" to -0.20f)
@@ -227,4 +303,3 @@ object DocumentProcessingPipeline {
 
     private fun log(msg: String) = android.util.Log.d("DocPipeline", msg)
 }
-

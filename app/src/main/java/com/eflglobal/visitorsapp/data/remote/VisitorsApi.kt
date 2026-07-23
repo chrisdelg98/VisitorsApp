@@ -4,6 +4,9 @@ import com.eflglobal.visitorsapp.data.remote.dto.ApiResponse
 import com.eflglobal.visitorsapp.data.remote.dto.CheckoutBody
 import com.eflglobal.visitorsapp.data.remote.dto.CreateVisitBody
 import com.eflglobal.visitorsapp.data.remote.dto.CreateVisitorBody
+import com.eflglobal.visitorsapp.data.remote.dto.FailedDocumentBody
+import com.eflglobal.visitorsapp.data.remote.dto.FailedDocumentResponse
+import com.eflglobal.visitorsapp.data.remote.dto.OcrTemplatesResponse
 import com.eflglobal.visitorsapp.data.remote.dto.ReentryBody
 import com.eflglobal.visitorsapp.data.remote.dto.StationDto
 import com.eflglobal.visitorsapp.data.remote.dto.ValidateStationBody
@@ -12,8 +15,10 @@ import com.eflglobal.visitorsapp.data.remote.dto.VisitorDto
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -162,5 +167,29 @@ interface VisitorsApi {
     suspend fun downloadByUrl(
         @Url url: String
     ): ResponseBody
+
+    // ── OCR templates ─────────────────────────────────────────────────────────
+
+    /**
+     * Complete snapshot of the published OCR templates. Send the stored
+     * `catalog_version` as [ifNoneMatch]; the backend replies `304 Not Modified`
+     * (empty body) when nothing changed. Returned as a raw [Response] so the
+     * caller can inspect the 304 status — this endpoint uses its own top-level
+     * envelope ([OcrTemplatesResponse]) rather than [ApiResponse].
+     */
+    @GET("v1/ocr/templates")
+    suspend fun getOcrTemplates(
+        @Header("If-None-Match") ifNoneMatch: String?
+    ): Response<OcrTemplatesResponse>
+
+    /**
+     * Reports a document that could not be read, for later template authoring /
+     * unknown-barcode analysis. Rate-limited server-side to 20/min/station.
+     * PRIVACY: send structured blocks / masked text, not the raw image.
+     */
+    @POST("v1/ocr/failed-documents")
+    suspend fun reportFailedDocument(
+        @Body body: FailedDocumentBody
+    ): Response<ApiResponse<FailedDocumentResponse>>
 }
 

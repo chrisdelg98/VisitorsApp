@@ -1,9 +1,13 @@
 package com.eflglobal.visitorsapp.core.validation
 
+import android.content.Context
 import android.graphics.Bitmap
+import com.eflglobal.visitorsapp.core.DependencyProvider
+import com.eflglobal.visitorsapp.core.ocr.BarcodeReader
 import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
 import com.eflglobal.visitorsapp.core.ocr.DocumentProcessingPipeline
-import com.eflglobal.visitorsapp.data.local.dao.OcrMetricDao
+import com.eflglobal.visitorsapp.data.repository.FailedDocumentReporter
+import com.eflglobal.visitorsapp.data.repository.TemplateRepository
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -134,12 +138,15 @@ object DocumentValidator {
      * @param isBackSide      True when scanning the back/reverse side.
      * @param referenceBitmap Previously accepted front-side bitmap (for dup check).
      * @param messages        Localised error strings — build from stringResource in the UI.
+     * @param appContext      When provided, enables OCR-template extraction, barcode
+     *                        reading and failure reporting. Null → generic pipeline only.
      */
     suspend fun validate(
         rawBitmap: Bitmap,
         isBackSide: Boolean = false,
         referenceBitmap: Bitmap? = null,
-        messages: ValidationMessages
+        messages: ValidationMessages,
+        appContext: Context? = null
     ): ValidationResult {
 
         // ── STEP 1: Raw sharpness ─────────────────────────────────────────────
@@ -181,7 +188,7 @@ object DocumentValidator {
 
         // ── STEP 4: OCR extraction ────────────────────────────────────────────
         val ocrData = try {
-            runOcr(cropped)
+            runOcr(cropped, appContext, isBackSide)
         } catch (e: Exception) {
             log("STEP 4 — OCR failed: ${e.message}")
             // OCR failure is non-blocking — proceed with empty data
@@ -330,12 +337,18 @@ object DocumentValidator {
     // ─── STEP 4: OCR ─────────────────────────────────────────────────────────
 
     /**
-     * Runs ML Kit OCR → DocumentProcessingPipeline (Classifier → MRZ → Scoring → Metrics)
-     * and returns structured [OcrData].
+     * Runs ML Kit OCR → DocumentProcessingPipeline (Classifier → MRZ → Template →
+     * Barcode → Scoring → Metrics) and returns structured [OcrData].
      *
-     * @param ocrMetricDao  Optional — when provided, each scan is logged for analytics.
+     * @param appContext  When provided, loads the OCR template catalog, reads the
+     *                    barcode/QR on the (back) side and reports unreadable docs.
+     * @param isBackSide  True when scanning the reverse — where AAMVA/PDF417 live.
      */
-    suspend fun runOcr(bitmap: Bitmap, ocrMetricDao: OcrMetricDao? = null): OcrData =
+    suspend fun runOcr(
+        bitmap: Bitmap,
+        appContext: Context? = null,
+        isBackSide: Boolean = false
+    ): OcrData =
         suspendCoroutine { cont ->
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
@@ -357,17 +370,47 @@ object DocumentValidator {
                 val wordCount = fullText.trim().split(Regex("\\s+")).count { it.length >= 2 }
                 val charCount = fullText.trim().length
 
-                log("STEP 4 OCR — ${processedBitmap.width}×${processedBitmap.height} → chars=$charCount lines=$lineCount")
+                // Capture OCR image dims (visionText boxes live in this space) BEFORE
+                // the scaled bitmap is recycled — used for zone/aspect + block reporting.
+                val procW = processedBitmap.width
+                val procH = processedBitmap.height
+
+                log("STEP 4 OCR — ${procW}×${procH} → chars=$charCount lines=$lineCount")
                 log("STEP 4 OCR full text: ${fullText.take(400)}")
 
                 if (processedBitmap !== bitmap) processedBitmap.recycle()
 
                 // Pipeline is suspend — launch an IO coroutine and resume the continuation when done
                 CoroutineScope(Dispatchers.IO).launch {
+                    // Offline-first: everything below degrades to empty/null on failure.
+                    val templates = appContext?.let {
+                        runCatching { TemplateRepository.get(it).getTemplates() }.getOrDefault(emptyList())
+                    } ?: emptyList()
+
+                    // Read the barcode/QR off the ORIGINAL cropped bitmap (not the
+                    // recycled scaled copy). Most relevant on the back side.
+                    val barcode = runCatching { BarcodeReader.read(bitmap) }.getOrNull()
+
+                    val dao = appContext?.let { DependencyProvider.provideOcrMetricDao(it) }
+
+                    val sink = appContext?.let { ctx ->
+                        DocumentProcessingPipeline.UnrecognisedSink { type, conf, raw ->
+                            FailedDocumentReporter.report(
+                                ctx, type, conf, visionText, procW, procH, raw
+                            )
+                        }
+                    }
+
                     val result = DocumentProcessingPipeline.process(
-                        fullText     = fullText,
-                        visionText   = visionText,
-                        ocrMetricDao = ocrMetricDao
+                        fullText         = fullText,
+                        visionText       = visionText,
+                        ocrMetricDao     = dao,
+                        templates        = templates,
+                        barcode          = barcode,
+                        imageWidth       = procW,
+                        imageHeight      = procH,
+                        isBackSide       = isBackSide,
+                        unrecognisedSink = sink
                     )
 
                     val detectedName = listOfNotNull(
@@ -415,7 +458,10 @@ object DocumentValidator {
     private fun mapFieldSource(
         source: com.eflglobal.visitorsapp.domain.model.FieldSource
     ): DocumentDataExtractor.ExtractionSource = when (source) {
+        // Barcode is the most reliable machine-readable source — map alongside MRZ.
+        com.eflglobal.visitorsapp.domain.model.FieldSource.BARCODE    -> DocumentDataExtractor.ExtractionSource.MRZ
         com.eflglobal.visitorsapp.domain.model.FieldSource.MRZ        -> DocumentDataExtractor.ExtractionSource.MRZ
+        com.eflglobal.visitorsapp.domain.model.FieldSource.TEMPLATE,
         com.eflglobal.visitorsapp.domain.model.FieldSource.LABEL_OCR  -> DocumentDataExtractor.ExtractionSource.OCR_KEYED
         com.eflglobal.visitorsapp.domain.model.FieldSource.ENTITY,
         com.eflglobal.visitorsapp.domain.model.FieldSource.HEURISTIC  -> DocumentDataExtractor.ExtractionSource.OCR_HEURISTIC

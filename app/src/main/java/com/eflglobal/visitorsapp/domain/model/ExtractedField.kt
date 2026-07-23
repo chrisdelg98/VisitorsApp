@@ -29,7 +29,9 @@ data class ExtractedField(
 }
 
 enum class FieldSource {
+    BARCODE,       // Decoded barcode/QR (AAMVA PDF417, etc.) — highest reliability
     MRZ,           // ISO 9303 Machine Readable Zone
+    TEMPLATE,      // Catalog template anchor/zone extraction
     LABEL_OCR,     // Label-keyed next-line extraction
     ENTITY,        // ML Kit Entity Extraction
     HEURISTIC,     // All-caps / pattern heuristic

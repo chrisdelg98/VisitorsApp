@@ -552,6 +552,7 @@ internal fun DocumentCameraModal(
     onCapture: (Bitmap, DocumentValidator.OcrData?) -> Unit
 ) {
     // ── State machine ────────────────────────────────────────────────────────
+    val appContext     = LocalContext.current.applicationContext
     var state          by remember { mutableStateOf<ScanState>(ScanState.Waiting) }
     var captureTrigger by remember { mutableStateOf(false) }
     val isCancelled    = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
@@ -658,7 +659,8 @@ internal fun DocumentCameraModal(
                                 rawBitmap       = rawBitmap,
                                 isBackSide      = isBackSide,
                                 referenceBitmap = referenceBitmap,
-                                messages        = validationMessages
+                                messages        = validationMessages,
+                                appContext      = appContext
                             )
 
                             // If the user cancelled while we were processing, discard the result silently
