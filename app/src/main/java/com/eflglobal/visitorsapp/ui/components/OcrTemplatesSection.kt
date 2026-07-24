@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,9 +47,9 @@ import androidx.compose.ui.unit.sp
 import com.eflglobal.visitorsapp.data.local.AppDatabase
 import com.eflglobal.visitorsapp.data.local.TemplateCatalogPrefs
 import com.eflglobal.visitorsapp.data.local.entity.DocumentTemplateEntity
-import com.eflglobal.visitorsapp.data.sync.TemplateSyncScheduler
+import com.eflglobal.visitorsapp.data.repository.TemplateRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,6 +72,7 @@ private val GreenBg = Color(0xFFE8F5E9)
 @Composable
 fun OcrTemplatesSection(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var templates by remember { mutableStateOf<List<DocumentTemplateEntity>>(emptyList()) }
     var loading   by remember { mutableStateOf(true) }
@@ -87,16 +89,6 @@ fun OcrTemplatesSection(modifier: Modifier = Modifier) {
             AppDatabase.getInstance(context).documentTemplateDao().getAll()
         }
         loading = false
-    }
-
-    // After a manual sync, WorkManager runs the pull off-thread; give it a few
-    // seconds then reload so the new catalog shows without a manual refresh.
-    LaunchedEffect(syncing) {
-        if (syncing) {
-            delay(4000)
-            refreshKey++
-            syncing = false
-        }
     }
 
     val dateFmt = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
@@ -144,8 +136,14 @@ fun OcrTemplatesSection(modifier: Modifier = Modifier) {
 
                     Button(
                         onClick = {
-                            TemplateSyncScheduler.enqueueNow(context)
                             syncing = true
+                            scope.launch {
+                                // Direct forced pull — never skipped by WorkManager
+                                // dedup, so a manual tap always fetches the latest.
+                                TemplateRepository.get(context).sync()
+                                refreshKey++
+                                syncing = false
+                            }
                         },
                         enabled = !syncing,
                         modifier = Modifier.fillMaxWidth().height(46.dp),
