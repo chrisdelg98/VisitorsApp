@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -81,6 +82,7 @@ fun PersonDataScreen(
 
     var firstName      by remember { mutableStateOf(detectedFirstName) }
     var lastName       by remember { mutableStateOf(detectedLastName) }
+    var documentNumber by remember { mutableStateOf(detectedDocNumber) }
     var company        by remember { mutableStateOf("") }
     var email          by remember { mutableStateOf("") }
     var phone          by remember { mutableStateOf("") }
@@ -222,30 +224,28 @@ fun PersonDataScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Document number — read-only optional
+                    // Document number — optional, editable (OCR may misread it)
                     OutlinedTextField(
-                        value         = detectedDocNumber,
-                        onValueChange = {},
-                        readOnly      = true,
-                        enabled       = false,
+                        value         = documentNumber,
+                        onValueChange = {
+                            documentNumber = it
+                            viewModel.setDocumentNumber(it)
+                        },
                         label         = { Text(stringResource(R.string.document_number) + " (" + stringResource(R.string.optional) + ")", fontSize = 11.sp) },
                         placeholder   = { Text(stringResource(R.string.ocr_none), fontSize = 11.sp) },
                         modifier      = Modifier.fillMaxWidth(),
                         shape         = RoundedCornerShape(12.dp),
                         colors        = OutlinedTextFieldDefaults.colors(
-                            disabledBorderColor = if (detectedDocNumber.isNotEmpty()) OrangePrimary.copy(alpha = 0.4f)
-                                                  else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                            disabledTextColor   = MaterialTheme.colorScheme.onSurface,
-                            disabledLabelColor  = if (detectedDocNumber.isNotEmpty()) OrangePrimary
-                                                  else MaterialTheme.colorScheme.onSurfaceVariant
+                            focusedBorderColor   = if (documentNumber.isNotEmpty()) OrangePrimary else SlatePrimary,
+                            focusedLabelColor    = if (documentNumber.isNotEmpty()) OrangePrimary else SlatePrimary,
+                            unfocusedBorderColor = if (documentNumber.isNotEmpty()) OrangePrimary.copy(alpha = 0.4f)
+                                                   else MaterialTheme.colorScheme.outline
                         ),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        singleLine = true,
+                        textStyle  = LocalTextStyle.current.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     )
-                    if (detectedDocNumber.isNotEmpty()) {
-                        Spacer(Modifier.height(10.dp))
-                    } else {
-                        Spacer(Modifier.height(10.dp))
-                    }
+
+                    Spacer(Modifier.height(10.dp))
 
                     // Company (optional)
                     OutlinedTextField(
@@ -766,7 +766,7 @@ private fun SelfieCaptureModal(
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
 
             // Guide circle with color feedback
             val guideColor = when (phase) {
@@ -777,8 +777,15 @@ private fun SelfieCaptureModal(
                 else             -> OrangePrimary
             }
 
+            // Make the guide as large as the screen allows so people naturally
+            // centre their face in it. Sized off the SMALLER screen dimension
+            // (so it never overflows in either orientation), leaving room for
+            // the label above and the status text below.
+            val configuration = LocalConfiguration.current
+            val guideDiameter = (minOf(configuration.screenWidthDp, configuration.screenHeightDp) * 0.82f).dp
+
             Box(
-                modifier         = Modifier.size(240.dp).border(4.dp, guideColor, CircleShape),
+                modifier         = Modifier.size(guideDiameter).border(4.dp, guideColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 when (phase) {
@@ -816,7 +823,7 @@ private fun SelfieCaptureModal(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
 
             // Status message
             val statusText = when (phase) {
