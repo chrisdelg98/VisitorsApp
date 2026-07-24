@@ -319,7 +319,8 @@
     <string name="nav_dashboard">Tableau de bord</string>
     <string name="printer_discovery_title">Découverte d\'Imprimantes</string>
     <string name="printer_scan_subnet">Sous-réseau à scanner (optionnel)</string>
-    <string name="printer_scan_subnet_hint">Pour les imprimantes sur un autre sous-réseau. Ex : 10.20.21</string>
+    <string name="printer_scan_subnet_hint">Pour les imprimantes sur un autre sous-réseau</string>
+    <string name="printer_your_ip">Votre IP :</string>
     <string name="printer_brand_unavailable">Marque non disponible</string>
     <string name="printer_test_print">Test d\'impression</string>
     <string name="printer_test_printing">Impression du test…</string>

@@ -171,45 +171,58 @@ object PrinterDiscoveryService {
         return if (valid) "${parts[0]}.${parts[1]}.${parts[2]}" else null
     }
 
-    /** Accepts "10.20.21" or a full "10.20.21.x" and returns the /24 prefix; blank → null. */
-    private fun normalizeSubnet(input: String): String? {
+    /**
+     * Accepts "10.20.21" or a full "10.20.21.x" (even the operator's own full
+     * IP) and returns the /24 prefix; blank/invalid → null. Public so the UI can
+     * treat a full IP as a valid subnet entry.
+     */
+    fun normalizeSubnet(input: String): String? {
         val parts = input.trim().split(".").filter { it.isNotBlank() }
         return if (parts.size >= 3) "${parts[0]}.${parts[1]}.${parts[2]}" else null
     }
 
     /**
-     * Returns the /24 subnet prefix of the device's WiFi IP, e.g. "10.20.21".
-     * Returns null if the device has no usable network interface.
+     * Full IPv4 address of the device's active WiFi/network interface, e.g.
+     * "10.20.21.49". Null if there is no usable interface. Exposed so the
+     * printer UI can show the operator their own IP as a scan hint.
      */
-    private fun getDeviceSubnet(context: Context): String? {
+    fun deviceIp(context: Context): String? {
         try {
             val wifiManager = context.applicationContext
                 .getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
+            @Suppress("DEPRECATION")
             val ip = wifiManager?.connectionInfo?.ipAddress ?: 0
             if (ip != 0) {
                 val a = ip and 0xFF
                 val b = (ip shr 8) and 0xFF
                 val c = (ip shr 16) and 0xFF
-                return "$a.$b.$c"
+                val d = (ip shr 24) and 0xFF
+                return "$a.$b.$c.$d"
             }
 
-            // Fallback: check all network interfaces
+            // Fallback: first non-loopback IPv4 across all network interfaces.
             val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val iface = interfaces.nextElement()
                 if (iface.isLoopback || !iface.isUp) continue
                 for (addr in iface.inetAddresses) {
                     if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
-                        val parts = addr.hostAddress?.split(".") ?: continue
-                        if (parts.size == 4) return "${parts[0]}.${parts[1]}.${parts[2]}"
+                        addr.hostAddress?.let { return it }
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "getDeviceSubnet error: ${e.message}")
+            Log.w(TAG, "deviceIp error: ${e.message}")
         }
         return null
     }
+
+    /**
+     * Returns the /24 subnet prefix of the device's WiFi IP, e.g. "10.20.21".
+     * Returns null if the device has no usable network interface.
+     */
+    private fun getDeviceSubnet(context: Context): String? =
+        deviceIp(context)?.let { subnetOf(it) }
 
     /**
      * Discovers only Brother printers on the network.

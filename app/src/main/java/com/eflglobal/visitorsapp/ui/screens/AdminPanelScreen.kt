@@ -1909,6 +1909,10 @@ private fun PrinterSettingsDialog(
                 ?: ""
         )
     }
+    // This tablet's own IP — shown as a hint so the operator knows which subnet
+    // they're on (and can tap it to fill the field). Read once; it doesn't change
+    // while the dialog is open.
+    val deviceIp = remember { PrinterDiscoveryService.deviceIp(rawContext) }
 
     // Auto-discovery toggle
     val autoDiscoveryFlow = remember { PrinterConfigRepository.isAutoDiscoveryEnabled(rawContext) }
@@ -1935,7 +1939,9 @@ private fun PrinterSettingsDialog(
             try {
                 val results = PrinterDiscoveryService.discoverAll(
                     context      = rawContext,
-                    targetSubnet = scanSubnet.ifBlank { null },
+                    // Accept a full IP (or the tablet's own IP) — normalise it
+                    // down to the /24 prefix so the subnet still gets scanned.
+                    targetSubnet = PrinterDiscoveryService.normalizeSubnet(scanSubnet),
                     targetHosts  = listOfNotNull(ipAddress.ifBlank { null })
                 )
                 discoveredPrinters = results
@@ -2181,8 +2187,20 @@ private fun PrinterSettingsDialog(
                                     value          = scanSubnet,
                                     onValueChange  = { scanSubnet = it },
                                     label          = { Text(stringResource(R.string.printer_scan_subnet)) },
-                                    placeholder    = { Text("10.20.21") },
-                                    supportingText = { Text(stringResource(R.string.printer_scan_subnet_hint)) },
+                                    placeholder    = { Text(deviceIp ?: "10.20.21") },
+                                    supportingText = {
+                                        Column {
+                                            Text(stringResource(R.string.printer_scan_subnet_hint))
+                                            if (deviceIp != null) {
+                                                Text(
+                                                    text = "${stringResource(R.string.printer_your_ip)} $deviceIp",
+                                                    color = OrangePrimary,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier.clickable { scanSubnet = deviceIp }
+                                                )
+                                            }
+                                        }
+                                    },
                                     singleLine     = true,
                                     modifier       = Modifier.fillMaxWidth()
                                 )

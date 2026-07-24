@@ -320,7 +320,8 @@
     <string name="nav_dashboard">Dashboard</string>
     <string name="printer_discovery_title">Printer Discovery</string>
     <string name="printer_scan_subnet">Subnet to scan (optional)</string>
-    <string name="printer_scan_subnet_hint">For printers on another subnet. E.g.: 10.20.21</string>
+    <string name="printer_scan_subnet_hint">For printers on another subnet</string>
+    <string name="printer_your_ip">Your IP:</string>
     <string name="printer_brand_unavailable">Brand unavailable</string>
     <string name="printer_test_print">Test print</string>
     <string name="printer_test_printing">Printing test…</string>
