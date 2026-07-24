@@ -147,6 +147,7 @@ class RecurrentVisitViewModel(
         visitingPersonName: String,
         editedFirstName: String? = null,
         editedLastName: String? = null,
+        editedDoc: String? = null,
         editedCompany: String? = null,
         editedEmail: String? = null,
         editedPhone: String? = null
@@ -164,6 +165,9 @@ class RecurrentVisitViewModel(
 
         val finalFirstName = (editedFirstName?.trim()?.ifBlank { null } ?: person.firstName).trim()
         val finalLastName = (editedLastName?.trim()?.ifBlank { null } ?: person.lastName).trim()
+        // Document number is optional — a blank edit clears it. Corrects an OCR
+        // misread on the existing visitor record.
+        val finalDoc = editedDoc?.trim()?.ifBlank { null } ?: person.documentNumber
         val finalCompany = editedCompany?.trim()?.ifBlank { null } ?: person.company
         val finalEmail = (editedEmail?.trim()?.ifBlank { null } ?: person.email).trim()
         val finalPhone = (editedPhone?.trim()?.ifBlank { null } ?: person.phoneNumber).trim()
@@ -187,6 +191,7 @@ class RecurrentVisitViewModel(
                 val hasPersonChanges =
                     finalFirstName != person.firstName ||
                     finalLastName  != person.lastName  ||
+                    finalDoc       != person.documentNumber ||
                     finalCompany   != person.company   ||
                     finalEmail     != person.email     ||
                     finalPhone     != person.phoneNumber ||
@@ -197,6 +202,7 @@ class RecurrentVisitViewModel(
                         person.copy(
                             firstName        = finalFirstName,
                             lastName         = finalLastName,
+                            documentNumber   = finalDoc,
                             company          = finalCompany,
                             email            = finalEmail,
                             phoneNumber      = finalPhone,

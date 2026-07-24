@@ -111,6 +111,14 @@ class NewVisitViewModel(
 
     fun setDocumentBack(path: String) { documentBackPath = path }
 
+    /**
+     * Overrides the document number when the operator corrects an OCR misread
+     * on the data form. Blank clears it (the field is optional).
+     */
+    fun setDocumentNumber(value: String?) {
+        documentNumber = value?.ifBlank { null }
+    }
+
     fun getDetectedFirstName(): String? = detectedFirstName
     fun getDetectedLastName(): String?  = detectedLastName
     /** Convenience — joined for backward-compat display. */

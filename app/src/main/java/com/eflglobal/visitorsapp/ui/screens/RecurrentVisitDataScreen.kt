@@ -587,6 +587,7 @@ fun RecurrentVisitDataScreen(
                         visitingPersonName = visitingPerson,
                         editedFirstName    = editFirstName,
                         editedLastName     = editLastName,
+                        editedDoc          = editDoc,
                         editedCompany      = editCompany,
                         editedEmail        = editEmail,
                         editedPhone        = editPhone
