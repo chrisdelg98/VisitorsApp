@@ -318,6 +318,7 @@
     <!-- Printer Discovery -->
     <string name="nav_printer">Impresora</string>
     <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_templates">Plantillas OCR</string>
     <string name="printer_discovery_title">Descubrimiento de Impresoras</string>
     <string name="printer_scan_subnet">Subred a escanear (opcional)</string>
     <string name="printer_scan_subnet_hint">Para impresoras en otra subred</string>

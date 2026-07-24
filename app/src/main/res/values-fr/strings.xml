@@ -317,6 +317,7 @@
     <!-- Printer Discovery -->
     <string name="nav_printer">Imprimante</string>
     <string name="nav_dashboard">Tableau de bord</string>
+    <string name="nav_templates">Modèles OCR</string>
     <string name="printer_discovery_title">Découverte d\'Imprimantes</string>
     <string name="printer_scan_subnet">Sous-réseau à scanner (optionnel)</string>
     <string name="printer_scan_subnet_hint">Pour les imprimantes sur un autre sous-réseau</string>

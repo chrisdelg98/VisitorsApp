@@ -318,6 +318,7 @@
     <!-- Printer Discovery -->
     <string name="nav_printer">Printer</string>
     <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_templates">OCR Templates</string>
     <string name="printer_discovery_title">Printer Discovery</string>
     <string name="printer_scan_subnet">Subnet to scan (optional)</string>
     <string name="printer_scan_subnet_hint">For printers on another subnet</string>

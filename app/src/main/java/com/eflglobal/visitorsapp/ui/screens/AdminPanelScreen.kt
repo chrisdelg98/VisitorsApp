@@ -50,6 +50,7 @@ import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryWorker
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
+import com.eflglobal.visitorsapp.ui.components.OcrTemplatesSection
 import com.eflglobal.visitorsapp.ui.components.SyncStatusPanel
 import com.eflglobal.visitorsapp.ui.components.VisitorBadgeButton
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
@@ -61,7 +62,7 @@ import java.util.*
 import kotlinx.coroutines.launch
 
 /** Top-level sections of the admin panel. Printer config is the landing view. */
-enum class AdminView { PRINTER, DASHBOARD }
+enum class AdminView { PRINTER, DASHBOARD, TEMPLATES }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -226,6 +227,7 @@ fun AdminPanelScreen(
                                 selectedLanguage = selectedLanguage,
                                 embedded = true
                             )
+                            AdminView.TEMPLATES -> OcrTemplatesSection()
                             AdminView.DASHBOARD -> AdminPanelContent(
                                 state = state,
                                 syncing = syncing,
@@ -370,6 +372,12 @@ private fun AdminNavBar(
                 icon     = Icons.Default.Dashboard,
                 selected = current == AdminView.DASHBOARD,
                 onClick  = { onSelect(AdminView.DASHBOARD) }
+            )
+            AdminNavButton(
+                label    = stringResource(R.string.nav_templates),
+                icon     = Icons.Default.DocumentScanner,
+                selected = current == AdminView.TEMPLATES,
+                onClick  = { onSelect(AdminView.TEMPLATES) }
             )
             Spacer(Modifier.weight(1f))
             OutlinedButton(

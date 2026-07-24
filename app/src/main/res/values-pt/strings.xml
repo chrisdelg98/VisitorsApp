@@ -318,6 +318,7 @@
     <!-- Printer Discovery -->
     <string name="nav_printer">Impressora</string>
     <string name="nav_dashboard">Painel</string>
+    <string name="nav_templates">Modelos OCR</string>
     <string name="printer_discovery_title">Descoberta de Impressoras</string>
     <string name="printer_scan_subnet">Sub-rede para escanear (opcional)</string>
     <string name="printer_scan_subnet_hint">Para impressoras em outra sub-rede</string>
