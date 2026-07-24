@@ -10,6 +10,7 @@ import com.eflglobal.visitorsapp.data.local.dao.VisitDao
 import com.eflglobal.visitorsapp.data.local.entity.PersonEntity
 import com.eflglobal.visitorsapp.data.local.entity.SyncStatus
 import com.eflglobal.visitorsapp.data.local.entity.VisitEntity
+import com.eflglobal.visitorsapp.core.utils.EmailValidator
 import com.eflglobal.visitorsapp.data.remote.ApiClient
 import com.eflglobal.visitorsapp.data.remote.ApiErrorCode
 import com.eflglobal.visitorsapp.data.remote.ApiException
@@ -219,7 +220,10 @@ class SyncWorker(
             lastName       = person.lastName,
             documentType   = mapDocumentType(person.documentType),
             documentNumber = person.documentNumber?.takeIf { it.isNotBlank() },
-            email          = person.email.takeIf { it.isNotBlank() },
+            // Email is optional. Only ship it when it's actually a valid address —
+            // otherwise the backend answers 422 and the row is parked as failed
+            // forever. A malformed value is simply dropped so the visit syncs.
+            email          = person.email.takeIf { EmailValidator.isValid(it) },
             phone          = person.phoneNumber.takeIf { it.isNotBlank() },
             company        = person.company?.takeIf { it.isNotBlank() }
         )

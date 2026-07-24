@@ -81,6 +81,9 @@
     <string name="company">Company</string>
     <string name="email">Email Address</string>
     <string name="enter_email">example@email.com</string>
+    <string name="invalid_email">Invalid email address</string>
+    <string name="sync_server">Sync</string>
+    <string name="syncing">Syncing…</string>
     <string name="phone">Phone Number</string>
     <string name="enter_phone">Enter phone number</string>
     <string name="who_visiting">Full Name of Person Being Visited</string>

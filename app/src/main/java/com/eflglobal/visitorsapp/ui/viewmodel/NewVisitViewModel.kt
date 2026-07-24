@@ -134,7 +134,8 @@ class NewVisitViewModel(
         visitingPersonName: String,
         profilePhotoPath: String?
     ) {
-        if (firstName.isBlank() || email.isBlank() || phoneNumber.isBlank() || visitingPersonName.isBlank()) {
+        // Email and phone are optional — only name and host are required.
+        if (firstName.isBlank() || visitingPersonName.isBlank()) {
             _uiState.value = NewVisitUiState.Error("All required fields must be filled")
             return
         }

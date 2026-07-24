@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eflglobal.visitorsapp.R
 import com.eflglobal.visitorsapp.core.ocr.DocumentDataExtractor
+import com.eflglobal.visitorsapp.core.utils.EmailValidator
 import com.eflglobal.visitorsapp.core.utils.FaceDetectionHelper
 import com.eflglobal.visitorsapp.core.utils.ImageSaver
 import com.eflglobal.visitorsapp.data.local.AppDatabase
@@ -127,13 +128,19 @@ fun PersonDataScreen(
         if (uiState is NewVisitUiState.Success) onContinue()
     }
 
+    // Email stays optional, but if the user typed something it must be a valid
+    // address — a malformed value would otherwise be rejected by the backend at
+    // sync time. Blank = no email = fine.
+    val emailInvalid = email.isNotBlank() && !EmailValidator.isValid(email)
+
+    // Email and phone are optional everywhere by product decision — only the
+    // name, host and visit reason gate the submit.
     val canSubmit = firstName.isNotBlank()
-        && email.isNotBlank()
-        && phone.isNotBlank()
         && visitingPerson.isNotBlank()
         && photoTaken
         && selectedReason != null
         && (!isOtherSelected || customReasonText.isNotBlank())
+        && !emailInvalid
         && uiState !is NewVisitUiState.Loading
 
     Scaffold(
@@ -261,7 +268,7 @@ fun PersonDataScreen(
                     OutlinedTextField(
                         value           = email,
                         onValueChange   = { email = it },
-                        label           = { Text(stringResource(R.string.email), fontSize = 11.sp) },
+                        label           = { Text(stringResource(R.string.email) + " (" + stringResource(R.string.optional) + ")", fontSize = 11.sp) },
                         placeholder     = { Text(stringResource(R.string.enter_email), fontSize = 11.sp) },
                         modifier        = Modifier.fillMaxWidth(),
                         shape           = RoundedCornerShape(12.dp),
@@ -270,6 +277,10 @@ fun PersonDataScreen(
                             focusedLabelColor  = SlatePrimary
                         ),
                         singleLine      = true,
+                        isError         = emailInvalid,
+                        supportingText  = if (emailInvalid) {
+                            { Text(stringResource(R.string.invalid_email), fontSize = 10.sp) }
+                        } else null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         textStyle       = LocalTextStyle.current.copy(fontSize = 13.sp)
                     )
@@ -280,7 +291,7 @@ fun PersonDataScreen(
                     OutlinedTextField(
                         value           = phone,
                         onValueChange   = { phone = it },
-                        label           = { Text(stringResource(R.string.phone), fontSize = 11.sp) },
+                        label           = { Text(stringResource(R.string.phone) + " (" + stringResource(R.string.optional) + ")", fontSize = 11.sp) },
                         placeholder     = { Text(stringResource(R.string.enter_phone), fontSize = 11.sp) },
                         modifier        = Modifier.fillMaxWidth(),
                         shape           = RoundedCornerShape(12.dp),
