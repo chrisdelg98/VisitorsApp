@@ -68,6 +68,9 @@ object ApiClient {
             // ApiResponse<Unit> (image upload, checkout). Moshi has no
             // built-in adapter for Kotlin's Unit type.
             .add(Unit::class.javaObjectType, UnitJsonAdapter)
+            // Tolerate the OCR catalog's `validation: []` (empty PHP array) where
+            // an object is expected — otherwise the whole catalog fails to parse.
+            .add(com.eflglobal.visitorsapp.data.remote.dto.ValidationDtoLenientAdapter)
             // KotlinJsonAdapterFactory handles non-codegen classes & defaults.
             .add(KotlinJsonAdapterFactory())
             .build()

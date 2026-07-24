@@ -1,7 +1,12 @@
 package com.eflglobal.visitorsapp.data.remote.dto
 
+import com.squareup.moshi.FromJson
 import com.squareup.moshi.Json
+import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.JsonClass
+import com.squareup.moshi.JsonReader
+import com.squareup.moshi.JsonWriter
+import com.squareup.moshi.ToJson
 
 /**
  * Top-level body of `GET /api/v1/ocr/templates`.
@@ -78,3 +83,28 @@ data class ValidationDto(
     val length: Int? = null,
     val charset: String? = null
 )
+
+/**
+ * The backend serialises a field's `validation` as a JSON object when it has
+ * rules, but as an EMPTY ARRAY `[]` when it has none (PHP's `json_encode([])`).
+ * Moshi choked on the array form ("Expected BEGIN_OBJECT but was BEGIN_ARRAY"),
+ * which failed the ENTIRE catalog parse and left the tablet with 0 templates.
+ *
+ * This delegating adapter treats an array (or null) as "no validation" and
+ * otherwise parses the object as usual.
+ */
+object ValidationDtoLenientAdapter {
+    @FromJson
+    fun fromJson(reader: JsonReader, delegate: JsonAdapter<ValidationDto>): ValidationDto? =
+        if (reader.peek() == JsonReader.Token.BEGIN_ARRAY) {
+            reader.skipValue()
+            null
+        } else {
+            delegate.fromJson(reader)
+        }
+
+    @ToJson
+    fun toJson(writer: JsonWriter, value: ValidationDto?, delegate: JsonAdapter<ValidationDto>) {
+        delegate.toJson(writer, value)
+    }
+}
