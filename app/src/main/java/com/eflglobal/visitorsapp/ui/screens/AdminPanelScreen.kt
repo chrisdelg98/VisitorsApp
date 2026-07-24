@@ -230,9 +230,7 @@ fun AdminPanelScreen(
                                 state = state,
                                 syncing = syncing,
                                 onRefresh = { viewModel.syncWithServer() },
-                                onOpenPrinterSettings = { adminView = AdminView.PRINTER },
                                 onOpenFilters = { showFiltersPanel = true },
-                                onLogout = { showLogoutDialog = true },
                                 selectedLanguage = selectedLanguage,
                                 filterStatus = filterStatus,
                                 filterVisitorType = filterVisitorType,
@@ -425,9 +423,7 @@ private fun AdminPanelContent(
     state: AdminPanelUiState.Success,
     syncing: Boolean,
     onRefresh: () -> Unit,
-    onOpenPrinterSettings: () -> Unit,
     onOpenFilters: () -> Unit,
-    onLogout: () -> Unit,
     selectedLanguage: String,
     filterStatus: Set<VisitFilterStatus>,
     filterVisitorType: Set<String>,
@@ -499,37 +495,6 @@ private fun AdminPanelContent(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // ── Fila de acciones principales (arriba de todo) ──
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onOpenPrinterSettings,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SlatePrimary),
-                    border = BorderStroke(1.dp, SlatePrimary.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.printer_settings), maxLines = 1, style = MaterialTheme.typography.labelMedium)
-                }
-                OutlinedButton(
-                    onClick = onLogout,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SlatePrimary),
-                    border = BorderStroke(1.dp, SlatePrimary.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.logout), maxLines = 1, style = MaterialTheme.typography.labelMedium)
-                }
-            }
-        }
-
         // ── Card de estación ──
         item {
             StationInfoCard(
