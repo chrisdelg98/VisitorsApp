@@ -126,7 +126,10 @@ class SyncWorker(
                         visitingPerson     = visit.visitingPersonName,
                         notes              = null,
                         originalVisitId    = visit.originalVisitId,
-                        reentryFromStationId = visit.reentryFromStationId
+                        reentryFromStationId = visit.reentryFromStationId,
+                        // Send the real entry time so the portal shows when the
+                        // visitor actually arrived, not when the row was synced.
+                        checkIn            = formatIso8601(visit.entryDate)
                     )
                 )
             }

@@ -67,7 +67,10 @@ data class CreateVisitBody(
     @Json(name = "visiting_person") val visitingPerson: String,
     @Json(name = "notes") val notes: String? = null,
     @Json(name = "original_visit_id") val originalVisitId: String? = null,
-    @Json(name = "reentry_from_station_id") val reentryFromStationId: String? = null
+    @Json(name = "reentry_from_station_id") val reentryFromStationId: String? = null,
+    // Device-local entry time (ISO-8601 with offset). When absent the backend
+    // stamps now(), which is wrong for visits uploaded hours/days after entry.
+    @Json(name = "check_in") val checkIn: String? = null
 )
 
 /**
