@@ -10,6 +10,17 @@ data class ReasonCount(
     val cnt: Int
 )
 
+/** Projection for the admin-panel sync-status list (pending + failed rows). */
+data class UnsyncedVisitDto(
+    val visitId: String,
+    val syncStatus: String,
+    val syncAttempts: Int,
+    val lastSyncError: String?,
+    val createdAt: Long,
+    val firstName: String?,
+    val lastName: String?
+)
+
 /** Visit with person information for display */
 data class VisitWithPersonDto(
     val visitId: String,
@@ -244,9 +255,36 @@ interface VisitDao {
 
     // ── Phase 3: per-row sync tracking against the backend ───────────────────
 
-    /** FIFO list of visits waiting to be uploaded by the SyncWorker. */
-    @Query("SELECT * FROM visits WHERE syncStatus = 'pending' ORDER BY createdAt ASC")
+    /**
+     * FIFO list of visits the SyncWorker should attempt to upload.
+     *
+     * Includes `failed` rows (not just `pending`): a row parked as `failed`
+     * after a server outage or a since-corrected validation error would
+     * otherwise never be retried — it would sit in the badge forever. Re-driving
+     * them each pass is cheap; genuinely-bad rows simply fail again and stay put.
+     */
+    @Query("SELECT * FROM visits WHERE syncStatus IN ('pending', 'failed') ORDER BY createdAt ASC")
     suspend fun getPendingVisits(): List<VisitEntity>
+
+    /**
+     * Detailed view of everything not yet synced, for the admin panel. Surfaces
+     * the per-row error so reception can see *why* a row is stuck, not just how
+     * many are. Joined to persons so the row is identifiable by name.
+     */
+    @Query("""
+        SELECT v.visitId       AS visitId,
+               v.syncStatus     AS syncStatus,
+               v.syncAttempts   AS syncAttempts,
+               v.lastSyncError  AS lastSyncError,
+               v.createdAt      AS createdAt,
+               p.firstName      AS firstName,
+               p.lastName       AS lastName
+          FROM visits v
+          LEFT JOIN persons p ON v.personId = p.personId
+         WHERE v.syncStatus IN ('pending', 'failed')
+         ORDER BY v.createdAt ASC
+    """)
+    fun getUnsyncedVisitDetailsFlow(): Flow<List<UnsyncedVisitDto>>
 
     @Query("SELECT COUNT(*) FROM visits WHERE syncStatus = 'pending' OR syncStatus = 'failed'")
     suspend fun getPendingVisitsCount(): Int
@@ -320,6 +358,62 @@ interface VisitDao {
      */
     @Query("UPDATE visits SET syncStatus = 'pending', lastSyncError = NULL WHERE visitId = :visitId")
     suspend fun markVisitPendingResync(visitId: String)
+
+    // ── Server → local reconciliation ────────────────────────────────────────
+
+    /**
+     * Locally-active visits that are already `synced` and carry a backend
+     * `remoteId`. These are the candidates the "pull" reconciliation checks
+     * against the server's active list: if one is no longer active on the
+     * server, reception closed it from the portal and we mirror that locally.
+     * Restricting to `synced` rows means a local checkout still waiting to
+     * upload is never clobbered.
+     */
+    @Query("SELECT * FROM visits WHERE exitDate IS NULL AND remoteId IS NOT NULL AND syncStatus = 'synced'")
+    suspend fun getActiveSyncedVisits(): List<VisitEntity>
+
+    /** Lookup by backend id — used to map a server visit back to its local row. */
+    @Query("SELECT * FROM visits WHERE remoteId = :remoteId LIMIT 1")
+    suspend fun getVisitByRemoteId(remoteId: String): VisitEntity?
+
+    /**
+     * Applies a checkout that happened on the SERVER (reception closed the
+     * visit from the portal). Closes the row locally and marks it fully synced
+     * so the SyncWorker does NOT try to PATCH the checkout back — the backend
+     * is already the source of truth here.
+     */
+    @Query("""
+        UPDATE visits
+           SET exitDate = :exitDate,
+               checkoutSyncedAt = :syncedAt,
+               syncStatus = 'synced',
+               isSynced = 1,
+               lastSyncError = NULL
+         WHERE visitId = :visitId
+    """)
+    suspend fun applyRemoteCheckout(visitId: String, exitDate: Long, syncedAt: Long)
+
+    /**
+     * Re-opens a row the SERVER now reports as active again. Kept `synced`
+     * so the change is reflected locally without being pushed back.
+     */
+    @Query("""
+        UPDATE visits
+           SET exitDate = NULL,
+               checkoutSyncedAt = NULL,
+               syncStatus = 'synced',
+               isSynced = 1
+         WHERE visitId = :visitId
+    """)
+    suspend fun applyRemoteReopen(visitId: String)
+
+    /**
+     * Still-open visits whose entry is before [beforeTimestamp]. Used by the
+     * midnight auto-checkout to close visitors who never logged out on a
+     * previous day.
+     */
+    @Query("SELECT * FROM visits WHERE exitDate IS NULL AND entryDate < :beforeTimestamp")
+    suspend fun getActiveVisitsBefore(beforeTimestamp: Long): List<VisitEntity>
 
     // ===== QUERY - Estadísticas =====
     @Query("SELECT COUNT(*) FROM visits")

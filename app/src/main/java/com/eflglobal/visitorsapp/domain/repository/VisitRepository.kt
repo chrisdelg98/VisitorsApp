@@ -50,6 +50,16 @@ interface VisitRepository {
     suspend fun getActiveVisits(): List<Visit>
 
     /**
+     * Baja el estado real desde el servidor (`GET /v1/visits/active`) y lo
+     * reconcilia con la base local: una visita que fue cerrada en el portal
+     * se cierra localmente (y una reabierta en el portal se reabre). Solo
+     * toca filas ya sincronizadas, así los cambios locales pendientes de
+     * subir nunca se pierden. Devuelve cuántas filas cambiaron.
+     * Best-effort: sin conexión devuelve [Result.failure].
+     */
+    suspend fun reconcileWithServer(): Result<Int>
+
+    /**
      * Obtiene visitas activas como Flow (observable).
      */
     fun getActiveVisitsFlow(): Flow<List<Visit>>

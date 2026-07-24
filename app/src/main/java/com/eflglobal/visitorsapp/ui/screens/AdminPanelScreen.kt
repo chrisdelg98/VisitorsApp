@@ -1,5 +1,6 @@
 package com.eflglobal.visitorsapp.ui.screens
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
@@ -49,6 +50,7 @@ import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryWorker
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.eflglobal.visitorsapp.domain.model.VisitWithPersonInfo
+import com.eflglobal.visitorsapp.ui.components.SyncStatusPanel
 import com.eflglobal.visitorsapp.ui.components.VisitorBadgeButton
 import com.eflglobal.visitorsapp.ui.theme.OrangePrimary
 import com.eflglobal.visitorsapp.ui.theme.SlatePrimary
@@ -72,8 +74,19 @@ fun AdminPanelScreen(
     // Admin opens on the printer configuration (most-used by reception).
     var adminView by remember { mutableStateOf(AdminView.PRINTER) }
     val uiState by viewModel.uiState.collectAsState()
+    val syncing by viewModel.syncing.collectAsState()
+    val syncMessage by viewModel.syncMessage.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
     var selectedVisit by remember { mutableStateOf<VisitWithPersonInfo?>(null) }
+
+    // Surface the manual-sync outcome as a toast, then consume it so it shows once.
+    val toastContext = LocalContext.current
+    LaunchedEffect(syncMessage) {
+        syncMessage?.let {
+            Toast.makeText(toastContext, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearSyncMessage()
+        }
+    }
 
     // Localized context para que los diálogos (que abren nueva ventana Compose)
     // respeten el idioma seleccionado y no el locale del dispositivo.
@@ -215,7 +228,8 @@ fun AdminPanelScreen(
                             )
                             AdminView.DASHBOARD -> AdminPanelContent(
                                 state = state,
-                                onRefresh = { viewModel.refresh() },
+                                syncing = syncing,
+                                onRefresh = { viewModel.syncWithServer() },
                                 onOpenPrinterSettings = { adminView = AdminView.PRINTER },
                                 onOpenFilters = { showFiltersPanel = true },
                                 onLogout = { showLogoutDialog = true },
@@ -409,6 +423,7 @@ private fun AdminNavButton(
 @Composable
 private fun AdminPanelContent(
     state: AdminPanelUiState.Success,
+    syncing: Boolean,
     onRefresh: () -> Unit,
     onOpenPrinterSettings: () -> Unit,
     onOpenFilters: () -> Unit,
@@ -561,6 +576,11 @@ private fun AdminPanelContent(
             }
         }
 
+        // ── Estado de sincronización (visibilidad + forzar sync + errores) ──
+        item {
+            SyncStatusPanel()
+        }
+
         // ── Título "Visitas Recientes" + Filtros + Refresh ──
         item {
             Row(
@@ -599,14 +619,26 @@ private fun AdminPanelContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = onRefresh,
+                        enabled = !syncing,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SlatePrimary),
                         border = BorderStroke(1.dp, SlatePrimary.copy(alpha = 0.4f)),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        if (syncing) {
+                            CircularProgressIndicator(
+                                color = SlatePrimary,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
+                            Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.visits), style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            stringResource(if (syncing) R.string.syncing else R.string.sync_server),
+                            style = MaterialTheme.typography.labelSmall
+                        )
                     }
                     Button(
                         onClick = onOpenFilters,

@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp.data.repository
 
 import android.content.Context
 import com.eflglobal.visitorsapp.data.local.dao.VisitDao
+import com.eflglobal.visitorsapp.data.local.entity.SyncStatus
 import com.eflglobal.visitorsapp.data.local.mapper.toDomain
 import com.eflglobal.visitorsapp.data.local.mapper.toEntity
 import com.eflglobal.visitorsapp.data.remote.ApiClient
@@ -100,6 +101,43 @@ class VisitRepositoryImpl(
             visitDao.getActiveVisits().map { it.toDomain() }
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+
+    override suspend fun reconcileWithServer(): Result<Int> {
+        return try {
+            val api = ApiClient.get(appContext)
+            // Server's authoritative list of still-open visits.
+            val serverActive = safeCall { api.activeVisits() }
+            val serverActiveIds = serverActive.map { it.id }.toHashSet()
+
+            var changed = 0
+
+            // 1. Closed on the server but still open locally → close locally,
+            //    reusing the server's real check-out time when we can read it.
+            for (v in visitDao.getActiveSyncedVisits()) {
+                val remoteId = v.remoteId ?: continue
+                if (remoteId !in serverActiveIds) {
+                    val checkoutMs = runCatching {
+                        safeCall { api.getVisit(remoteId) }.checkOut?.let { parseIso8601(it) }
+                    }.getOrNull() ?: System.currentTimeMillis()
+                    visitDao.applyRemoteCheckout(v.visitId, checkoutMs, System.currentTimeMillis())
+                    changed++
+                }
+            }
+
+            // 2. Active on the server but closed locally → re-open locally.
+            for (dto in serverActive) {
+                val local = visitDao.getVisitByRemoteId(dto.id) ?: continue
+                if (local.exitDate != null && local.syncStatus == SyncStatus.SYNCED) {
+                    visitDao.applyRemoteReopen(local.visitId)
+                    changed++
+                }
+            }
+
+            Result.success(changed)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

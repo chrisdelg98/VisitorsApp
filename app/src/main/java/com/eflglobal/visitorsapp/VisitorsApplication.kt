@@ -2,6 +2,7 @@ package com.eflglobal.visitorsapp
 
 import android.app.Application
 import com.eflglobal.visitorsapp.core.printing.PrinterDiscoveryWorker
+import com.eflglobal.visitorsapp.data.sync.MidnightCheckoutScheduler
 import com.eflglobal.visitorsapp.data.sync.PurgeScheduler
 import com.eflglobal.visitorsapp.data.sync.SyncScheduler
 import com.eflglobal.visitorsapp.data.sync.TemplateSyncScheduler
@@ -27,6 +28,10 @@ class VisitorsApplication : Application() {
 
         // Daily local retention pass (Phase 8).
         PurgeScheduler.schedule(this)
+
+        // Daily midnight close-out: visitors who never logged out are checked
+        // out at the end of their day and re-queued for sync to the backend.
+        MidnightCheckoutScheduler.schedule(this)
 
         // OCR template catalog — daily conditional sync + an immediate pass so a
         // freshly-published catalog reaches the tablet ASAP. Offline-first: the

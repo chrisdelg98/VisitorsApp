@@ -25,10 +25,21 @@ class AdminPanelViewModel(
     private val _uiState = MutableStateFlow<AdminPanelUiState>(AdminPanelUiState.Loading)
     val uiState: StateFlow<AdminPanelUiState> = _uiState.asStateFlow()
 
+    /** True while a server→local pull is running (drives the button spinner). */
+    private val _syncing = MutableStateFlow(false)
+    val syncing: StateFlow<Boolean> = _syncing.asStateFlow()
+
+    /** One-shot user-facing result of a manual sync; cleared once shown. */
+    private val _syncMessage = MutableStateFlow<String?>(null)
+    val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
+
     private var currentStation: Station? = null
 
     init {
         loadDashboard()
+        // Pull the server's truth on open so visits closed from the portal
+        // stop showing as active — silently, without the button spinner.
+        syncWithServer(silent = true)
     }
 
     companion object {
@@ -200,6 +211,42 @@ class AdminPanelViewModel(
 
     fun refresh() {
         loadDashboard()
+    }
+
+    /**
+     * Reconciles local visits with the server's active list, then reloads the
+     * dashboard. The server is the source of truth for whether a visit is still
+     * open, so this is what unsticks the "everything shows as active" case after
+     * closing visits from the portal. Only pulls remote state — the upload of
+     * local rows is handled separately by the SyncWorker / SyncStatusPanel.
+     *
+     * @param silent when true, runs without the button spinner or result toast
+     *        (used for the automatic pull when the panel opens).
+     */
+    fun syncWithServer(silent: Boolean = false) {
+        viewModelScope.launch {
+            if (!silent) _syncing.value = true
+            visitRepository.reconcileWithServer()
+                .onSuccess { changed ->
+                    if (!silent) {
+                        _syncMessage.value = if (changed > 0) {
+                            "Se actualizaron $changed visita(s) desde el servidor."
+                        } else {
+                            "Todo al día con el servidor."
+                        }
+                    }
+                }
+                .onFailure {
+                    if (!silent) _syncMessage.value = "No se pudo conectar con el servidor."
+                }
+            loadDashboard()
+            _syncing.value = false
+        }
+    }
+
+    /** Clears the one-shot sync message after the UI has shown it. */
+    fun clearSyncMessage() {
+        _syncMessage.value = null
     }
 
     fun logout(onSuccess: () -> Unit) {
